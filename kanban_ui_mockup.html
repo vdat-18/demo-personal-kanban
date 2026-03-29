@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kanban Project UI Mockup</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-2: #fbfcff;
+      --line: #dde5f0;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --soft: #eef3fb;
+      --primary: #3159ff;
+      --primary-soft: #e9eeff;
+      --success: #0f9f6e;
+      --success-soft: #e7f8f1;
+      --warning: #b45309;
+      --warning-soft: #fff4db;
+      --danger: #c2410c;
+      --danger-soft: #ffe9de;
+      --purple: #6d28d9;
+      --purple-soft: #f1e8ff;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 48%, #7c3aed 100%);
+      color: white;
+      padding: 26px 28px;
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 750;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 920px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.45;
+      font-size: 15px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: white;
+      white-space: nowrap;
+    }
+
+    .scene-switcher {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: var(--panel);
+      padding: 12px;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .scene-btn {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    .scene-btn:hover {
+      transform: translateY(-1px);
+      border-color: #b9c6d8;
+    }
+
+    .scene-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 8px 20px rgba(49, 89, 255, 0.22);
+    }
+
+    .scene {
+      display: none;
+    }
+
+    .scene.active {
+      display: block;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 860px;
+      background: var(--panel);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border: 1px solid #e8eef6;
+    }
+
+    .sidebar {
+      background: #f8fbff;
+      border-right: 1px solid var(--line);
+      padding: 18px;
+      display: grid;
+      align-content: start;
+      gap: 18px;
+    }
+
+    .project-card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .project-title {
+      font-size: 18px;
+      font-weight: 750;
+      line-height: 1.2;
+    }
+
+    .stat-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stat-pill {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 650;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--text);
+    }
+
+    .nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav-item {
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: 16px;
+      padding: 14px 14px;
+      display: grid;
+      gap: 6px;
+      text-align: left;
+    }
+
+    .nav-item.active {
+      background: white;
+      border-color: var(--line);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .nav-item.locked {
+      opacity: 0.58;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .nav-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+
+    .topbar {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-weight: 650;
+      font-size: 13px;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .btn.success {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .content {
+      padding: 20px;
+      display: grid;
+      gap: 18px;
+      align-content: start;
+      min-width: 0;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 0.9fr;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .panel {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .panel h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .tree {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tree-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 11px 12px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .tree-item strong {
+      font-weight: 650;
+    }
+
+    .meta {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .doc-preview {
+      display: grid;
+      gap: 12px;
+    }
+
+    .preview-sheet {
+      min-height: 260px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .preview-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge.primary { background: var(--primary-soft); color: var(--primary); border-color: #cfd7ff; }
+    .badge.success { background: var(--success-soft); color: var(--success); border-color: #cceedd; }
+    .badge.warning { background: var(--warning-soft); color: var(--warning); border-color: #f8dca9; }
+    .badge.purple { background: var(--purple-soft); color: var(--purple); border-color: #e1d0ff; }
+    .badge.danger { background: var(--danger-soft); color: var(--danger); border-color: #ffcfbf; }
+
+    .preview-card {
+      background: #f8fbff;
+      border-left: 3px solid var(--primary);
+      border-radius: 10px;
+      padding: 12px 12px 12px 14px;
+      font-size: 13px;
+      line-height: 1.48;
+      color: #334155;
+    }
+
+    .preview-card.secondary {
+      border-left-color: var(--success);
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .callout {
+      border: 1px dashed #c9d6ea;
+      background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+      border-radius: 16px;
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .callout strong {
+      font-size: 15px;
+    }
+
+    .activity-list,
+    .chat-list,
+    .summary-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .activity-item,
+    .chat-msg,
+    .summary-item {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .chat-msg.user {
+      background: #f7faff;
+      border-color: #dbe6fb;
+    }
+
+    .chat-msg.agent {
+      border-left: 3px solid var(--purple);
+      padding-left: 14px;
+    }
+
+    .label {
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .chat-title,
+    .activity-title,
+    .summary-title {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .chat-body,
+    .activity-body,
+    .summary-body {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #475569;
+    }
+
+    .board-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .board-area {
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .board-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .board-toolbar strong {
+      font-size: 14px;
+    }
+
+    .columns {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(220px, 1fr));
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      min-width: 0;
+    }
+
+    .column {
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      min-height: 640px;
+    }
+
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e6edf8;
+    }
+
+    .column-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .column-title strong {
+      font-size: 14px;
+    }
+
+    .column-title span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .counter {
+      min-width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .card-body {
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .avatar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--soft);
+      border: 1px solid var(--line);
+    }
+
+    .workbench {
+      background: #fcfdff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      position: sticky;
+      top: 18px;
+    }
+
+    .mini-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-tab {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid var(--line);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #475569;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid #c0cfdf;
+      flex: 0 0 18px;
+      margin-top: 1px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      display: grid;
+      gap: 5px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      padding: 16px 18px;
+      border: 1px dashed #c7d4e7;
+      background: #fbfdff;
+      border-radius: 18px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #475569;
+    }
+
+    @media (max-width: 1260px) {
+      .grid-2,
+      .grid-3,
+      .board-layout,
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workbench {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+      }
+
+      .hero {
+        padding: 18px;
+      }
+
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="eyebrow" style="color: rgba(255,255,255,0.72);">UI mockup</div>
+          <h1>Board-first project workspace with gated context + planning</h1>
+        </div>
+        <div class="chips">
+          <div class="chip">Main anchor UX: Kanban board</div>
+          <div class="chip">Auxiliary systems: Directory + Planner</div>
+          <div class="chip">Closed states: Done + Cancelled</div>
+        </div>
+      </div>
+      <p>
+        This mockup shows the full lifecycle you described: a project starts with only the directory tree unlocked for context gathering,
+        then unlocks a planner chat, then unlocks the board. Once the board is active, every task uses the same lane-specific workbench:
+        planning in <strong style="color:#fff;">Planning</strong>, execution in <strong style="color:#fff;">Doing</strong>, QC in <strong style="color:#fff;">Review</strong>,
+        and output summary in <strong style="color:#fff;">Done</strong>. Moving a card to <strong style="color:#fff;">Cancelled</strong> also counts as closed.
+      </p>
+    </section>
+
+    <div class="scene-switcher">
+      <button class="scene-btn active" data-scene="context">1. Context intake</button>
+      <button class="scene-btn" data-scene="planning">2. Planning chat</button>
+      <button class="scene-btn" data-scene="board">3. Active board</button>
+      <button class="scene-btn" data-scene="closure">4. Project closure</button>
+    </div>
+
+    <section class="scene active" id="scene-context">
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="project-card">
+            <div class="eyebrow">Project</div>
+            <div class="project-title">Summer Concert Lemonade Stand</div>
+            <div class="stat-row">
+              <span class="stat-pill">Stage: Context intake</span>
+              <span class="stat-pill">Board locked</span>
+            </div>
+            <div class="subtle">A project begins with context gathering only. Humans and AI share the same project evidence base.</div>
+          </div>
+
+          <div class="nav">
+            <div class="nav-item active">
+              <div class="nav-title">Directory tree <span>Unlocked</span></div>
+              <div class="nav-desc">Upload files, create folders, connect sources, and let collaborators read the full context.</div>
+            </div>
+            <div class="nav-item locked">
+              <div class="nav-title">Project planning <span>Locked</span></div>
+              <div class="nav-desc">Unlocks after the user says the initial context set is good enough to proceed.</div>
+            </div>
+            <div class="nav-item locked">
+              <div class="nav-title">Kanban board <span>Locked</span></div>
+              <div class="nav-desc">Remains unavailable until the planner has enough context and the user approves.</div>
+            </div>
+            <div class="nav-item locked">
+              <div class="nav-title">Close project <span>Locked</span></div>
+              <div class="nav-desc">Only available when every task is in Done or Cancelled.</div>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div><strong>Design note</strong></div>
+            <div>Use locks in the left rail to make progression obvious, but do not hide future stages completely. Users should understand what unlocks next and why.</div>
+          </div>
+        </aside>
+
+        <div class="main">
+          <div class="topbar">
+            <div>
+              <h2>Project context intake</h2>
+              <p>Only the directory tree is open. The goal is to capture shared evidence before any planning or task creation starts.</p>
+            </div>
+            <div class="actions">
+              <button class="btn">New folder</button>
+              <button class="btn">Upload files</button>
+              <button class="btn">Connect source</button>
+              <button class="btn primary">Looks good — unlock planning</button>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="grid-2">
+              <section class="panel">
+                <div>
+                  <h3>Directory tree</h3>
+                  <p>These files become the project context. They are readable by human collaborators and AI agents alike.</p>
+                </div>
+                <div class="tree">
+                  <div class="tree-item"><strong>Project /</strong> <span class="meta">6 items</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Weather report.pdf</span> <span class="meta">Uploaded</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Concert news article.url</span> <span class="meta">Linked</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Supplier contacts.csv</span> <span class="meta">Connected</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Temp worker list.xlsx</span> <span class="meta">Connected</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Lemonade recipes.docx</span> <span class="meta">Uploaded</span></div>
+                  <div class="tree-item"><span>&nbsp;&nbsp;▸ Permits + checklist /</span> <span class="meta">Folder</span></div>
+                </div>
+                <div class="callout">
+                  <strong>What the user can do here</strong>
+                  <div class="subtle">Upload, drag-drop, connect sources, rename folders, and open any document. No tasking yet — only context collection.</div>
+                </div>
+              </section>
+
+              <section class="panel doc-preview">
+                <div>
+                  <h3>Document preview + AI-readable context</h3>
+                  <p>Documents are first-class artifacts, not attachments buried inside cards.</p>
+                </div>
+                <div class="preview-sheet">
+                  <div class="preview-title">
+                    <span>Weather report.pdf</span>
+                    <span class="badge primary">Readable by AI + humans</span>
+                  </div>
+                  <div class="preview-card">
+                    Forecast shows a 55% chance of rain after 18:00, with a heat index reaching 34°C before sunset. Wind conditions are mild enough for a pop-up stand, but signage and serving station cover are recommended.
+                  </div>
+                  <div class="preview-card secondary">
+                    Context extracted: “Potential weather risk”, “Need canopy”, “High ice demand”, “Peak audience expected 17:30–19:00”.
+                  </div>
+                </div>
+                <div class="stack">
+                  <div class="activity-item">
+                    <div class="activity-title">Collaborator access</div>
+                    <div class="activity-body">Ops lead, event manager, and planner agent can all open this file in-place.</div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-title">Why this matters</div>
+                    <div class="activity-body">The board stays clean because raw evidence lives in the directory, while cards reference the relevant context when needed.</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="footer-note">
+              Recommended interaction: when the user clicks <strong>Looks good — unlock planning</strong>, ask for confirmation in a lightweight modal and persist the current directory snapshot as the initial project context baseline.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-planning">
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="project-card">
+            <div class="eyebrow">Project</div>
+            <div class="project-title">Summer Concert Lemonade Stand</div>
+            <div class="stat-row">
+              <span class="stat-pill">Stage: Planning</span>
+              <span class="stat-pill">Board still locked</span>
+            </div>
+            <div class="subtle">The planner agent deepens the context and prepares the first task set.</div>
+          </div>
+
+          <div class="nav">
+            <div class="nav-item">
+              <div class="nav-title">Directory tree <span>Open</span></div>
+              <div class="nav-desc">Still available so the planner can request more documents or source connections.</div>
+            </div>
+            <div class="nav-item active">
+              <div class="nav-title">Project planning <span>Unlocked</span></div>
+              <div class="nav-desc">A guided chat with a planner agent establishes the project vision, goals, and assumptions.</div>
+            </div>
+            <div class="nav-item locked">
+              <div class="nav-title">Kanban board <span>Pending</span></div>
+              <div class="nav-desc">Unlocks after the planner summarizes its understanding and the user approves.</div>
+            </div>
+            <div class="nav-item locked">
+              <div class="nav-title">Close project <span>Locked</span></div>
+              <div class="nav-desc">Still unavailable until all tasks are closed.</div>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div><strong>Design note</strong></div>
+            <div>The planner should feel like a gatekeeper for quality, not bureaucracy. It can ask for missing documents, conflicting facts, or clearer goals.</div>
+          </div>
+        </aside>
+
+        <div class="main">
+          <div class="topbar">
+            <div>
+              <h2>Project planning agent</h2>
+              <p>User and planner agent collaborate in chat until the project is sufficiently understood to start the board.</p>
+            </div>
+            <div class="actions">
+              <button class="btn">Open directory</button>
+              <button class="btn">Attach document to chat</button>
+              <button class="btn primary">Planner summary ready</button>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="grid-3">
+              <section class="panel">
+                <div>
+                  <h3>Planning chat</h3>
+                  <p>The planner agent gathers missing information before generating the initial to-do list.</p>
+                </div>
+                <div class="chat-list">
+                  <div class="chat-msg user">
+                    <div class="label">User</div>
+                    <div class="chat-body">Goal: run a lemonade stand outside the concert venue. We need staffing, ingredients, weather backup, and supplier coordination.</div>
+                  </div>
+                  <div class="chat-msg agent">
+                    <div class="label">Planner agent</div>
+                    <div class="chat-body">I understand the event and timing, but I still need venue restrictions, expected crowd size, and whether permits are already in progress. Please attach any permit checklist or venue notice.</div>
+                  </div>
+                  <div class="chat-msg user">
+                    <div class="label">User</div>
+                    <div class="chat-body">Attaching the permit checklist and supplier contacts. We expect a large crowd starting around 17:30.</div>
+                  </div>
+                  <div class="chat-msg agent">
+                    <div class="label">Planner agent</div>
+                    <div class="chat-body">Great. I now have enough context to propose an initial task set. Before I unlock the board, here is my working summary.</div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div>
+                  <h3>Planner summary</h3>
+                  <p>This summary is the bridge between context intake and the kanban board.</p>
+                </div>
+                <div class="summary-list">
+                  <div class="summary-item">
+                    <div class="summary-title">Vision</div>
+                    <div class="summary-body">Operate a profitable, weather-resilient lemonade stand that can serve concert traffic safely and quickly.</div>
+                  </div>
+                  <div class="summary-item">
+                    <div class="summary-title">Key constraints</div>
+                    <div class="summary-body">Possible evening rain, temporary staffing, supplier coordination, permit dependency, and peak demand near concert start.</div>
+                  </div>
+                  <div class="summary-item">
+                    <div class="summary-title">Likely workstreams</div>
+                    <div class="summary-body">Permits, procurement, staffing, stand setup, recipe/portion planning, weather contingency, and signage.</div>
+                  </div>
+                </div>
+                <div class="callout">
+                  <strong>User decision point</strong>
+                  <div class="subtle">If the user approves this summary, the kanban board unlocks and the planner seeds the first task batch into <strong>To do</strong>.</div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div>
+                  <h3>Requested context</h3>
+                  <p>The agent can explicitly call out gaps and link them back to the directory.</p>
+                </div>
+                <div class="activity-list">
+                  <div class="activity-item">
+                    <div class="activity-title">Missing or newly requested</div>
+                    <div class="activity-body">Venue restrictions notice, permit status, cash handling policy, table layout sketch.</div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-title">Documents already sufficient</div>
+                    <div class="activity-body">Weather report, supplier contacts, temp worker list, lemonade recipes, event news article.</div>
+                  </div>
+                </div>
+                <button class="btn success">Approve summary — unlock board</button>
+              </section>
+            </div>
+
+            <div class="footer-note">
+              Recommended interaction: when the board unlocks, do not kick users into a separate product area. Keep the same shell and simply switch the main workspace from chat to the kanban board so the experience still feels board-first.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-board">
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="project-card">
+            <div class="eyebrow">Project</div>
+            <div class="project-title">Summer Concert Lemonade Stand</div>
+            <div class="stat-row">
+              <span class="stat-pill">Stage: Active board</span>
+              <span class="stat-pill">4 / 11 closed</span>
+            </div>
+            <div class="subtle">The board is now the main anchor. Directory and planner become support systems around it.</div>
+          </div>
+
+          <div class="nav">
+            <div class="nav-item">
+              <div class="nav-title">Directory tree <span>Support</span></div>
+              <div class="nav-desc">Still readable and searchable from anywhere. Cards can reference project documents without duplicating them.</div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-title">Project planning <span>Support</span></div>
+              <div class="nav-desc">The planner remains available for follow-up questions, but it no longer blocks task progress.</div>
+            </div>
+            <div class="nav-item active">
+              <div class="nav-title">Kanban board <span>Main workspace</span></div>
+              <div class="nav-desc">Tasks can be added or deleted freely. New planner-generated tasks always start in To do.</div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-title">Close project <span>When all closed</span></div>
+              <div class="nav-desc">Enabled only after every task is Done or Cancelled.</div>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div><strong>Rule of thumb</strong></div>
+            <div>Do not make users jump to different modules for everyday work. Lane-specific side panels should change the mode of the selected task while the board itself stays on screen.</div>
+          </div>
+        </aside>
+
+        <div class="main">
+          <div class="topbar">
+            <div>
+              <h2>Kanban board</h2>
+              <p>Every lane changes the task workbench: Planning for task framing, Doing for execution, Review for QC, Done for output summary. Cancelled is also a closed state.</p>
+            </div>
+            <div class="actions">
+              <button class="btn">Open context drawer</button>
+              <button class="btn">Ask planner agent</button>
+              <button class="btn">New task</button>
+              <button class="btn primary">Close project when all closed</button>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="metric-grid">
+              <div class="metric">
+                <div class="metric-value">11</div>
+                <div class="metric-label">Total tasks</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">4</div>
+                <div class="metric-label">Closed (Done + Cancelled)</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">2</div>
+                <div class="metric-label">In Review</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">1</div>
+                <div class="metric-label">Blocked</div>
+              </div>
+            </div>
+
+            <div class="board-layout">
+              <div class="board-area">
+                <div class="board-toolbar">
+                  <strong>Closed states count toward project completion: Done + Cancelled</strong>
+                  <div class="chips">
+                    <span class="badge primary">User-created tasks allowed</span>
+                    <span class="badge success">Planner-seeded tasks start in To do</span>
+                    <span class="badge warning">Task detail changes by lane</span>
+                  </div>
+                </div>
+
+                <div class="columns">
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>To do</strong>
+                        <span>Freshly created tasks</span>
+                      </div>
+                      <div class="counter">2</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Create concert-day staffing checklist</div>
+                      <div class="card-body">Planner-generated task. No execution started yet.</div>
+                      <div class="card-footer">
+                        <span class="badge primary">Seeded by planner</span>
+                        <div class="avatar-group"><span class="avatar">AI</span>Unassigned</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Design weather-safe signage layout</div>
+                      <div class="card-body">Should reference the canopy and wind notes from the weather report.</div>
+                      <div class="card-footer">
+                        <span class="badge warning">Needs context</span>
+                        <div class="avatar-group"><span class="avatar">UX</span>Olive</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>Planning</strong>
+                        <span>Task framing + dependencies</span>
+                      </div>
+                      <div class="counter">2</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Confirm ice + cup supplier availability</div>
+                      <div class="card-body">Defining required quantities, deadline, budget, and fallback vendor.</div>
+                      <div class="card-footer">
+                        <span class="badge purple">Planning mode</span>
+                        <div class="avatar-group"><span class="avatar">OP</span>Mina</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Map permit submission tasks</div>
+                      <div class="card-body">Break the permit checklist into owner-ready substeps and due dates.</div>
+                      <div class="card-footer">
+                        <span class="badge warning">Blocked by info</span>
+                        <div class="avatar-group"><span class="avatar">AI</span>Agent</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>Doing</strong>
+                        <span>Execution work</span>
+                      </div>
+                      <div class="counter">2</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Contact temp workers and confirm shifts</div>
+                      <div class="card-body">Execution underway with active responses from the temp worker list.</div>
+                      <div class="card-footer">
+                        <span class="badge success">Executing</span>
+                        <div class="avatar-group"><span class="avatar">HR</span>Lena</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Order lemons, sugar, and cups</div>
+                      <div class="card-body">Awaiting final supplier quote. Partial order quantities already drafted.</div>
+                      <div class="card-footer">
+                        <span class="badge warning">At risk</span>
+                        <div class="avatar-group"><span class="avatar">OP</span>Mina</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>Review</strong>
+                        <span>Deliverable QC</span>
+                      </div>
+                      <div class="counter">2</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Review final recipe + portion sheet</div>
+                      <div class="card-body">Check cost, serving speed, and compatibility with available supplies.</div>
+                      <div class="card-footer">
+                        <span class="badge warning">QC pass needed</span>
+                        <div class="avatar-group"><span class="avatar">QA</span>Jon</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Inspect stand layout + queue flow</div>
+                      <div class="card-body">Verifying visibility, access, and rain contingency placement.</div>
+                      <div class="card-footer">
+                        <span class="badge primary">Awaiting sign-off</span>
+                        <div class="avatar-group"><span class="avatar">PM</span>Ada</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>Done</strong>
+                        <span>Output summary captured</span>
+                      </div>
+                      <div class="counter">3</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Compile competitor pricing notes</div>
+                      <div class="card-body">Closed with a short summary and linked pricing snapshot.</div>
+                      <div class="card-footer">
+                        <span class="badge success">Summary attached</span>
+                        <div class="avatar-group"><span class="avatar">AI</span>Agent</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Create cash box starter checklist</div>
+                      <div class="card-body">Checklist approved and saved to project context.</div>
+                      <div class="card-footer">
+                        <span class="badge success">Approved</span>
+                        <div class="avatar-group"><span class="avatar">FN</span>Rae</div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Draft stand-opening timeline</div>
+                      <div class="card-body">Timeline finalized and linked from the project launch brief.</div>
+                      <div class="card-footer">
+                        <span class="badge success">Closed</span>
+                        <div class="avatar-group"><span class="avatar">PM</span>Ada</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="column">
+                    <div class="column-header">
+                      <div class="column-title">
+                        <strong>Cancelled</strong>
+                        <span>Also treated as closed</span>
+                      </div>
+                      <div class="counter">1</div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-title">Source custom printed cups</div>
+                      <div class="card-body">Cancelled because timeline is too short and plain cups are acceptable.</div>
+                      <div class="card-footer">
+                        <span class="badge danger">Closed by cancellation</span>
+                        <div class="avatar-group"><span class="avatar">PM</span>Ada</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="workbench">
+                <div>
+                  <div class="eyebrow">Selected task</div>
+                  <h3 style="margin:6px 0 0;">Confirm ice + cup supplier availability</h3>
+                  <p style="margin-top:6px;">Example of the right-hand task workbench while a card sits in the <strong>Planning</strong> lane.</p>
+                </div>
+
+                <div class="mini-tabs">
+                  <div class="mini-tab">Overview</div>
+                  <div class="mini-tab">Context</div>
+                  <div class="mini-tab">Planner help</div>
+                  <div class="mini-tab">Activity</div>
+                </div>
+
+                <div class="callout">
+                  <strong>Lane-driven mode</strong>
+                  <div class="subtle">Because this card is in <strong>Planning</strong>, the workbench focuses on scoping, dependencies, and acceptance criteria — not execution logs yet.</div>
+                </div>
+
+                <div>
+                  <h3>Planning checklist</h3>
+                </div>
+                <div class="checklist">
+                  <div class="check"><span class="dot"></span><span>Define exact inventory needed from recipe + expected crowd size.</span></div>
+                  <div class="check"><span class="dot"></span><span>Confirm supplier lead times and fallback supplier from project contacts.</span></div>
+                  <div class="check"><span class="dot"></span><span>Set owner, due date, and handoff criteria for moving into Doing.</span></div>
+                </div>
+
+                <div class="activity-item">
+                  <div class="activity-title">Referenced context</div>
+                  <div class="activity-body">Supplier contacts.csv, Lemonade recipes.docx, Concert news article.url</div>
+                </div>
+
+                <div class="activity-item">
+                  <div class="activity-title">Next transition</div>
+                  <div class="activity-body">Move to <strong>Doing</strong> once quantities, vendor, owner, and due date are all confirmed.</div>
+                </div>
+
+                <button class="btn primary">Ask planner for a draft plan</button>
+              </aside>
+            </div>
+
+            <div class="footer-note">
+              Recommended interaction: the workbench should morph by lane. For a card in <strong>Doing</strong>, show execution log + deliverables. In <strong>Review</strong>, show QC checklist and acceptance criteria. In <strong>Done</strong>, show a short output summary and what was learned. This keeps the board central while still supporting richer workflows.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-closure">
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="project-card">
+            <div class="eyebrow">Project</div>
+            <div class="project-title">Summer Concert Lemonade Stand</div>
+            <div class="stat-row">
+              <span class="stat-pill">All tasks closed</span>
+              <span class="stat-pill">Ready to close project</span>
+            </div>
+            <div class="subtle">Once every task is Done or Cancelled, the project itself can be completed and archived.</div>
+          </div>
+
+          <div class="nav">
+            <div class="nav-item">
+              <div class="nav-title">Directory tree <span>Open</span></div>
+              <div class="nav-desc">Final output summaries and artifacts remain available for audit and learning.</div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-title">Project planning <span>Reference</span></div>
+              <div class="nav-desc">Original planning chat and summary remain visible for traceability.</div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-title">Kanban board <span>Complete</span></div>
+              <div class="nav-desc">All cards are in closed states.</div>
+            </div>
+            <div class="nav-item active">
+              <div class="nav-title">Close project <span>Unlocked</span></div>
+              <div class="nav-desc">Run a final close-out flow and archive the board.</div>
+            </div>
+          </div>
+
+          <div class="sidebar-footer">
+            <div><strong>Design note</strong></div>
+            <div>Closing the project should feel like a deliberate archival action, not just a status toggle. Show what will be preserved and who can still access it.</div>
+          </div>
+        </aside>
+
+        <div class="main">
+          <div class="topbar">
+            <div>
+              <h2>Close project</h2>
+              <p>Tasks are fully closed. The user can now mark the project complete and preserve the final state.</p>
+            </div>
+            <div class="actions">
+              <button class="btn">Review closed board</button>
+              <button class="btn">Export summary</button>
+              <button class="btn success">Mark project complete</button>
+            </div>
+          </div>
+
+          <div class="content">
+            <div class="grid-2">
+              <section class="panel">
+                <div>
+                  <h3>Closure checklist</h3>
+                  <p>The final project close-out should verify that the board is truly complete.</p>
+                </div>
+                <div class="checklist">
+                  <div class="check"><span class="dot"></span><span>All tasks are in Done or Cancelled.</span></div>
+                  <div class="check"><span class="dot"></span><span>Every Done task has an output summary.</span></div>
+                  <div class="check"><span class="dot"></span><span>Cancelled tasks have a reason recorded.</span></div>
+                  <div class="check"><span class="dot"></span><span>Key artifacts and deliverables are saved in the directory tree.</span></div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div>
+                  <h3>What gets archived</h3>
+                  <p>Preserve both the evidence and the execution narrative.</p>
+                </div>
+                <div class="activity-list">
+                  <div class="activity-item">
+                    <div class="activity-title">Project context</div>
+                    <div class="activity-body">All uploaded and connected documents in the directory tree.</div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-title">Planning record</div>
+                    <div class="activity-body">Project vision, planner chat, and approval summary.</div>
+                  </div>
+                  <div class="activity-item">
+                    <div class="activity-title">Board history</div>
+                    <div class="activity-body">Task cards, movements, comments, QC states, and final summaries.</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="callout">
+              <strong>Completion rule</strong>
+              <div class="subtle">Tasks in <strong>Cancelled</strong> count as closed. The project close action should therefore use: <strong>Closed = Done + Cancelled</strong>. Only when every open task is exhausted should the project completion button become enabled.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const buttons = Array.from(document.querySelectorAll('.scene-btn'));
+    const scenes = {
+      context: document.getElementById('scene-context'),
+      planning: document.getElementById('scene-planning'),
+      board: document.getElementById('scene-board'),
+      closure: document.getElementById('scene-closure')
+    };
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        buttons.forEach((b) => b.classList.remove('active'));
+        Object.values(scenes).forEach((scene) => scene.classList.remove('active'));
+        btn.classList.add('active');
+        scenes[btn.dataset.scene].classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

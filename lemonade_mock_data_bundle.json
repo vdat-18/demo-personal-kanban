@@ -1,0 +1,2244 @@
+{
+  "tutorial": {
+    "project_seed": {
+      "project": {
+        "project_id": "proj_lemonade_001",
+        "name": "Summer Sound Lemonade Stand",
+        "slug": "summer-sound-lemonade-stand",
+        "status": "active",
+        "created_at": "2026-06-08T09:00:00Z",
+        "event_date": "2026-06-14",
+        "owner_user_id": "usr_001",
+        "goal": "Run a profitable, low-friction lemonade stall at Riverside Summer Sounds and serve at least 300 drinks.",
+        "vision": "Use a context-first workflow so planning and execution are grounded in shared documents before task work begins.",
+        "completion_rule": {
+          "project_closable_when_all_tasks_closed": true,
+          "closed_statuses": [
+            "done",
+            "cancelled"
+          ]
+        }
+      },
+      "module_states": {
+        "after_project_creation": {
+          "directory_tree": "unlocked",
+          "project_planning": "locked",
+          "kanban_board": "locked",
+          "project_close": "locked"
+        },
+        "after_user_clicks_continue": {
+          "directory_tree": "unlocked",
+          "project_planning": "unlocked",
+          "kanban_board": "locked",
+          "project_close": "locked"
+        },
+        "after_planner_approval": {
+          "directory_tree": "unlocked",
+          "project_planning": "unlocked",
+          "kanban_board": "unlocked",
+          "project_close": "locked"
+        }
+      },
+      "collaborators": [
+        {
+          "user_id": "usr_001",
+          "display_name": "Alex Romero",
+          "role": "project_owner",
+          "agent_type": "human"
+        },
+        {
+          "user_id": "usr_002",
+          "display_name": "Jordan Lee",
+          "role": "operations_collaborator",
+          "agent_type": "human"
+        },
+        {
+          "user_id": "agt_001",
+          "display_name": "Planner Agent",
+          "role": "project_planner",
+          "agent_type": "ai"
+        },
+        {
+          "user_id": "agt_002",
+          "display_name": "Task Planner Agent",
+          "role": "task_planning_assistant",
+          "agent_type": "ai"
+        },
+        {
+          "user_id": "agt_003",
+          "display_name": "Execution Agent",
+          "role": "task_execution_assistant",
+          "agent_type": "ai"
+        },
+        {
+          "user_id": "agt_004",
+          "display_name": "Review Agent",
+          "role": "task_review_assistant",
+          "agent_type": "ai"
+        },
+        {
+          "user_id": "agt_005",
+          "display_name": "Summary Agent",
+          "role": "task_summary_assistant",
+          "agent_type": "ai"
+        }
+      ],
+      "directory_tree": {
+        "root": "/",
+        "nodes": [
+          {
+            "path": "/weather",
+            "type": "folder"
+          },
+          {
+            "path": "/event",
+            "type": "folder"
+          },
+          {
+            "path": "/suppliers",
+            "type": "folder"
+          },
+          {
+            "path": "/staffing",
+            "type": "folder"
+          },
+          {
+            "path": "/recipes",
+            "type": "folder"
+          },
+          {
+            "path": "/permits",
+            "type": "folder"
+          }
+        ],
+        "documents": [
+          {
+            "document_id": "doc_001",
+            "name": "weather_report.md",
+            "path": "/weather/weather_report.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:20:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/weather_report.md"
+          },
+          {
+            "document_id": "doc_002",
+            "name": "concert_news_article.md",
+            "path": "/event/concert_news_article.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:22:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/concert_news_article.md"
+          },
+          {
+            "document_id": "doc_003",
+            "name": "supplier_contacts.csv",
+            "path": "/suppliers/supplier_contacts.csv",
+            "content_type": "text/csv",
+            "uploaded_by": "usr_002",
+            "uploaded_at": "2026-06-08T09:31:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/supplier_contacts.csv"
+          },
+          {
+            "document_id": "doc_004",
+            "name": "temp_workers.csv",
+            "path": "/staffing/temp_workers.csv",
+            "content_type": "text/csv",
+            "uploaded_by": "usr_002",
+            "uploaded_at": "2026-06-08T09:35:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/temp_workers.csv"
+          },
+          {
+            "document_id": "doc_005",
+            "name": "lemonade_recipes.json",
+            "path": "/recipes/lemonade_recipes.json",
+            "content_type": "application/json",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:37:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/lemonade_recipes.json"
+          },
+          {
+            "document_id": "doc_006",
+            "name": "permits_checklist.md",
+            "path": "/permits/permits_checklist.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T10:10:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/permits_checklist.md"
+          }
+        ]
+      },
+      "planner_outcome": {
+        "session_id": "plan_001",
+        "confidence": 0.93,
+        "board_unlock_recommended": true,
+        "summary": "The project has enough context to proceed. Demand should be strongest in the late afternoon, cold storage is critical, a permit/compliance check must be confirmed, and staffing should cover setup, rush-hour service, and closing. A focused, low-complexity menu is recommended for throughput.",
+        "identified_risks": [
+          "ice depletion during the busiest sales window",
+          "unclear permit readiness",
+          "insufficient cashier coverage during peak queue periods"
+        ],
+        "task_generation_basis": [
+          "weather report",
+          "concert article",
+          "supplier contacts",
+          "temp worker roster",
+          "recipe options",
+          "permits checklist"
+        ]
+      },
+      "generated_tasks": [
+        {
+          "task_id": "tsk_001",
+          "title": "Choose the launch recipe and pricing",
+          "status": "todo",
+          "priority": "high",
+          "dependencies": [],
+          "acceptance_criteria": [
+            "one primary recipe selected",
+            "at least one premium upsell selected or rejected explicitly",
+            "sell price and estimated margin documented"
+          ]
+        },
+        {
+          "task_id": "tsk_002",
+          "title": "Confirm permit and event compliance",
+          "status": "todo",
+          "priority": "critical",
+          "dependencies": [],
+          "acceptance_criteria": [
+            "permit status is confirmed",
+            "required documents are uploaded",
+            "food handling coverage is assigned"
+          ]
+        },
+        {
+          "task_id": "tsk_003",
+          "title": "Place supply orders for lemons, sugar, cups, and ice",
+          "status": "todo",
+          "priority": "critical",
+          "dependencies": [
+            "tsk_001"
+          ],
+          "acceptance_criteria": [
+            "suppliers chosen",
+            "quantities approved",
+            "delivery or pickup schedule logged"
+          ]
+        },
+        {
+          "task_id": "tsk_004",
+          "title": "Recruit and confirm temp workers",
+          "status": "todo",
+          "priority": "high",
+          "dependencies": [
+            "tsk_002"
+          ],
+          "acceptance_criteria": [
+            "minimum staffing level met",
+            "one shift lead assigned",
+            "food-handler coverage confirmed"
+          ]
+        },
+        {
+          "task_id": "tsk_005",
+          "title": "Draft opening, rush-hour, and closing shift schedule",
+          "status": "todo",
+          "priority": "medium",
+          "dependencies": [
+            "tsk_004"
+          ],
+          "acceptance_criteria": [
+            "all hours staffed",
+            "breaks assigned",
+            "queue peak coverage noted"
+          ]
+        },
+        {
+          "task_id": "tsk_006",
+          "title": "Set up payment flow and cashless fallback plan",
+          "status": "todo",
+          "priority": "medium",
+          "dependencies": [],
+          "acceptance_criteria": [
+            "card reader configured",
+            "offline fallback documented",
+            "checkout flow tested"
+          ]
+        },
+        {
+          "task_id": "tsk_007",
+          "title": "Prepare signage, menu board, and QR menu",
+          "status": "todo",
+          "priority": "medium",
+          "dependencies": [
+            "tsk_001"
+          ],
+          "acceptance_criteria": [
+            "menu board content approved",
+            "pricing visible",
+            "queue guidance included"
+          ]
+        },
+        {
+          "task_id": "tsk_008",
+          "title": "Create weather and ice contingency plan",
+          "status": "todo",
+          "priority": "medium",
+          "dependencies": [
+            "tsk_003"
+          ],
+          "acceptance_criteria": [
+            "extra ice plan documented",
+            "backup canopy assigned",
+            "owner knows decision thresholds"
+          ]
+        },
+        {
+          "task_id": "tsk_009",
+          "title": "Build final inventory and pack list",
+          "status": "todo",
+          "priority": "high",
+          "dependencies": [
+            "tsk_003",
+            "tsk_005",
+            "tsk_006",
+            "tsk_007"
+          ],
+          "acceptance_criteria": [
+            "consumables listed",
+            "equipment listed",
+            "load-in responsibility assigned"
+          ]
+        }
+      ]
+    },
+    "planner_chat": {
+      "session_id": "plan_001",
+      "project_id": "proj_lemonade_001",
+      "transcript": [
+        {
+          "message_id": "msg_001",
+          "actor": "human",
+          "actor_id": "usr_001",
+          "timestamp": "2026-06-08T09:05:00Z",
+          "text": "I want to run a lemonade stall at the Riverside Summer Sounds concert. I have a weather report, an article about the event, supplier contacts, temp worker contacts, and a few recipes."
+        },
+        {
+          "message_id": "msg_002",
+          "actor": "ai",
+          "actor_id": "agt_001",
+          "timestamp": "2026-06-08T09:06:30Z",
+          "text": "Great start. Please upload the available documents first so I can ground the plan in shared project context."
+        },
+        {
+          "message_id": "msg_003",
+          "actor": "human",
+          "actor_id": "usr_001",
+          "timestamp": "2026-06-08T09:38:00Z",
+          "text": "Uploaded weather, article, suppliers, temp workers, and recipes."
+        },
+        {
+          "message_id": "msg_004",
+          "actor": "ai",
+          "actor_id": "agt_001",
+          "timestamp": "2026-06-08T09:39:00Z",
+          "text": "I see strong demand potential and enough operating context to start planning. I still need permit/compliance confirmation, target sales objective, and whether card payments are required."
+        },
+        {
+          "message_id": "msg_005",
+          "actor": "human",
+          "actor_id": "usr_001",
+          "timestamp": "2026-06-08T10:08:00Z",
+          "text": "Target is 300 drinks sold. Card payments are preferred. I also uploaded the permit checklist."
+        },
+        {
+          "message_id": "msg_006",
+          "actor": "ai",
+          "actor_id": "agt_001",
+          "timestamp": "2026-06-08T10:11:00Z",
+          "text": "Thanks. I now have enough context to summarize the situation and recommend unlocking the board."
+        },
+        {
+          "message_id": "msg_007",
+          "actor": "ai",
+          "actor_id": "agt_001",
+          "timestamp": "2026-06-08T10:12:00Z",
+          "text": "Summary: The concert should create solid late-afternoon demand for simple cold beverages. The project should prioritize recipe selection, permit confirmation, supply ordering, staffing, payment readiness, signage, and a weather/ice contingency. I recommend unlocking the Kanban board with an initial task set."
+        },
+        {
+          "message_id": "msg_008",
+          "actor": "human",
+          "actor_id": "usr_001",
+          "timestamp": "2026-06-08T10:13:00Z",
+          "text": "Approved. Unlock the board."
+        }
+      ]
+    },
+    "board_snapshot_initial": {
+      "project_id": "proj_lemonade_001",
+      "snapshot_name": "initial_board_after_unlock",
+      "captured_at": "2026-06-08T10:15:00Z",
+      "project_closable": false,
+      "counts": {
+        "todo": 9,
+        "planning": 0,
+        "doing": 0,
+        "review": 0,
+        "done": 0,
+        "cancelled": 0
+      },
+      "columns": {
+        "todo": [
+          {
+            "task_id": "tsk_001",
+            "title": "Choose the launch recipe and pricing",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "menu",
+              "pricing"
+            ],
+            "planning": {
+              "questions": [
+                "Which recipe is fastest to batch?",
+                "Should there be one premium variant?"
+              ],
+              "acceptance_criteria": [
+                "one primary recipe selected",
+                "at least one premium upsell selected or rejected explicitly",
+                "sell price and estimated margin documented"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_002",
+            "title": "Confirm permit and event compliance",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "compliance"
+            ],
+            "planning": {
+              "questions": [
+                "Is a temporary vending permit already approved?",
+                "Who holds food-handler coverage?"
+              ],
+              "acceptance_criteria": [
+                "permit status is confirmed",
+                "required documents are uploaded",
+                "food handling coverage is assigned"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_003",
+            "title": "Place supply orders for lemons, sugar, cups, and ice",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "supplies"
+            ],
+            "planning": {
+              "questions": [
+                "What is the target production volume?",
+                "What buffer is needed for ice?"
+              ],
+              "acceptance_criteria": [
+                "suppliers chosen",
+                "quantities approved",
+                "delivery or pickup schedule logged"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_004",
+            "title": "Recruit and confirm temp workers",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "staffing"
+            ],
+            "planning": {
+              "questions": [
+                "What is the minimum headcount by time block?",
+                "Who can lead closing?"
+              ],
+              "acceptance_criteria": [
+                "minimum staffing level met",
+                "one shift lead assigned",
+                "food-handler coverage confirmed"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_005",
+            "title": "Draft opening, rush-hour, and closing shift schedule",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "staffing",
+              "schedule"
+            ],
+            "planning": {
+              "questions": [
+                "Where are break windows?",
+                "Who covers the 16:30\u201319:30 peak?"
+              ],
+              "acceptance_criteria": [
+                "all hours staffed",
+                "breaks assigned",
+                "queue peak coverage noted"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_006",
+            "title": "Set up payment flow and cashless fallback plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "payments"
+            ],
+            "planning": {
+              "questions": [
+                "Is the reader linked to the right account?",
+                "What happens if connectivity fails?"
+              ],
+              "acceptance_criteria": [
+                "card reader configured",
+                "offline fallback documented",
+                "checkout flow tested"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_007",
+            "title": "Prepare signage, menu board, and QR menu",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "marketing",
+              "onsite"
+            ],
+            "planning": {
+              "questions": [
+                "What can reduce queue hesitation?",
+                "Should prices be rounded for simplicity?"
+              ],
+              "acceptance_criteria": [
+                "menu board content approved",
+                "pricing visible",
+                "queue guidance included"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_008",
+            "title": "Create weather and ice contingency plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "risk",
+              "weather"
+            ],
+            "planning": {
+              "questions": [
+                "How much extra ice is enough?",
+                "What weather triggers a layout change?"
+              ],
+              "acceptance_criteria": [
+                "extra ice plan documented",
+                "backup canopy assigned",
+                "owner knows decision thresholds"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "todo"
+          },
+          {
+            "task_id": "tsk_009",
+            "title": "Build final inventory and pack list",
+            "owner": "usr_002",
+            "priority": "high",
+            "labels": [
+              "inventory",
+              "setup"
+            ],
+            "planning": {
+              "questions": [
+                "What is the final count of consumables and tools?",
+                "Who loads and unloads?"
+              ],
+              "acceptance_criteria": [
+                "consumables listed",
+                "equipment listed",
+                "load-in responsibility assigned"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "todo"
+          }
+        ],
+        "planning": [],
+        "doing": [],
+        "review": [],
+        "done": [],
+        "cancelled": []
+      }
+    },
+    "board_snapshot_midway": {
+      "project_id": "proj_lemonade_001",
+      "snapshot_name": "midway_execution",
+      "captured_at": "2026-06-11T18:00:00Z",
+      "project_closable": false,
+      "counts": {
+        "todo": 1,
+        "planning": 2,
+        "doing": 2,
+        "review": 1,
+        "done": 2,
+        "cancelled": 1
+      },
+      "columns": {
+        "todo": [
+          {
+            "task_id": "tsk_009",
+            "title": "Build final inventory and pack list",
+            "owner": "usr_002",
+            "priority": "high",
+            "labels": [
+              "inventory",
+              "setup"
+            ],
+            "planning": {
+              "questions": [
+                "What is the final count of consumables and tools?",
+                "Who loads and unloads?"
+              ],
+              "acceptance_criteria": [
+                "consumables listed",
+                "equipment listed",
+                "load-in responsibility assigned"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "todo"
+          }
+        ],
+        "planning": [
+          {
+            "task_id": "tsk_005",
+            "title": "Draft opening, rush-hour, and closing shift schedule",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "staffing",
+              "schedule"
+            ],
+            "planning": {
+              "questions": [
+                "Where are break windows?",
+                "Who covers the 16:30\u201319:30 peak?"
+              ],
+              "acceptance_criteria": [
+                "all hours staffed",
+                "breaks assigned",
+                "queue peak coverage noted"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "planning",
+            "planning_notes": "Schedule depends on final worker confirmations."
+          },
+          {
+            "task_id": "tsk_008",
+            "title": "Create weather and ice contingency plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "risk",
+              "weather"
+            ],
+            "planning": {
+              "questions": [
+                "How much extra ice is enough?",
+                "What weather triggers a layout change?"
+              ],
+              "acceptance_criteria": [
+                "extra ice plan documented",
+                "backup canopy assigned",
+                "owner knows decision thresholds"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "planning",
+            "planning_notes": "Need explicit ice reorder trigger and rain threshold."
+          }
+        ],
+        "doing": [
+          {
+            "task_id": "tsk_003",
+            "title": "Place supply orders for lemons, sugar, cups, and ice",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "supplies"
+            ],
+            "planning": {
+              "questions": [
+                "What is the target production volume?",
+                "What buffer is needed for ice?"
+              ],
+              "acceptance_criteria": [
+                "suppliers chosen",
+                "quantities approved",
+                "delivery or pickup schedule logged"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "doing",
+            "execution_log": [
+              {
+                "at": "2026-06-10T09:30:00Z",
+                "actor": "usr_002",
+                "note": "Requested updated lemon quote from Citrus Depot."
+              },
+              {
+                "at": "2026-06-10T11:15:00Z",
+                "actor": "usr_002",
+                "note": "Reserved emergency ice delivery slot with Polar Ice & Cold."
+              }
+            ]
+          },
+          {
+            "task_id": "tsk_006",
+            "title": "Set up payment flow and cashless fallback plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "payments"
+            ],
+            "planning": {
+              "questions": [
+                "Is the reader linked to the right account?",
+                "What happens if connectivity fails?"
+              ],
+              "acceptance_criteria": [
+                "card reader configured",
+                "offline fallback documented",
+                "checkout flow tested"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "doing",
+            "execution_log": [
+              {
+                "at": "2026-06-11T09:00:00Z",
+                "actor": "usr_002",
+                "note": "Card reader paired with merchant account."
+              },
+              {
+                "at": "2026-06-11T09:20:00Z",
+                "actor": "agt_003",
+                "note": "Suggested offline fallback script for no-signal cases."
+              }
+            ]
+          }
+        ],
+        "review": [
+          {
+            "task_id": "tsk_004",
+            "title": "Recruit and confirm temp workers",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "staffing"
+            ],
+            "planning": {
+              "questions": [
+                "What is the minimum headcount by time block?",
+                "Who can lead closing?"
+              ],
+              "acceptance_criteria": [
+                "minimum staffing level met",
+                "one shift lead assigned",
+                "food-handler coverage confirmed"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "review",
+            "deliverable": "Confirmed 4 workers plus 1 shift lead.",
+            "review_notes": {
+              "reviewer": "agt_004",
+              "checklist": [
+                {
+                  "item": "minimum staffing level met",
+                  "passed": true
+                },
+                {
+                  "item": "shift lead assigned",
+                  "passed": true
+                },
+                {
+                  "item": "food-handler coverage confirmed",
+                  "passed": true
+                }
+              ],
+              "summary": "Ready to move to done."
+            }
+          }
+        ],
+        "done": [
+          {
+            "task_id": "tsk_001",
+            "title": "Choose the launch recipe and pricing",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "menu",
+              "pricing"
+            ],
+            "planning": {
+              "questions": [
+                "Which recipe is fastest to batch?",
+                "Should there be one premium variant?"
+              ],
+              "acceptance_criteria": [
+                "one primary recipe selected",
+                "at least one premium upsell selected or rejected explicitly",
+                "sell price and estimated margin documented"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "done",
+            "done_summary": "Selected Classic Lemonade as the default and Strawberry Lemonade as the premium upsell. Pricing set to $4.50 and $5.50."
+          },
+          {
+            "task_id": "tsk_002",
+            "title": "Confirm permit and event compliance",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "compliance"
+            ],
+            "planning": {
+              "questions": [
+                "Is a temporary vending permit already approved?",
+                "Who holds food-handler coverage?"
+              ],
+              "acceptance_criteria": [
+                "permit status is confirmed",
+                "required documents are uploaded",
+                "food handling coverage is assigned"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "done",
+            "done_summary": "Permit checklist completed, vendor approval confirmed, and Priya assigned as food-handler-certified coverage."
+          }
+        ],
+        "cancelled": [
+          {
+            "task_id": "tsk_007",
+            "title": "Prepare signage, menu board, and QR menu",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "marketing",
+              "onsite"
+            ],
+            "planning": {
+              "questions": [
+                "What can reduce queue hesitation?",
+                "Should prices be rounded for simplicity?"
+              ],
+              "acceptance_criteria": [
+                "menu board content approved",
+                "pricing visible",
+                "queue guidance included"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "cancelled",
+            "cancel_reason": "QR menu deferred for POC. Printed menu board is sufficient."
+          }
+        ]
+      }
+    },
+    "board_snapshot_complete": {
+      "project_id": "proj_lemonade_001",
+      "snapshot_name": "ready_to_close",
+      "captured_at": "2026-06-14T22:30:00Z",
+      "project_closable": true,
+      "counts": {
+        "todo": 0,
+        "planning": 0,
+        "doing": 0,
+        "review": 0,
+        "done": 8,
+        "cancelled": 1
+      },
+      "columns": {
+        "todo": [],
+        "planning": [],
+        "doing": [],
+        "review": [],
+        "done": [
+          {
+            "task_id": "tsk_001",
+            "title": "Choose the launch recipe and pricing",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "menu",
+              "pricing"
+            ],
+            "planning": {
+              "questions": [
+                "Which recipe is fastest to batch?",
+                "Should there be one premium variant?"
+              ],
+              "acceptance_criteria": [
+                "one primary recipe selected",
+                "at least one premium upsell selected or rejected explicitly",
+                "sell price and estimated margin documented"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "done",
+            "done_summary": "Recipe/pricing locked and used on event day."
+          },
+          {
+            "task_id": "tsk_002",
+            "title": "Confirm permit and event compliance",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "compliance"
+            ],
+            "planning": {
+              "questions": [
+                "Is a temporary vending permit already approved?",
+                "Who holds food-handler coverage?"
+              ],
+              "acceptance_criteria": [
+                "permit status is confirmed",
+                "required documents are uploaded",
+                "food handling coverage is assigned"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "done",
+            "done_summary": "Permit and compliance completed."
+          },
+          {
+            "task_id": "tsk_003",
+            "title": "Place supply orders for lemons, sugar, cups, and ice",
+            "owner": "usr_002",
+            "priority": "critical",
+            "labels": [
+              "supplies"
+            ],
+            "planning": {
+              "questions": [
+                "What is the target production volume?",
+                "What buffer is needed for ice?"
+              ],
+              "acceptance_criteria": [
+                "suppliers chosen",
+                "quantities approved",
+                "delivery or pickup schedule logged"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "done",
+            "done_summary": "Supplies ordered and delivered on time."
+          },
+          {
+            "task_id": "tsk_004",
+            "title": "Recruit and confirm temp workers",
+            "owner": "usr_001",
+            "priority": "high",
+            "labels": [
+              "staffing"
+            ],
+            "planning": {
+              "questions": [
+                "What is the minimum headcount by time block?",
+                "Who can lead closing?"
+              ],
+              "acceptance_criteria": [
+                "minimum staffing level met",
+                "one shift lead assigned",
+                "food-handler coverage confirmed"
+              ],
+              "estimated_effort_points": 5
+            },
+            "status": "done",
+            "done_summary": "All workers confirmed and onsite."
+          },
+          {
+            "task_id": "tsk_005",
+            "title": "Draft opening, rush-hour, and closing shift schedule",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "staffing",
+              "schedule"
+            ],
+            "planning": {
+              "questions": [
+                "Where are break windows?",
+                "Who covers the 16:30\u201319:30 peak?"
+              ],
+              "acceptance_criteria": [
+                "all hours staffed",
+                "breaks assigned",
+                "queue peak coverage noted"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "done",
+            "done_summary": "Shift schedule executed with adequate peak coverage."
+          },
+          {
+            "task_id": "tsk_006",
+            "title": "Set up payment flow and cashless fallback plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "payments"
+            ],
+            "planning": {
+              "questions": [
+                "Is the reader linked to the right account?",
+                "What happens if connectivity fails?"
+              ],
+              "acceptance_criteria": [
+                "card reader configured",
+                "offline fallback documented",
+                "checkout flow tested"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "done",
+            "done_summary": "Payment flow tested and fallback documented."
+          },
+          {
+            "task_id": "tsk_008",
+            "title": "Create weather and ice contingency plan",
+            "owner": "usr_002",
+            "priority": "medium",
+            "labels": [
+              "risk",
+              "weather"
+            ],
+            "planning": {
+              "questions": [
+                "How much extra ice is enough?",
+                "What weather triggers a layout change?"
+              ],
+              "acceptance_criteria": [
+                "extra ice plan documented",
+                "backup canopy assigned",
+                "owner knows decision thresholds"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "done",
+            "done_summary": "Ice contingency and canopy ownership documented."
+          },
+          {
+            "task_id": "tsk_009",
+            "title": "Build final inventory and pack list",
+            "owner": "usr_002",
+            "priority": "high",
+            "labels": [
+              "inventory",
+              "setup"
+            ],
+            "planning": {
+              "questions": [
+                "What is the final count of consumables and tools?",
+                "Who loads and unloads?"
+              ],
+              "acceptance_criteria": [
+                "consumables listed",
+                "equipment listed",
+                "load-in responsibility assigned"
+              ],
+              "estimated_effort_points": 3
+            },
+            "status": "done",
+            "done_summary": "Inventory and pack list used successfully for load-in."
+          }
+        ],
+        "cancelled": [
+          {
+            "task_id": "tsk_007",
+            "title": "Prepare signage, menu board, and QR menu",
+            "owner": "usr_001",
+            "priority": "medium",
+            "labels": [
+              "marketing",
+              "onsite"
+            ],
+            "planning": {
+              "questions": [
+                "What can reduce queue hesitation?",
+                "Should prices be rounded for simplicity?"
+              ],
+              "acceptance_criteria": [
+                "menu board content approved",
+                "pricing visible",
+                "queue guidance included"
+              ],
+              "estimated_effort_points": 2
+            },
+            "status": "cancelled",
+            "cancel_reason": "QR menu dropped from scope; not required for success."
+          }
+        ]
+      }
+    }
+  },
+  "unit": {
+    "domain_entities": {
+      "enums": {
+        "module_state": [
+          "locked",
+          "unlocked"
+        ],
+        "task_status": [
+          "todo",
+          "planning",
+          "doing",
+          "review",
+          "done",
+          "cancelled"
+        ],
+        "project_status": [
+          "draft",
+          "active",
+          "closed"
+        ],
+        "actor_type": [
+          "human",
+          "ai"
+        ]
+      },
+      "transition_rules": {
+        "allowed": {
+          "todo": [
+            "planning",
+            "cancelled"
+          ],
+          "planning": [
+            "doing",
+            "cancelled"
+          ],
+          "doing": [
+            "review",
+            "cancelled"
+          ],
+          "review": [
+            "done",
+            "cancelled"
+          ],
+          "done": [],
+          "cancelled": []
+        },
+        "closed_statuses": [
+          "done",
+          "cancelled"
+        ]
+      },
+      "sample_entities": {
+        "new_project": {
+          "project_id": "proj_test_001",
+          "status": "active",
+          "module_states": {
+            "directory_tree": "unlocked",
+            "project_planning": "locked",
+            "kanban_board": "locked",
+            "project_close": "locked"
+          }
+        },
+        "planner_session_ready": {
+          "session_id": "plan_test_ready_001",
+          "has_enough_context": true,
+          "board_unlock_recommended": true,
+          "summary_present": true,
+          "user_approved": false
+        },
+        "task_in_review": {
+          "task_id": "tsk_test_review_001",
+          "title": "Reviewable deliverable",
+          "status": "review",
+          "deliverable": {
+            "type": "markdown",
+            "path": "/deliverables/example.md"
+          },
+          "review_notes": null
+        },
+        "document": {
+          "document_id": "doc_test_001",
+          "path": "/suppliers/supplier_contacts.csv",
+          "readable_by": [
+            "humans",
+            "ai"
+          ],
+          "content_type": "text/csv",
+          "version": 1
+        }
+      }
+    },
+    "unit_test_fixtures": {
+      "unit_test_cases": [
+        {
+          "test_case_id": "UT-PROJ-001",
+          "title": "New project unlocks only the directory tree",
+          "given": {
+            "project_status": "active",
+            "planner_started": false,
+            "board_approved": false
+          },
+          "when": "computeModuleStates",
+          "expected": {
+            "directory_tree": "unlocked",
+            "project_planning": "locked",
+            "kanban_board": "locked",
+            "project_close": "locked"
+          }
+        },
+        {
+          "test_case_id": "UT-PROJ-002",
+          "title": "Planning unlocks after user chooses to continue",
+          "given": {
+            "project_status": "active",
+            "user_clicked_continue": true,
+            "board_approved": false
+          },
+          "when": "computeModuleStates",
+          "expected": {
+            "directory_tree": "unlocked",
+            "project_planning": "unlocked",
+            "kanban_board": "locked"
+          }
+        },
+        {
+          "test_case_id": "UT-PROJ-003",
+          "title": "Board stays locked until planner summary is approved",
+          "given": {
+            "planner_has_enough_context": true,
+            "summary_present": true,
+            "user_approved": false
+          },
+          "when": "canUnlockBoard",
+          "expected": false
+        },
+        {
+          "test_case_id": "UT-PROJ-004",
+          "title": "Board unlocks when planner summary exists and user approves",
+          "given": {
+            "planner_has_enough_context": true,
+            "summary_present": true,
+            "user_approved": true
+          },
+          "when": "canUnlockBoard",
+          "expected": true
+        },
+        {
+          "test_case_id": "UT-PLN-001",
+          "title": "Planner asks for more context when critical document class is missing",
+          "given": {
+            "uploaded_document_categories": [
+              "weather",
+              "event",
+              "suppliers",
+              "recipes"
+            ],
+            "required_categories": [
+              "weather",
+              "event",
+              "suppliers",
+              "recipes",
+              "permits"
+            ]
+          },
+          "when": "evaluateContextCompleteness",
+          "expected": {
+            "has_enough_context": false,
+            "missing_categories": [
+              "permits"
+            ]
+          }
+        },
+        {
+          "test_case_id": "UT-PLN-002",
+          "title": "Generated tasks all start in todo",
+          "given": {
+            "board_unlock_approved": true,
+            "generated_task_count": 4
+          },
+          "when": "generateInitialTasks",
+          "expected": {
+            "statuses": [
+              "todo",
+              "todo",
+              "todo",
+              "todo"
+            ]
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-001",
+          "title": "Valid transition from todo to planning",
+          "given": {
+            "from_status": "todo",
+            "to_status": "planning"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": true
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-002",
+          "title": "Invalid transition from todo directly to doing",
+          "given": {
+            "from_status": "todo",
+            "to_status": "doing"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": false,
+            "reason": "must_pass_through_planning"
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-003",
+          "title": "Valid transition from review to done",
+          "given": {
+            "from_status": "review",
+            "to_status": "done"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": true
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-004",
+          "title": "Cancelled is allowed from planning",
+          "given": {
+            "from_status": "planning",
+            "to_status": "cancelled"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": true
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-005",
+          "title": "Done is terminal",
+          "given": {
+            "from_status": "done",
+            "to_status": "planning"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": false,
+            "reason": "done_is_terminal"
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-006",
+          "title": "Cancelled is terminal",
+          "given": {
+            "from_status": "cancelled",
+            "to_status": "todo"
+          },
+          "when": "validateTransition",
+          "expected": {
+            "allowed": false,
+            "reason": "cancelled_is_terminal"
+          }
+        },
+        {
+          "test_case_id": "UT-TASK-007",
+          "title": "Review requires deliverable payload",
+          "given": {
+            "from_status": "doing",
+            "to_status": "review",
+            "deliverable": null
+          },
+          "when": "validateReviewEntry",
+          "expected": {
+            "allowed": false,
+            "reason": "missing_deliverable"
+          }
+        },
+        {
+          "test_case_id": "UT-DOC-001",
+          "title": "Documents are readable by AI and humans",
+          "given": {
+            "readable_by": [
+              "humans",
+              "ai"
+            ]
+          },
+          "when": "computeAccess",
+          "expected": {
+            "human_access": true,
+            "ai_access": true
+          }
+        },
+        {
+          "test_case_id": "UT-DOC-002",
+          "title": "Uploading a new version increments document version",
+          "given": {
+            "current_version": 2,
+            "new_upload": true
+          },
+          "when": "saveDocumentVersion",
+          "expected": {
+            "new_version": 3
+          }
+        },
+        {
+          "test_case_id": "UT-CLOSE-001",
+          "title": "Project cannot close when one task remains in review",
+          "given": {
+            "task_statuses": [
+              "done",
+              "cancelled",
+              "review"
+            ]
+          },
+          "when": "canCloseProject",
+          "expected": false
+        },
+        {
+          "test_case_id": "UT-CLOSE-002",
+          "title": "Project can close when all tasks are done or cancelled",
+          "given": {
+            "task_statuses": [
+              "done",
+              "cancelled",
+              "done",
+              "cancelled"
+            ]
+          },
+          "when": "canCloseProject",
+          "expected": true
+        },
+        {
+          "test_case_id": "UT-CLOSE-003",
+          "title": "Cancelled contributes to closure counts",
+          "given": {
+            "task_statuses": [
+              "done",
+              "cancelled"
+            ],
+            "closed_statuses": [
+              "done",
+              "cancelled"
+            ]
+          },
+          "when": "countClosedTasks",
+          "expected": {
+            "closed_count": 2
+          }
+        },
+        {
+          "test_case_id": "UT-UI-001",
+          "title": "Stage-specific assistant selection is derived from task status",
+          "given": {
+            "task_status": "review"
+          },
+          "when": "resolveActiveAssistant",
+          "expected": {
+            "assistant_role": "task_review_assistant"
+          }
+        }
+      ]
+    },
+    "api_mock_responses": {
+      "GET /api/projects/proj_lemonade_001": {
+        "project_id": "proj_lemonade_001",
+        "name": "Summer Sound Lemonade Stand",
+        "slug": "summer-sound-lemonade-stand",
+        "status": "active",
+        "created_at": "2026-06-08T09:00:00Z",
+        "event_date": "2026-06-14",
+        "owner_user_id": "usr_001",
+        "goal": "Run a profitable, low-friction lemonade stall at Riverside Summer Sounds and serve at least 300 drinks.",
+        "vision": "Use a context-first workflow so planning and execution are grounded in shared documents before task work begins.",
+        "completion_rule": {
+          "project_closable_when_all_tasks_closed": true,
+          "closed_statuses": [
+            "done",
+            "cancelled"
+          ]
+        }
+      },
+      "GET /api/projects/proj_lemonade_001/modules": {
+        "directory_tree": "unlocked",
+        "project_planning": "unlocked",
+        "kanban_board": "unlocked",
+        "project_close": "locked"
+      },
+      "GET /api/projects/proj_lemonade_001/directory": {
+        "root": "/",
+        "nodes": [
+          {
+            "path": "/weather",
+            "type": "folder"
+          },
+          {
+            "path": "/event",
+            "type": "folder"
+          },
+          {
+            "path": "/suppliers",
+            "type": "folder"
+          },
+          {
+            "path": "/staffing",
+            "type": "folder"
+          },
+          {
+            "path": "/recipes",
+            "type": "folder"
+          },
+          {
+            "path": "/permits",
+            "type": "folder"
+          }
+        ],
+        "documents": [
+          {
+            "document_id": "doc_001",
+            "name": "weather_report.md",
+            "path": "/weather/weather_report.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:20:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/weather_report.md"
+          },
+          {
+            "document_id": "doc_002",
+            "name": "concert_news_article.md",
+            "path": "/event/concert_news_article.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:22:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/concert_news_article.md"
+          },
+          {
+            "document_id": "doc_003",
+            "name": "supplier_contacts.csv",
+            "path": "/suppliers/supplier_contacts.csv",
+            "content_type": "text/csv",
+            "uploaded_by": "usr_002",
+            "uploaded_at": "2026-06-08T09:31:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/supplier_contacts.csv"
+          },
+          {
+            "document_id": "doc_004",
+            "name": "temp_workers.csv",
+            "path": "/staffing/temp_workers.csv",
+            "content_type": "text/csv",
+            "uploaded_by": "usr_002",
+            "uploaded_at": "2026-06-08T09:35:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/temp_workers.csv"
+          },
+          {
+            "document_id": "doc_005",
+            "name": "lemonade_recipes.json",
+            "path": "/recipes/lemonade_recipes.json",
+            "content_type": "application/json",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T09:37:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/lemonade_recipes.json"
+          },
+          {
+            "document_id": "doc_006",
+            "name": "permits_checklist.md",
+            "path": "/permits/permits_checklist.md",
+            "content_type": "text/markdown",
+            "uploaded_by": "usr_001",
+            "uploaded_at": "2026-06-08T10:10:00Z",
+            "readable_by": [
+              "humans",
+              "ai"
+            ],
+            "source_file": "tutorial/documents/permits_checklist.md"
+          }
+        ]
+      },
+      "GET /api/projects/proj_lemonade_001/planner/session": {
+        "session_id": "plan_001",
+        "status": "approved",
+        "summary": "The project has enough context to proceed. Demand should be strongest in the late afternoon, cold storage is critical, a permit/compliance check must be confirmed, and staffing should cover setup, rush-hour service, and closing. A focused, low-complexity menu is recommended for throughput.",
+        "confidence": 0.93
+      },
+      "GET /api/projects/proj_lemonade_001/board": {
+        "project_id": "proj_lemonade_001",
+        "snapshot_name": "initial_board_after_unlock",
+        "captured_at": "2026-06-08T10:15:00Z",
+        "project_closable": false,
+        "counts": {
+          "todo": 9,
+          "planning": 0,
+          "doing": 0,
+          "review": 0,
+          "done": 0,
+          "cancelled": 0
+        },
+        "columns": {
+          "todo": [
+            {
+              "task_id": "tsk_001",
+              "title": "Choose the launch recipe and pricing",
+              "owner": "usr_001",
+              "priority": "high",
+              "labels": [
+                "menu",
+                "pricing"
+              ],
+              "planning": {
+                "questions": [
+                  "Which recipe is fastest to batch?",
+                  "Should there be one premium variant?"
+                ],
+                "acceptance_criteria": [
+                  "one primary recipe selected",
+                  "at least one premium upsell selected or rejected explicitly",
+                  "sell price and estimated margin documented"
+                ],
+                "estimated_effort_points": 3
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_002",
+              "title": "Confirm permit and event compliance",
+              "owner": "usr_002",
+              "priority": "critical",
+              "labels": [
+                "compliance"
+              ],
+              "planning": {
+                "questions": [
+                  "Is a temporary vending permit already approved?",
+                  "Who holds food-handler coverage?"
+                ],
+                "acceptance_criteria": [
+                  "permit status is confirmed",
+                  "required documents are uploaded",
+                  "food handling coverage is assigned"
+                ],
+                "estimated_effort_points": 5
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_003",
+              "title": "Place supply orders for lemons, sugar, cups, and ice",
+              "owner": "usr_002",
+              "priority": "critical",
+              "labels": [
+                "supplies"
+              ],
+              "planning": {
+                "questions": [
+                  "What is the target production volume?",
+                  "What buffer is needed for ice?"
+                ],
+                "acceptance_criteria": [
+                  "suppliers chosen",
+                  "quantities approved",
+                  "delivery or pickup schedule logged"
+                ],
+                "estimated_effort_points": 5
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_004",
+              "title": "Recruit and confirm temp workers",
+              "owner": "usr_001",
+              "priority": "high",
+              "labels": [
+                "staffing"
+              ],
+              "planning": {
+                "questions": [
+                  "What is the minimum headcount by time block?",
+                  "Who can lead closing?"
+                ],
+                "acceptance_criteria": [
+                  "minimum staffing level met",
+                  "one shift lead assigned",
+                  "food-handler coverage confirmed"
+                ],
+                "estimated_effort_points": 5
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_005",
+              "title": "Draft opening, rush-hour, and closing shift schedule",
+              "owner": "usr_001",
+              "priority": "medium",
+              "labels": [
+                "staffing",
+                "schedule"
+              ],
+              "planning": {
+                "questions": [
+                  "Where are break windows?",
+                  "Who covers the 16:30\u201319:30 peak?"
+                ],
+                "acceptance_criteria": [
+                  "all hours staffed",
+                  "breaks assigned",
+                  "queue peak coverage noted"
+                ],
+                "estimated_effort_points": 3
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_006",
+              "title": "Set up payment flow and cashless fallback plan",
+              "owner": "usr_002",
+              "priority": "medium",
+              "labels": [
+                "payments"
+              ],
+              "planning": {
+                "questions": [
+                  "Is the reader linked to the right account?",
+                  "What happens if connectivity fails?"
+                ],
+                "acceptance_criteria": [
+                  "card reader configured",
+                  "offline fallback documented",
+                  "checkout flow tested"
+                ],
+                "estimated_effort_points": 3
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_007",
+              "title": "Prepare signage, menu board, and QR menu",
+              "owner": "usr_001",
+              "priority": "medium",
+              "labels": [
+                "marketing",
+                "onsite"
+              ],
+              "planning": {
+                "questions": [
+                  "What can reduce queue hesitation?",
+                  "Should prices be rounded for simplicity?"
+                ],
+                "acceptance_criteria": [
+                  "menu board content approved",
+                  "pricing visible",
+                  "queue guidance included"
+                ],
+                "estimated_effort_points": 2
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_008",
+              "title": "Create weather and ice contingency plan",
+              "owner": "usr_002",
+              "priority": "medium",
+              "labels": [
+                "risk",
+                "weather"
+              ],
+              "planning": {
+                "questions": [
+                  "How much extra ice is enough?",
+                  "What weather triggers a layout change?"
+                ],
+                "acceptance_criteria": [
+                  "extra ice plan documented",
+                  "backup canopy assigned",
+                  "owner knows decision thresholds"
+                ],
+                "estimated_effort_points": 2
+              },
+              "status": "todo"
+            },
+            {
+              "task_id": "tsk_009",
+              "title": "Build final inventory and pack list",
+              "owner": "usr_002",
+              "priority": "high",
+              "labels": [
+                "inventory",
+                "setup"
+              ],
+              "planning": {
+                "questions": [
+                  "What is the final count of consumables and tools?",
+                  "Who loads and unloads?"
+                ],
+                "acceptance_criteria": [
+                  "consumables listed",
+                  "equipment listed",
+                  "load-in responsibility assigned"
+                ],
+                "estimated_effort_points": 3
+              },
+              "status": "todo"
+            }
+          ],
+          "planning": [],
+          "doing": [],
+          "review": [],
+          "done": [],
+          "cancelled": []
+        }
+      },
+      "POST /api/projects/proj_lemonade_001/tasks/generate": {
+        "project_id": "proj_lemonade_001",
+        "generated_count": 9,
+        "tasks": [
+          {
+            "task_id": "tsk_001",
+            "title": "Choose the launch recipe and pricing",
+            "status": "todo",
+            "priority": "high",
+            "dependencies": [],
+            "acceptance_criteria": [
+              "one primary recipe selected",
+              "at least one premium upsell selected or rejected explicitly",
+              "sell price and estimated margin documented"
+            ]
+          },
+          {
+            "task_id": "tsk_002",
+            "title": "Confirm permit and event compliance",
+            "status": "todo",
+            "priority": "critical",
+            "dependencies": [],
+            "acceptance_criteria": [
+              "permit status is confirmed",
+              "required documents are uploaded",
+              "food handling coverage is assigned"
+            ]
+          },
+          {
+            "task_id": "tsk_003",
+            "title": "Place supply orders for lemons, sugar, cups, and ice",
+            "status": "todo",
+            "priority": "critical",
+            "dependencies": [
+              "tsk_001"
+            ],
+            "acceptance_criteria": [
+              "suppliers chosen",
+              "quantities approved",
+              "delivery or pickup schedule logged"
+            ]
+          },
+          {
+            "task_id": "tsk_004",
+            "title": "Recruit and confirm temp workers",
+            "status": "todo",
+            "priority": "high",
+            "dependencies": [
+              "tsk_002"
+            ],
+            "acceptance_criteria": [
+              "minimum staffing level met",
+              "one shift lead assigned",
+              "food-handler coverage confirmed"
+            ]
+          },
+          {
+            "task_id": "tsk_005",
+            "title": "Draft opening, rush-hour, and closing shift schedule",
+            "status": "todo",
+            "priority": "medium",
+            "dependencies": [
+              "tsk_004"
+            ],
+            "acceptance_criteria": [
+              "all hours staffed",
+              "breaks assigned",
+              "queue peak coverage noted"
+            ]
+          },
+          {
+            "task_id": "tsk_006",
+            "title": "Set up payment flow and cashless fallback plan",
+            "status": "todo",
+            "priority": "medium",
+            "dependencies": [],
+            "acceptance_criteria": [
+              "card reader configured",
+              "offline fallback documented",
+              "checkout flow tested"
+            ]
+          },
+          {
+            "task_id": "tsk_007",
+            "title": "Prepare signage, menu board, and QR menu",
+            "status": "todo",
+            "priority": "medium",
+            "dependencies": [
+              "tsk_001"
+            ],
+            "acceptance_criteria": [
+              "menu board content approved",
+              "pricing visible",
+              "queue guidance included"
+            ]
+          },
+          {
+            "task_id": "tsk_008",
+            "title": "Create weather and ice contingency plan",
+            "status": "todo",
+            "priority": "medium",
+            "dependencies": [
+              "tsk_003"
+            ],
+            "acceptance_criteria": [
+              "extra ice plan documented",
+              "backup canopy assigned",
+              "owner knows decision thresholds"
+            ]
+          },
+          {
+            "task_id": "tsk_009",
+            "title": "Build final inventory and pack list",
+            "status": "todo",
+            "priority": "high",
+            "dependencies": [
+              "tsk_003",
+              "tsk_005",
+              "tsk_006",
+              "tsk_007"
+            ],
+            "acceptance_criteria": [
+              "consumables listed",
+              "equipment listed",
+              "load-in responsibility assigned"
+            ]
+          }
+        ]
+      },
+      "PATCH /api/tasks/tsk_004/status(review->done)": {
+        "task_id": "tsk_004",
+        "old_status": "review",
+        "new_status": "done",
+        "updated_at": "2026-06-11T18:10:00Z"
+      },
+      "POST /api/projects/proj_lemonade_001/close": {
+        "when_not_all_tasks_closed": {
+          "status": 409,
+          "error": "project_not_closable",
+          "message": "All tasks must be done or cancelled before project closure."
+        },
+        "when_all_tasks_closed": {
+          "status": 200,
+          "project_id": "proj_lemonade_001",
+          "new_status": "closed",
+          "closed_at": "2026-06-14T22:35:00Z"
+        }
+      }
+    }
+  },
+  "functional": {
+    "scenarios": {
+      "scenarios": [
+        {
+          "scenario_id": "FT-001",
+          "title": "Create project and show only directory tree",
+          "type": "happy_path",
+          "preconditions": [],
+          "steps": [
+            "Create a new project named Summer Sound Lemonade Stand.",
+            "Open the project workspace."
+          ],
+          "expected": [
+            "Directory tree is unlocked.",
+            "Planning section is locked.",
+            "Kanban board is locked.",
+            "No tasks exist yet."
+          ],
+          "seed_files": [
+            "tutorial/project_seed.json"
+          ]
+        },
+        {
+          "scenario_id": "FT-002",
+          "title": "Upload context documents and start planning",
+          "type": "happy_path",
+          "preconditions": [
+            "Project exists in initial state."
+          ],
+          "steps": [
+            "Upload weather report, concert article, supplier contacts, temp worker contacts, and lemonade recipes.",
+            "Click Continue to Planning."
+          ],
+          "expected": [
+            "Planning section becomes unlocked.",
+            "Planner agent can reference all uploaded documents.",
+            "Board remains locked."
+          ],
+          "seed_files": [
+            "tutorial/documents/weather_report.md",
+            "tutorial/documents/concert_news_article.md",
+            "tutorial/documents/supplier_contacts.csv",
+            "tutorial/documents/temp_workers.csv",
+            "tutorial/documents/lemonade_recipes.json"
+          ]
+        },
+        {
+          "scenario_id": "FT-003",
+          "title": "Planner requests missing permit context before board unlock",
+          "type": "negative_path",
+          "preconditions": [
+            "Planning has started.",
+            "Permit checklist not yet uploaded."
+          ],
+          "steps": [
+            "Ask the planner to summarize the project."
+          ],
+          "expected": [
+            "Planner says context is incomplete.",
+            "Planner explicitly requests permit/compliance information.",
+            "Board remains locked."
+          ]
+        },
+        {
+          "scenario_id": "FT-004",
+          "title": "Approve planner summary and unlock board",
+          "type": "happy_path",
+          "preconditions": [
+            "All tutorial documents uploaded including permits checklist."
+          ],
+          "steps": [
+            "Review planner summary.",
+            "Approve planner recommendation."
+          ],
+          "expected": [
+            "Board becomes unlocked.",
+            "Initial task list is generated.",
+            "Every generated task is in todo."
+          ],
+          "seed_files": [
+            "tutorial/planner_chat.json",
+            "tutorial/board_snapshot_initial.json"
+          ]
+        },
+        {
+          "scenario_id": "FT-005",
+          "title": "User edits AI-generated task list",
+          "type": "happy_path",
+          "preconditions": [
+            "Board is unlocked with generated tasks."
+          ],
+          "steps": [
+            "Delete the QR menu task.",
+            "Create a new task named Arrange tasting samples."
+          ],
+          "expected": [
+            "Deleted task disappears from board.",
+            "New task appears in todo.",
+            "Project remains active."
+          ]
+        },
+        {
+          "scenario_id": "FT-006",
+          "title": "Move task through the normal workflow",
+          "type": "happy_path",
+          "preconditions": [
+            "Board is unlocked."
+          ],
+          "steps": [
+            "Move Choose the launch recipe and pricing from todo to planning.",
+            "Complete planning notes and move it to doing.",
+            "Attach final recipe/pricing output and move it to review.",
+            "Approve review and move it to done."
+          ],
+          "expected": [
+            "Planning assistant is active in planning.",
+            "Execution assistant is active in doing.",
+            "Review assistant is active in review.",
+            "Summary appears in done."
+          ]
+        },
+        {
+          "scenario_id": "FT-007",
+          "title": "Cancellation counts as closed work",
+          "type": "edge_case",
+          "preconditions": [
+            "Task exists in planning or doing."
+          ],
+          "steps": [
+            "Move Prepare signage, menu board, and QR menu to cancelled."
+          ],
+          "expected": [
+            "Task is removed from active workflow.",
+            "Task appears in cancelled column.",
+            "Closed task count increases."
+          ]
+        },
+        {
+          "scenario_id": "FT-008",
+          "title": "Project cannot close with active tasks remaining",
+          "type": "negative_path",
+          "preconditions": [
+            "At least one task is in todo, planning, doing, or review."
+          ],
+          "steps": [
+            "Attempt to close the project."
+          ],
+          "expected": [
+            "Close action is blocked.",
+            "Error explains that all tasks must be done or cancelled first."
+          ]
+        },
+        {
+          "scenario_id": "FT-009",
+          "title": "Project can close when all tasks are done or cancelled",
+          "type": "happy_path",
+          "preconditions": [
+            "Board matches board_snapshot_complete.json"
+          ],
+          "steps": [
+            "Attempt to close the project."
+          ],
+          "expected": [
+            "Project status changes to closed.",
+            "Workspace becomes read-only or archived.",
+            "Closure timestamp is recorded."
+          ],
+          "seed_files": [
+            "tutorial/board_snapshot_complete.json"
+          ]
+        },
+        {
+          "scenario_id": "FT-010",
+          "title": "Humans and AI share the same document context",
+          "type": "integration",
+          "preconditions": [
+            "Documents are uploaded to directory tree."
+          ],
+          "steps": [
+            "Human opens supplier_contacts.csv.",
+            "Planner agent references supplier lead times while proposing supply tasks."
+          ],
+          "expected": [
+            "Both human and AI use the same document source of truth.",
+            "No duplicate shadow copy of supplier data is required."
+          ]
+        },
+        {
+          "scenario_id": "FT-011",
+          "title": "Review entry requires a deliverable",
+          "type": "negative_path",
+          "preconditions": [
+            "Task is in doing."
+          ],
+          "steps": [
+            "Attempt to move the task to review without attaching any output."
+          ],
+          "expected": [
+            "Transition is rejected.",
+            "Validation explains that a deliverable is required for review."
+          ]
+        },
+        {
+          "scenario_id": "FT-012",
+          "title": "Done and cancelled are terminal statuses",
+          "type": "negative_path",
+          "preconditions": [
+            "One task is done and one task is cancelled."
+          ],
+          "steps": [
+            "Attempt to move the done task back to planning.",
+            "Attempt to move the cancelled task back to todo."
+          ],
+          "expected": [
+            "Both transitions are blocked.",
+            "Reason states that the statuses are terminal."
+          ]
+        }
+      ]
+    }
+  }
+}
