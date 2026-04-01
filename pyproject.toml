@@ -15,6 +15,9 @@ dependencies = [
     "langchain-openai",
     "langchain-core",
     "httpx",
+    "loguru",
+    "baml-py",
+    "python-dotenv",
 ]
 readme = "README.md"
 requires-python = ">=3.11"

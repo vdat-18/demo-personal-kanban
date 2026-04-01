@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, Send, Paperclip, FileText, CheckCircle2, ListTodo, Sparkles, Edit3, Play } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { useProjectStore } from "@/store/useProjectStore";
 import type { Task, Project } from "@/store/useProjectStore";
@@ -11,6 +12,11 @@ export function PlanningScreen() {
   const { addProject } = useProjectStore();
   const [phase, setPhase] = useState<Phase>("chat");
   const [inputText, setInputText] = useState("");
+  const [messages, setMessages] = useState([
+    { sender: "agent", text: "Hi! I'm your AI Planner. What do you want to work on today? Tell me about your project or idea." },
+  ]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [reportContent, setReportContent] = useState("");
 
   const handleStartExecution = () => {
     const newProjectId = Math.random().toString(36).substring(7);
@@ -46,9 +52,50 @@ export function PlanningScreen() {
     navigate(`/mission-control/${newProjectId}`);
   };
 
-  const chatMessages = [
-    { sender: "agent", text: "Hi! I'm your AI Planner. What do you want to work on today? Tell me about your project or idea." },
-  ];
+  const [isSending, setIsSending] = useState(false); // Strict guard
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || isSending || isTyping) return;
+
+    setIsSending(true);
+    const currentInput = inputText;
+    const userMessage = { sender: "user" as const, text: currentInput };
+    setMessages(prev => [...prev, userMessage]);
+    setInputText("");
+    setIsTyping(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/api/v1/projects/default/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage.text }),
+      });
+      const data = await response.json();
+      setMessages(prev => [...prev, { sender: "agent", text: data.reply }]);
+    } catch (error) {
+      console.error("Failed to fetch AI response:", error);
+      // Optional: Add a system message error for the user
+      setMessages(prev => [...prev, { sender: "agent", text: "I'm sorry, I encountered an error. Please try again." }]);
+    } finally {
+      setIsTyping(false);
+      setIsSending(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    setPhase("report");
+    try {
+      const response = await fetch("http://localhost:8000/api/v1/projects/default/generate-report", {
+        method: "POST",
+      });
+      const data = await response.json();
+      setReportContent(data.report);
+    } catch (error) {
+      console.error("Failed to generate report:", error);
+    }
+  };
+
+  // chatMessages removed, now using messages state
 
   return (
     <div className="flex h-screen w-full bg-[#f8f9fa] overflow-hidden">
@@ -84,7 +131,7 @@ export function PlanningScreen() {
           <div className="flex items-center gap-4">
             {phase === "chat" && (
                 <button 
-                    onClick={() => setPhase("report")}
+                    onClick={handleGenerateReport}
                     className="bg-[#0a192f] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-900 transition-colors shadow-sm"
                 >
                     Write the Report <FileText className="w-4 h-4" />
@@ -116,16 +163,30 @@ export function PlanningScreen() {
           {phase === "chat" ? (
              <div className="flex flex-col w-full max-w-4xl mx-auto h-full">
                 <div className="flex-1 overflow-y-auto p-12 flex flex-col gap-8">
-                   {chatMessages.map((msg, i) => (
+                   {messages.map((msg, i) => (
                        <div key={i} className={`flex gap-5 max-w-[80%] ${msg.sender === "user" ? "ml-auto flex-row-reverse" : ""}`}>
                           <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold border ${msg.sender === "agent" ? "bg-[#0a192f] text-white border-[#0a192f] shadow-sm" : "bg-gray-50 text-gray-600 border-gray-200"}`}>
                              {msg.sender === "agent" ? "AI" : "Me"}
                           </div>
                           <div className={`p-5 rounded-2xl leading-relaxed text-sm ${msg.sender === "agent" ? "bg-white border border-gray-100 shadow-sm text-gray-800" : "bg-blue-50 border border-blue-100 text-[#0a192f]"}`}>
-                             {msg.text}
+                             <div className="markdown-content prose-sm max-w-none">
+                                <ReactMarkdown>
+                                  {msg.text || ""}
+                                </ReactMarkdown>
+                             </div>
                           </div>
                        </div>
                    ))}
+                   {isTyping && (
+                       <div className="flex gap-5 max-w-[80%]">
+                          <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white shadow-sm border border-[#0a192f]">
+                             AI
+                          </div>
+                          <div className="p-5 rounded-2xl bg-white border border-gray-100 shadow-sm text-gray-400 italic text-sm">
+                             AI is thinking...
+                          </div>
+                       </div>
+                   )}
                 </div>
                 
                 {/* Input Area */}
@@ -138,8 +199,13 @@ export function PlanningScreen() {
                             className="flex-1 bg-transparent border-none outline-none text-gray-700 font-medium px-2 py-3"
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                         />
-                        <button className="w-12 h-12 bg-[#0a192f] text-white rounded-xl flex items-center justify-center hover:bg-blue-900 transition-colors shadow-md">
+                        <button 
+                            onClick={handleSendMessage}
+                            disabled={isSending || isTyping}
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors shadow-md ${isSending || isTyping ? "bg-gray-400" : "bg-[#0a192f] hover:bg-blue-900"} text-white`}
+                        >
                             <Send className="w-5 h-5 ml-0.5" />
                         </button>
                     </div>
@@ -172,22 +238,22 @@ export function PlanningScreen() {
                         </div>
                         
                         <div className="space-y-10 text-gray-700">
-                           <section>
-                              <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-3">Goal</label>
-                              <p className="text-lg font-medium leading-relaxed">Understand marketing strategy & UX of 5 main competitors of Veclam24h to propose a new direction.</p>
-                           </section>
-                           <section>
-                              <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-3">Scope of Work</label>
-                              <ul className="list-disc list-inside space-y-2 font-medium">
-                                 <li>Detailed analysis of Website UX (Mobile & Desktop)</li>
-                                 <li>Social media presence audit (FB, LinkedIn, Twitter)</li>
-                                 <li>Pricing and recruitment package comparison</li>
-                              </ul>
-                           </section>
-                           <section>
-                              <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-3">Target Audience</label>
-                              <p className="text-lg font-medium">Internal Marketing Director & Stakeholders.</p>
-                           </section>
+                           {!reportContent ? (
+                               <div className="animate-pulse space-y-4">
+                                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                                   <div className="h-10 bg-gray-200 rounded"></div>
+                                   <div className="h-4 bg-gray-200 rounded w-1/3 mt-8"></div>
+                                   <div className="h-32 bg-gray-200 rounded"></div>
+                               </div>
+                           ) : (
+                               <div className="markdown-report-container max-w-none">
+                                   <div className="text-lg leading-relaxed text-gray-600">
+                                       <ReactMarkdown>
+                                           {reportContent || ""}
+                                       </ReactMarkdown>
+                                   </div>
+                               </div>
+                           )}
                         </div>
                     </div>
                 </div>
