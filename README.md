@@ -1,57 +1,90 @@
-# Lemonade tutorial + test mock data pack
+# AgentForEveryone
 
-This pack contains **fictional mock data** for a context-first, board-anchored Kanban product.
+**AgentForEveryone** là một trợ lý công việc AI cá nhân dựa trên bảng Kanban, được thiết kế cho người dùng không rành về kỹ thuật (non-tech). Thay vì phải tự mình tìm cách thực hiện các tác vụ, AI sẽ đồng hành cùng bạn để khám phá, lập kế hoạch và thực thi từng bước một.
 
-It is designed for two uses:
-1. **Lemonade tutorial / demo seed data** for mockups, POCs, and walkthroughs.
-2. **Unit and functional test fixtures** for front-end, back-end, and QA automation.
+---
 
-## Product rules represented in this pack
+## 🏗️ Cấu trúc dự án (Architecture)
 
-- After project creation, **only the directory tree is unlocked**.
-- Uploaded documents become **shared project context** for both human collaborators and AI agents.
-- The **project planning** section unlocks when the user chooses to continue from context intake.
-- The **Kanban board** unlocks only after the planner agent has enough context, produces a summary, and the user approves it.
-- Generated tasks begin in **`todo`**.
-- Task lifecycle: **`todo -> planning -> doing -> review -> done`**.
-- Tasks may move to **`cancelled`** from any active state.
-- **`cancelled` counts as closed** for project completion purposes.
-- The project can be closed only when **all tasks are `done` or `cancelled`**.
+Dự án được xây dựng theo mô hình Monorepo hiện đại:
 
-## Directory structure
+```text
+/demo-personal-kanban (Root)
+├── pyproject.toml        # Quản lý môi trường Python (UV) & Linting (Ruff)
+├── app/                  # [PYTHON BACKEND] Lõi AI Orchestrator
+│   ├── main.py           # API Entry Point (FastAPI)
+│   ├── agents/           # Trí thông minh AI (Starter, Planner, Doer, Reviewer...)
+│   │   ├── base.py       # Interface cơ sở cho Agent
+│   │   ├── registry.py   # Quản lý và khởi tạo Agent theo vai trò
+│   │   └── definitions/  # Logic thực thi chi tiết của từng Agent
+│   ├── core/             # Logic điều phối (Orchestrator) hệ thống
+│   └── schemas/          # Định nghĩa dữ liệu Pydantic (Project, Task...)
+├── frontend/             # [REACT FRONTEND] Giao diện người dùng Premium
+│   ├── src/
+│   │   ├── pages/        # Các màn hình: Home, Planning, Mission Control, Directory...
+│   │   ├── store/        # Quản lý trạng thái (Zustand)
+│   │   └── layouts/      # Khung giao diện dùng chung
+│   └── tailwind.config.js # Cấu hình giao diện Tailwind v4
+└── README.md             # (File này)
+```
 
-- `tutorial/`
-  - `project_seed.json` – main tutorial seed payload
-  - `planner_chat.json` – planner/user chat transcript
-  - `board_snapshot_initial.json`
-  - `board_snapshot_midway.json`
-  - `board_snapshot_complete.json`
-  - `documents/`
-    - `weather_report.md`
-    - `concert_news_article.md`
-    - `supplier_contacts.csv`
-    - `temp_workers.csv`
-    - `lemonade_recipes.json`
-    - `permits_checklist.md`
-- `unit/`
-  - `domain_entities.json` – sample entities and enums
-  - `unit_test_fixtures.json` – rule-focused unit test cases
-  - `api_mock_responses.json` – sample API payloads for UI wiring
-- `functional/`
-  - `scenarios.json` – structured functional test scenarios
-  - `lemonade_e2e.feature` – Gherkin-style end-to-end scenarios
-  - `test_case_matrix.csv` – concise scenario matrix
+---
 
-## Suggested import / usage order
+## 🎨 Luồng công việc (Standard Workflow)
 
-1. Load `tutorial/project_seed.json`
-2. Mount the documents under `tutorial/documents/`
-3. Use `unit/api_mock_responses.json` to stub UI
-4. Use `unit/unit_test_fixtures.json` for domain logic tests
-5. Use `functional/scenarios.json` or `functional/lemonade_e2e.feature` for integration/E2E
+Hệ thống hoạt động dựa trên triết lý **"Mỗi cột Kanban là một AI Agent"**:
 
-## Notes
+1.  **Giai đoạn Lập kế hoạch**: Talk with AI -> Viết báo cáo -> Tự động tạo Task Board.
+2.  **Giai đoạn Thực thi (Mission Control)**:
+    *   `🎯 Starter`: Phân tích và đề xuất bước đầu.
+    *   `🗺️ Planner`: Chia nhỏ Task thành các Subtasks chi tiết.
+    *   `⚡ Doer`: Thực hiện công việc và tạo ra kết quả (Artifacts).
+    *   `🔍 Reviewer`: Kiểm tra chất lượng dựa trên tiêu chí định sẵn.
+    *   `✅ Reporter`: Tổng kết kết quả và gợi ý bước tiếp theo.
 
-- All names, companies, phone numbers, and emails are fictional.
-- Contact details use `example.com` or clearly fake number patterns.
-- Dates are intentionally fixed so tests are deterministic.
+---
+
+## 🚀 Hướng dẫn khởi chạy
+
+### 1. Backend (Python API)
+
+Yêu cầu: [UV](https://github.com/astral-sh/uv) (Trình quản lý gói Python hiện đại).
+
+```bash
+# Cài đặt môi trường và thư viện (từ thư mục gốc)
+uv sync
+
+# Khởi chạy server API
+uv run uvicorn app.main:app --reload
+```
+*API sẽ chạy tại: `http://localhost:8000`*
+
+### 2. Frontend (React)
+
+Yêu cầu: Node.js & npm/pnpm.
+
+```bash
+cd frontend
+
+# Cài đặt thư viện
+npm install
+
+# Khởi chạy giao diện
+npm run dev
+```
+*Giao diện sẽ chạy tại: `http://localhost:5173`*
+
+---
+
+## 🛠️ Công nghệ sử dụng
+
+*   **Frontend**: React 19, Vite, Tailwind CSS v4, Zustand.
+*   **Backend**: Python 3.11+, FastAPI, Pydantic v2.
+*   **AI**: LangChain core, OpenAI SDK.
+*   **Tooling**: UV (Package manager), Ruff (Linter & Formatter), Git (Version control).
+
+---
+
+## 📖 Tài liệu liên quan
+- Chi tiết sản phẩm: [planning_kanban_v2.md](file:///Users/dat.nguyen1/Desktop/demo-personal-kanban/input_docs/dat_planning/planning_kanban_v2.md)
+- Tham khảo kiến trúc: [cline-kanban-reference](https://github.com/cline/kanban)
