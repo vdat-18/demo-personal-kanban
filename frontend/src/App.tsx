@@ -14,7 +14,7 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="mission-control/:id" element={<MissionControl />} />
-          <Route path="planning" element={<PlanningScreen />} />
+          <Route path="planning/:id?" element={<PlanningScreen />} />
           <Route path="chat/:id" element={<TaskChat />} />
           <Route path="summary/:id" element={<TaskSummary />} />
           <Route path="directory" element={<Directory />} />

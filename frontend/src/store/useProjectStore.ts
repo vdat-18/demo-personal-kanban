@@ -36,6 +36,7 @@ interface ProjectState {
   moveTask: (projectId: string, taskId: string, newStatus: TaskStatus) => void;
   toggleSubtask: (projectId: string, taskId: string, subtaskId: string) => void;
   addTask: (projectId: string, task: Task) => void;
+  startExecution: (projectId: string, tasks: Task[]) => void;
 }
 
 const AGENT_MAPPING: Record<TaskStatus, string> = {
@@ -141,6 +142,13 @@ export const useProjectStore = create<ProjectState>((set) => ({
     projects: state.projects.map(p => {
       if (p.id !== projectId) return p;
       return { ...p, tasks: [...p.tasks, task] };
+    })
+  })),
+
+  startExecution: (projectId: string, tasks: Task[]) => set((state) => ({
+    projects: state.projects.map(p => {
+      if (p.id !== projectId) return p;
+      return { ...p, status: 'execution', tasks };
     })
   }))
 }));

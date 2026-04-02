@@ -11,12 +11,8 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = "9router-test-dat"
     LLM_MODEL_NAME: str = "gemini-unlimited"
 
-    # CORS Settings
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:5173"]
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()

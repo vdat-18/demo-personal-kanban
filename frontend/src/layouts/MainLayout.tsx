@@ -3,7 +3,7 @@ import { Bell, Settings, User } from "lucide-react";
 
 export function MainLayout() {
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#0a192f] font-sans flex flex-col">
+    <div className="h-screen bg-[#F8F9FA] text-[#0a192f] font-sans flex flex-col overflow-hidden">
       {/* Top Navbar */}
       <header className="h-16 px-6 border-b border-gray-200 bg-white flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-8 h-full">
@@ -25,7 +25,7 @@ export function MainLayout() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex w-full">
+      <main className="flex-1 flex w-full overflow-y-auto">
         <Outlet />
       </main>
     </div>
