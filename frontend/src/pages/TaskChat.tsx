@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { ArrowLeft, Send, Paperclip, MoreVertical, Zap, CheckCircle2, Circle, FileText, Rocket, BookOpen, Search, XCircle, Download, ExternalLink, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowLeft, Send, Paperclip, MoreVertical, Zap, CheckCircle2, FileText, Rocket, BookOpen, Search, XCircle, Download, ExternalLink } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectStore } from "@/store/useProjectStore";
 import type { TaskStatus } from "@/store/useProjectStore";
+import { chatWithAgent } from "@/lib/llm";
 
 const AGENT_ICONS: Record<string, any> = {
   'Starter Agent': Rocket,
@@ -12,11 +14,21 @@ const AGENT_ICONS: Record<string, any> = {
   'Reporter Agent': FileText
 };
 
+interface ChatMsg { role: "user" | "assistant"; content: string; }
+
 export function TaskChat() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { projects, moveTask, toggleSubtask } = useProjectStore();
   const [inputText, setInputText] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [streamingReply, setStreamingReply] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, streamingReply]);
 
   const project = projects.find(p => p.tasks.some(t => t.id === id));
   const task = project?.tasks.find(t => t.id === id);
@@ -41,6 +53,26 @@ export function TaskChat() {
   const handleReject = () => {
     moveTask(project.id, task.id, 'doing');
     navigate(`/mission-control/${project.id}`);
+  };
+
+  const handleSend = async () => {
+    if (!inputText.trim() || isStreaming || !task) return;
+    const userMsg: ChatMsg = { role: "user", content: inputText.trim() };
+    const newHistory = [...chatMessages, userMsg];
+    setChatMessages(newHistory);
+    setInputText("");
+    setIsStreaming(true);
+    setStreamingReply("");
+
+    let fullReply = "";
+    await chatWithAgent(task.agentType, newHistory, (delta) => {
+      fullReply += delta;
+      setStreamingReply(fullReply);
+    });
+
+    setChatMessages((prev) => [...prev, { role: "assistant", content: fullReply }]);
+    setStreamingReply("");
+    setIsStreaming(false);
   };
 
   const completedSubtasks = task.subtasks.filter(s => s.completed).length;
@@ -191,54 +223,86 @@ export function TaskChat() {
         {/* Left Panel: Chat Interface */}
         <div className="w-1/2 flex flex-col border-r border-gray-100 bg-white h-full relative">
           
-          <div className="flex-1 overflow-y-auto p-12 flex flex-col gap-8 scrollbar-hide">
-            <div className="text-center text-[10px] text-gray-300 font-black tracking-[0.3em] my-6 flex items-center gap-4 uppercase">
-               <div className="h-px flex-1 bg-gray-100"></div> History <div className="h-px flex-1 bg-gray-100"></div>
-            </div>
-            
-            <div className="flex gap-5 max-w-[90%]">
-               <div className="w-10 h-10 rounded-2xl bg-[#0a192f] text-white flex-shrink-0 flex items-center justify-center shadow-lg shadow-blue-900/10">
-                  <AgentIcon className="w-5 h-5" />
-               </div>
-               <div className="bg-[#f8f9fa] p-5 rounded-3xl rounded-tl-none border border-gray-100 shadow-sm relative group transition-all">
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{task.agentType}</div>
-                  <p className="text-sm leading-relaxed text-[#0a192f]">
-                    I've started working on the execution plan. Here are my initial findings and subtasks derived from the project vision. Do you want me to prioritize any specific competitor first?
-                  </p>
-               </div>
+          <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 scrollbar-hide">
+            {/* Initial agent greeting */}
+            <div className="flex gap-4 max-w-[90%]">
+              <div className="w-9 h-9 rounded-xl bg-[#0a192f] text-white flex-shrink-0 flex items-center justify-center shadow-lg">
+                <AgentIcon className="w-4 h-4" />
+              </div>
+              <div className="bg-[#f8f9fa] p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm">
+                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{task.agentType}</div>
+                <p className="text-sm leading-relaxed text-[#0a192f]">
+                  I'm your {task.agentType}. Tell me what you need and I'll get started.
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 ml-15">
-                <button className="bg-white border-2 border-gray-100 hover:border-blue-400 px-6 py-3 rounded-2xl text-xs font-bold text-[#0a192f] w-max shadow-sm transition-all flex items-center gap-2 hover:scale-105 active:scale-95 group">
-                   <Sparkles className="w-4 h-4 text-blue-500" /> Prioritize Vietnamworks <ArrowLeft className="w-3 h-3 rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
-                </button>
-                <button className="bg-white border-2 border-gray-100 hover:border-blue-400 px-6 py-3 rounded-2xl text-xs font-bold text-[#0a192f] w-max shadow-sm transition-all flex items-center gap-2 hover:scale-105 active:scale-95 group">
-                   <Sparkles className="w-4 h-4 text-orange-500" /> Focus on Social Media data <ArrowLeft className="w-3 h-3 rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
-                </button>
-            </div>
+            {/* Chat history */}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse ml-auto max-w-[85%]" : "max-w-[90%]"}`}>
+                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${
+                  msg.role === "assistant" ? "bg-[#0a192f] text-white" : "bg-gray-100 text-gray-600 border border-gray-200"
+                }`}>
+                  {msg.role === "assistant" ? "AI" : "Me"}
+                </div>
+                <div className={`p-4 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === "assistant"
+                    ? "bg-[#f8f9fa] border border-gray-100 shadow-sm text-gray-800"
+                    : "bg-blue-50 border border-blue-100 text-[#0a192f]"
+                }`}>
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Streaming response */}
+            {isStreaming && (
+              <div className="flex gap-4 max-w-[90%]">
+                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white text-[10px]">AI</div>
+                <div className="p-4 rounded-2xl bg-[#f8f9fa] border border-gray-100 shadow-sm text-sm text-gray-800">
+                  {streamingReply ? (
+                    <div className="prose prose-sm max-w-none"><ReactMarkdown>{streamingReply}</ReactMarkdown></div>
+                  ) : (
+                    <span className="flex gap-1 items-center text-gray-400 italic">
+                      <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Chat Input Area */}
-          <div className="p-8 bg-white border-t border-gray-100 shrink-0 relative z-10">
-            <div className="flex items-center gap-4 bg-[#f8f9fa] pulse-border border border-gray-200 p-2 rounded-2xl focus-within:ring-4 focus-within:ring-blue-100/50 transition-all">
-              <button className="w-12 h-12 flex items-center justify-center text-gray-400 hover:text-[#0a192f] transition-colors rounded-xl hover:bg-white active:scale-90">
-                <Paperclip className="w-6 h-6" />
+          <div className="p-6 bg-white border-t border-gray-100 shrink-0 relative z-10">
+            <div className="flex items-center gap-3 bg-[#f8f9fa] border border-gray-200 p-2 rounded-2xl focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+              <button className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#0a192f] transition-colors rounded-xl hover:bg-white">
+                <Paperclip className="w-5 h-5" />
               </button>
               <input
                 type="text"
-                placeholder={`Type your instructions for ${task.agentType}...`}
-                className="flex-1 bg-transparent outline-none text-sm font-bold text-[#0a192f] placeholder:text-gray-400 py-3"
+                placeholder={isStreaming ? "AI is thinking..." : `Type your instructions for ${task.agentType}...`}
+                className="flex-1 bg-transparent outline-none text-sm font-medium text-[#0a192f] placeholder:text-gray-400 py-2"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                disabled={isStreaming}
               />
-              <button 
-                className="w-12 h-12 bg-[#0a192f] hover:bg-blue-900 text-white rounded-xl flex items-center justify-center transition-all shadow-lg active:scale-90"
-                disabled={!inputText.trim()}
+              <button
+                onClick={handleSend}
+                disabled={!inputText.trim() || isStreaming}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-sm ${
+                  !inputText.trim() || isStreaming ? "bg-gray-300" : "bg-[#0a192f] hover:bg-blue-900 active:scale-95"
+                } text-white`}
               >
-                <Send className="w-5 h-5 ml-0.5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
-            <div className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em] text-center mt-4">Autonomous AI Execution Active</div>
+            <div className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em] text-center mt-3">Powered by Pi Agent · {task.agentType}</div>
           </div>
         </div>
 
