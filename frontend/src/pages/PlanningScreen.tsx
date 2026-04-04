@@ -1,24 +1,54 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { ArrowLeft, Send, FileText, CheckCircle2, ListTodo, Sparkles, Play, ChevronRight, MessageSquare, Target, Zap, Clock, History, Eye, EyeOff } from "lucide-react";
+// ─────────────────────────────────────────────────────────────────────────────
+// PlanningScreen — AI-first project planning flow
+//
+// Architecture:
+//   PlanningScreen (container — only routing + composition)
+//     ↳ usePlanningChat        (chat state + AI messaging)
+//     ↳ useTaskElaboration     (task elaboration state)
+//     ↳ PlanningChatPanel      (JSX — left column)
+//     ↳ ReportPanel            (JSX — right column)
+//     ↳ TasksPanel             (JSX — phase 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useState, useRef, useEffect } from "react";
+import {
+  ArrowLeft,
+  Send,
+  FileText,
+  CheckCircle2,
+  ListTodo,
+  Sparkles,
+  Play,
+  ChevronRight,
+  MessageSquare,
+  Target,
+  Zap,
+  Eye,
+  EyeOff,
+  Lightbulb,
+  ChevronDown,
+  Clock,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import * as Diff from 'diff';
+import remarkGfm from "remark-gfm";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { useProjectStore } from "@/store/useProjectStore";
-import type { Task, Project } from "@/store/useProjectStore";
-import { chatWithAgenticAI, generateProjectReport } from "@/lib/llm";
-import type { SuggestedAction } from "@/lib/llm";
+
+import { useProjectStore } from "@/store";
+import { generateProjectReport } from "@/lib/llm";
+import { AGENT_COLORS } from "@/constants/agents";
+import { DiffViewer } from "@/components/shared/DiffViewer";
+import { newId } from "@/lib/utils";
+
+import { usePlanningChat } from "@/features/planning/hooks/usePlanningChat";
+import { useTaskElaboration } from "@/features/planning/hooks/useTaskElaboration";
+
+import type { Task, SuggestedAction, DetailedTask } from "@/types/domain";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Phase = "planning" | "tasks";
-
-interface Message {
-  sender: "agent" | "user";
-  text: string;
-  suggestedAction?: SuggestedAction | null;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT
@@ -28,203 +58,128 @@ export function PlanningScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
-  const { projects, addProject, startExecution, updateProjectPlanning, updateProjectPlanningReport } = useProjectStore();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
-  const currentProjectId = id || sessionId;
-  const existingProject = id ? projects.find((p) => p.id === id) : null;
-  const initialProjectName =
-    existingProject?.name || location.state?.projectName || "New Project";
+  const { projects, updateProjectPlanningReport, startExecution } = useProjectStore();
 
+  const [sessionId] = useState(newId);
+  const currentProjectId = id ?? sessionId;
+  const existingProject = id ? projects.find((p) => p.id === id) ?? null : null;
+  const projectName =
+    existingProject?.name ?? location.state?.projectName ?? "New Project";
+
+  // ── UI state ───────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>("planning");
-  const [inputText, setInputText] = useState("");
-  
-  // Initialize from existing project history if available
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (existingProject?.planningMessages) return existingProject.planningMessages;
-    return [
-      {
-        sender: "agent",
-        text: `Hi there! 👋 I'm your Intelligent Planning Assistant. We're starting on the project **"${initialProjectName}"**. Could you share your vision or ideas for this project? Feel free to explain it in your own words!`,
-      },
-    ];
-  });
-  
-  const [isTyping, setIsTyping] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [messageQueue, setMessageQueue] = useState<string[]>([]);
+  const [reportContent, setReportContent] = useState(
+    existingProject?.planningReport ?? ""
+  );
+  const [structuredReport, setStructuredReport] = useState(
+    existingProject?.planningStructured ?? null
+  );
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
-  
-  const [reportContent, setReportContent] = useState(existingProject?.planningReport || "");
-  const [structuredReport, setStructuredReport] = useState<any>(existingProject?.planningStructured || null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [pendingAction, setPendingAction] = useState<SuggestedAction | null>(null);
+  // ── Hooks ──────────────────────────────────────────────────────────────────
+  const chat = usePlanningChat({
+    projectId: currentProjectId,
+    projectName,
+    reportContent,
+    onActionConfirmed: (action: SuggestedAction) => dispatchAction(action),
+  });
 
-  const DiffViewer = ({ oldText, newText, version }: { oldText: string, newText: string, version: number }) => {
-    const diffs = useMemo(() => Diff.diffWords(oldText, newText), [oldText, newText]);
-    
-    return (
-      <div className="bg-slate-50/50 p-6 rounded-2xl border border-dashed border-slate-200 animate-in fade-in duration-500">
-        <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3">
-          <Zap className="w-3 h-3 text-blue-500" /> Comparison: v{version} vs Current
-        </div>
-        <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-600 font-medium text-justify">
-          {diffs.map((part, index) => (
-            <span 
-              key={index} 
-              className={
-                part.added 
-                  ? "bg-green-100/80 text-green-700 px-0.5 rounded-sm font-bold border-b-2 border-green-400/30" 
-                  : part.removed 
-                  ? "bg-red-50 text-red-500/60 line-through decoration-red-300 text-[12px] opacity-60 px-0.5" 
-                  : ""
-              }
-            >
-              {part.value}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  };
+  const elaboration = useTaskElaboration({
+    projectId: currentProjectId,
+    reportContent,
+    suggestedTaskTitles: structuredReport?.suggested_tasks ?? [],
+    onElaborationStart: () => setPhase("tasks"),
+  });
 
+  // Auto-scroll chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [chat.messages, chat.isTyping]);
 
-  // Essential: Sync to store whenever chat or report changes
-  useEffect(() => {
-     if (existingProject) {
-        updateProjectPlanning(currentProjectId, messages, reportContent, structuredReport);
-     } else if (messages.length > 1) {
-        // Create initial project stub to host history
-        const initialProj: Project = {
-           id: currentProjectId,
-           name: initialProjectName,
-           description: "",
-           status: "planning",
-           tasks: [],
-           planningMessages: messages,
-           createdAt: new Date().toISOString()
-        };
-        addProject(initialProj);
-     }
-  }, [messages, reportContent, structuredReport]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // ACTIONS
-  // ─────────────────────────────────────────────────────────────────────────
-
+  // ── Report generation ──────────────────────────────────────────────────────
   const handleGenerateReport = async () => {
-    setIsTyping(true);
+    setIsGeneratingReport(true);
     try {
-      const data = await generateProjectReport(initialProjectName, messages);
-      setReportContent(data.report);
-      setStructuredReport(data.structured);
-      updateProjectPlanningReport(currentProjectId, data.report, "ai");
-    } catch (err) {
-      console.error("Report generation failed:", err);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const dispatchAction = (action: SuggestedAction) => {
-    if (action.type === "generate_report") {
-      handleGenerateReport();
-    } else if (action.type === "proceed_to_tasks") {
-      setPhase("tasks");
-    }
-  };
-
-  const handleStartExecution = () => {
-    if (!structuredReport) return;
-
-    const generatedTasks: Task[] = structuredReport.suggested_tasks.map((title: string, idx: number) => ({
-      id: `task-${Date.now()}-${idx}`,
-      title,
-      description: "",
-      status: "todo",
-      subtasks: [],
-      agentType: "Starter Agent",
-      updatedAt: new Date().toISOString()
-    }));
-
-    // If project was a temporary stub, it will be updated here to execution status
-    startExecution(currentProjectId, generatedTasks);
-    navigate(`/project/${currentProjectId}`);
-  };
-
-  const handleSendMessage = async (manualText?: string) => {
-    const textToSend = manualText || inputText;
-    if (!textToSend.trim()) return;
-
-    if (isSending) {
-      setMessageQueue(prev => [...prev, textToSend]);
-      if (!manualText) setInputText("");
-      return;
-    }
-
-    setIsSending(true);
-    if (!manualText) setInputText("");
-
-    const userMsg: Message = { sender: "user", text: textToSend };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
-
-    setIsTyping(true);
-
-    try {
-      const history = updatedMessages.map((m) => ({
+      const history = chat.messages.map((m) => ({
         role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
         content: m.text,
       }));
 
-      const response = await chatWithAgenticAI(history, pendingAction?.type, reportContent);
+      const data = await generateProjectReport(projectName, history);
+      setReportContent(data.report);
+      setStructuredReport(data.structured);
+      updateProjectPlanningReport(currentProjectId, data.report, "ai");
 
-      // If user confirmed a pending action OR explicitly commanded it → dispatch it
-      if (response.userIntent === "confirm") {
-        if (response.suggestedAction?.type === "generate_report" && response.report) {
-          setReportContent(response.report);
-          updateProjectPlanningReport(currentProjectId, response.report, "ai");
-        }
-        const actionToDispatch = pendingAction || { type: "generate_report", hint: "Generating based on your request..." };
-        setPendingAction(null);
-        setMessages((prev: Message[]) => [
-          ...prev,
-          { sender: "agent", text: response.reply, suggestedAction: null },
-        ]);
-        setTimeout(() => dispatchAction(actionToDispatch), 600);
-      } else {
-        // Normal reply — attach new suggestedAction if any
-        setPendingAction(response.suggestedAction);
-        setMessages((prev: Message[]) => [
-          ...prev,
-          {
-            sender: "agent",
-            text: response.reply,
-            suggestedAction: response.suggestedAction,
-          },
-        ]);
-      }
-    } catch (error) {
-      console.error("AI call failed:", error);
+      const taskCount = data.structured?.suggested_tasks?.length ?? 0;
+      const suggestAction: SuggestedAction = {
+        type: "suggest_tasks",
+        hint: '💡 Say "Yes" or "Go ahead" to let AI elaborate all tasks in detail',
+      };
+
+      chat.pushAgentMessage(
+        `✅ Your project report is ready! I've identified **${taskCount} key tasks** for this project.\n\nWould you like me to elaborate each task with a **detailed description**, explain *why* it matters, and break it down into concrete subtasks?`,
+        suggestAction
+      );
+      chat.setPendingAction(suggestAction);
+    } catch (err) {
+      console.error("[PlanningScreen] Report generation failed:", err);
     } finally {
-      setIsTyping(false);
-      setIsSending(false);
+      setIsGeneratingReport(false);
     }
   };
 
-  // Queue Handler Effect
-  useEffect(() => {
-    if (!isSending && messageQueue.length > 0) {
-      const nextMessage = messageQueue[0];
-      setMessageQueue(prev => prev.slice(1));
-      handleSendMessage(nextMessage);
+  // ── Action dispatcher ──────────────────────────────────────────────────────
+  const dispatchAction = (action: SuggestedAction) => {
+    switch (action.type) {
+      case "generate_report":
+        handleGenerateReport();
+        break;
+      case "proceed_to_tasks":
+        setPhase("tasks");
+        break;
+      case "suggest_tasks":
+        elaboration.elaborate();
+        break;
     }
-  }, [isSending, messageQueue]);
+  };
+
+  // ── Start execution ────────────────────────────────────────────────────────
+  const handleStartExecution = () => {
+    const source =
+      elaboration.detailedTasks.length > 0
+        ? elaboration.detailedTasks
+        : (structuredReport?.suggested_tasks ?? []).map(
+            (title: string): DetailedTask => ({
+              title,
+              description: "",
+              why: "",
+              suggested_subtasks: [],
+              agent_hint: "Starter Agent",
+            })
+          );
+
+    const tasks: Task[] = source.map((t, idx) => ({
+      id: `task-${Date.now()}-${idx}`,
+      title: t.title,
+      description: t.description,
+      why: t.why,
+      status: "todo" as const,
+      subtasks: t.suggested_subtasks.map((text, sIdx) => ({
+        id: `subtask-${Date.now()}-${idx}-${sIdx}`,
+        text,
+        completed: false,
+      })),
+      agentType: t.agent_hint,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    startExecution(currentProjectId, tasks);
+    navigate(`/mission-control/${currentProjectId}`);
+  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -232,343 +187,665 @@ export function PlanningScreen() {
 
   return (
     <div className="flex h-full w-full bg-[#f0f4f8] overflow-hidden font-sans text-slate-800">
-      {/* Sidebar */}
+      {/* ── Sidebar ── */}
       <aside className="w-20 bg-slate-900 flex flex-col items-center py-10 gap-10 flex-shrink-0 shadow-2xl">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
           <Zap className="w-6 h-6 fill-current text-white" />
         </div>
         <div className="flex flex-col gap-8 text-slate-500">
-          <div
-            className={`p-3 rounded-2xl transition-all cursor-pointer ${phase === "planning" ? "bg-white/10 text-white shadow-inner" : "hover:text-white hover:bg-white/5"}`}
+          <button
+            className={`p-3 rounded-2xl transition-all ${
+              phase === "planning"
+                ? "bg-white/10 text-white shadow-inner"
+                : "hover:text-white hover:bg-white/5"
+            }`}
             onClick={() => setPhase("planning")}
+            aria-label="Planning phase"
           >
             <MessageSquare className="w-6 h-6" />
-          </div>
-          <div
-            className={`p-3 rounded-2xl transition-all cursor-pointer ${phase === "tasks" ? "bg-white/10 text-white shadow-inner" : "hover:text-white hover:bg-white/5"}`}
+          </button>
+          <button
+            className={`p-3 rounded-2xl transition-all ${
+              phase === "tasks"
+                ? "bg-white/10 text-white shadow-inner"
+                : "hover:text-white hover:bg-white/5"
+            }`}
             onClick={() => setPhase("tasks")}
+            aria-label="Tasks phase"
           >
             <ListTodo className="w-6 h-6" />
-          </div>
+          </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* ── Main ── */}
       <div className="flex-1 flex flex-col h-full bg-white relative rounded-l-[40px] shadow-2xl overflow-hidden border-l border-white/20">
         {/* Header */}
-        <header className="h-20 px-10 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-slate-100 shrink-0 z-30">
-          <div className="flex items-center gap-6">
+        <div className="flex w-full h-20 shrink-0 border-b border-slate-100 bg-white/80 backdrop-blur-md z-30">
+          {/* Left header */}
+          <div className="w-[45%] h-full px-10 flex items-center border-r border-slate-100 bg-white">
             <button
               onClick={() => navigate("/")}
-              className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 group"
+              className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 group mr-6"
             >
               <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             </button>
-            <div className="flex flex-col">
+            <div>
               <div className="flex items-center gap-2">
-                 <Target className="w-3.5 h-3.5 text-blue-500" />
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Planning</span>
+                <Target className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Project Planning
+                </span>
               </div>
-              <h2 className="text-lg font-extrabold text-slate-900">{initialProjectName}</h2>
+              <h2 className="text-lg font-extrabold text-slate-900">{projectName}</h2>
             </div>
           </div>
-          
-          {/* Progress Indicator */}
-          <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
-            <div className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${phase === "planning" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400"}`}>
-              1. Brainstorming
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 mx-1" />
-            <div className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${phase === "tasks" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400"}`}>
-              2. Execution Plan
-            </div>
-          </div>
-        </header>
 
-        {/* Content Body */}
+          {/* Right header */}
+          <div className="flex-1 h-full px-10 flex items-center justify-between bg-white">
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-xl bg-blue-50/50 flex items-center justify-center text-blue-600 border border-blue-100 shrink-0 shadow-sm">
+                <FileText className="w-4 h-4" />
+              </div>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                Strategy Overview
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {(existingProject?.planningHistory?.length ?? 0) > 0 && (
+                <button
+                  onClick={() => setShowDiff((v) => !v)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                    showDiff
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "bg-white text-slate-400 border border-slate-100 hover:border-blue-200"
+                  }`}
+                >
+                  {showDiff ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" /> Skip Diff
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" /> View Changes
+                    </>
+                  )}
+                </button>
+              )}
+
+              {isEditingReport && (
+                <button
+                  onClick={() => {
+                    setIsEditingReport(false);
+                    updateProjectPlanningReport(currentProjectId, reportContent, "user");
+                  }}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-green-500 text-white shadow-xl shadow-green-500/20 active:scale-95 transition-all"
+                >
+                  Save <CheckCircle2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Phase stepper */}
+              <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100 ml-2">
+                <div
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    phase === "planning"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-400"
+                  }`}
+                >
+                  1. Brainstorming
+                </div>
+                <ChevronRight className="w-3 h-3 text-slate-300 mx-1" />
+                <div
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    phase === "tasks"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-slate-400"
+                  }`}
+                >
+                  2. Execution Plan
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
         <div className="flex-1 flex overflow-hidden bg-[#fafbfc]">
           {phase === "planning" ? (
-            <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700">
-              {/* Chat Column */}
-              <div className="w-[45%] flex flex-col bg-white border-r border-slate-100 relative shadow-[10px_0_30px_-15px_rgba(0,0,0,0.03)] z-10">
-                <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col gap-8 scrollbar-hide">
-                  {messages.map((msg: Message, i: number) => (
-                    <div
-                      key={i}
-                      className={`flex gap-4 max-w-[92%] transition-all animate-in slide-in-from-bottom-5 duration-500 ${
-                        msg.sender === "user" ? "ml-auto flex-row-reverse" : ""
-                      }`}
-                    >
-                      {/* Avatar */}
-                      <div className={`w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center text-xs font-bold border-2 ${
-                        msg.sender === "agent"
-                          ? "bg-gradient-to-br from-slate-800 to-slate-900 text-white border-slate-800 shadow-lg shadow-slate-200"
-                          : "bg-white text-slate-600 border-slate-100 shadow-sm"
-                      }`}>
-                        {msg.sender === "agent" ? <Sparkles className="w-5 h-5 text-blue-400" /> : "Me"}
-                      </div>
+            <PlanningPhaseView
+              chat={chat}
+              reportContent={reportContent}
+              structuredReport={structuredReport}
+              existingProject={existingProject}
+              showDiff={showDiff}
+              isEditingReport={isEditingReport}
+              isGeneratingReport={isGeneratingReport}
+              messagesEndRef={messagesEndRef}
+              onEditReport={() => setIsEditingReport(true)}
+              onReportChange={setReportContent}
+            />
+          ) : (
+            <TasksPhaseView
+              elaboration={elaboration}
+              structuredReport={structuredReport}
+              messageQueue={chat.messageQueue}
+              onBackToPlanning={() => setPhase("planning")}
+              onStartExecution={handleStartExecution}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                      {/* Bubble */}
-                      <div className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] ${
-                        msg.sender === "agent"
-                          ? "bg-white border border-slate-100 shadow-[0_5px_15px_-5px_rgba(0,0,0,0.05)] text-slate-700 rounded-tl-none"
-                          : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none text-justify"
-                      }`}>
-                        <div className="prose prose-sm max-w-none text-current text-justify">
-                          <ReactMarkdown>{msg.text || ""}</ReactMarkdown>
-                        </div>
+// ─────────────────────────────────────────────────────────────────────────────
+// PLANNING PHASE VIEW — chat + report side by side
+// ─────────────────────────────────────────────────────────────────────────────
 
-                        {msg.suggestedAction && (
-                          <div className="mt-5 p-4 rounded-2xl bg-blue-50/50 border border-blue-100/50 backdrop-blur-sm animate-pulse">
-                            <p className="text-[11px] text-blue-600 flex items-center gap-2 italic tracking-wide">
-                              {msg.suggestedAction.hint}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {isTyping && (
-                    <div className="flex gap-4 max-w-[90%]">
-                      <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-slate-300" />
-                      </div>
-                      <div className="p-5 rounded-[24px] rounded-tl-none bg-slate-50 text-slate-400 italic text-xs flex items-center gap-3 border border-slate-100/50">
-                        <span className="flex gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:200ms]" />
-                          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:400ms]" />
-                        </span>
-                        Assistant is thinking...
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
+interface PlanningPhaseViewProps {
+  chat: ReturnType<typeof usePlanningChat>;
+  reportContent: string;
+  structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
+  existingProject: { planningHistory?: { content: string; timestamp: number; author: string }[] } | null;
+  showDiff: boolean;
+  isEditingReport: boolean;
+  isGeneratingReport: boolean;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  onEditReport: () => void;
+  onReportChange: (v: string) => void;
+}
 
-                {/* Input Area */}
-                <div className="p-8 bg-gradient-to-t from-white via-white to-transparent">
-                  <div className="relative group p-1 bg-white rounded-[28px] shadow-2xl shadow-slate-200 border border-slate-100 focus-within:border-blue-300 transition-all">
-                    <textarea
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Share your vision or ask questions..."
-                      className="w-full bg-transparent border-none rounded-[24px] p-4 pr-20 text-base focus:ring-0 resize-none min-h-[60px] max-h-40 placeholder:text-slate-300 text-slate-700 font-medium"
-                      rows={1}
-                    />
-                    <button
-                      onClick={() => handleSendMessage()}
-                      className={`absolute right-2 bottom-2 p-4 rounded-2xl transition-all ${
-                        inputText.trim()
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
-                          : "bg-slate-50 text-slate-300"
-                      }`}
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <p className="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-[0.2em] opacity-60">
-                    Tips: Detailed descriptions help the AI plan better! 💡
-                  </p>
-                </div>
+function PlanningPhaseView({
+  chat,
+  reportContent,
+  existingProject,
+  showDiff,
+  isEditingReport,
+  isGeneratingReport,
+  messagesEndRef,
+  onEditReport,
+  onReportChange,
+}: PlanningPhaseViewProps) {
+  return (
+    <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700">
+      {/* ── Chat Column ── */}
+      <div className="w-[45%] flex flex-col bg-white border-r border-slate-100 relative shadow-[10px_0_30px_-15px_rgba(0,0,0,0.03)] z-10">
+        <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col gap-8 scrollbar-hide">
+          {chat.messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex gap-4 max-w-[92%] transition-all animate-in slide-in-from-bottom-5 duration-500 ${
+                msg.sender === "user" ? "ml-auto flex-row-reverse" : ""
+              }`}
+            >
+              {/* Avatar */}
+              <div
+                className={`w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center text-xs font-bold border-2 ${
+                  msg.sender === "agent"
+                    ? "bg-gradient-to-br from-slate-800 to-slate-900 text-white border-slate-800 shadow-lg shadow-slate-200"
+                    : "bg-white text-slate-600 border-slate-100 shadow-sm"
+                }`}
+              >
+                {msg.sender === "agent" ? (
+                  <Sparkles className="w-5 h-5 text-blue-400" />
+                ) : (
+                  "Me"
+                )}
               </div>
 
-              {/* Report Preview */}
-              <div className="flex-1 bg-[#fcfdfe] overflow-y-auto px-10 py-10">
-                <div className="max-w-5xl mx-auto flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-50">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-6 h-[1.5px] bg-blue-500 rounded-full" />
-                        <h3 className="text-[9px] font-black text-blue-500 uppercase tracking-widest">SYNTHESIS</h3>
-                      </div>
-                      <h2 className="text-2xl font-black text-slate-800 tracking-tight">Strategy Overview</h2>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                        <button
-                          disabled={(existingProject?.planningHistory?.length || 0) === 0}
-                          onClick={() => setShowDiff(!showDiff)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[9px] uppercase tracking-widest transition-all ${
-                            showDiff ? "bg-blue-600 text-white shadow-md" : "hover:bg-white text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent"
-                          }`}
-                        >
-                          {showDiff ? <><EyeOff className="w-3 h-3" /> Hide Diff</> : <><Eye className="w-3 h-3" /> View Diff</>}
-                        </button>
-                        <div className="w-px h-4 bg-slate-200 mx-1" />
-                        <div className="flex items-center gap-2 pr-2 ml-1">
-                          <History className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            v{(existingProject?.planningHistory?.length || 0) + 1}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {isEditingReport && (
-                        <button 
-                          onClick={() => {
-                            setIsEditingReport(false);
-                            (updateProjectPlanningReport as any)(currentProjectId, reportContent, "user");
-                          }}
-                          className="group flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-green-500 text-white shadow-lg shadow-green-500/20 active:scale-95 transition-all"
-                        >
-                          Save Changes <CheckCircle2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
-                    {!reportContent ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-50 rounded-3xl m-4">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-200 mb-4">
-                          <FileText className="w-8 h-8" />
-                        </div>
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Awaiting Wisdom</h4>
-                      </div>
-                    ) : (
-                      <div className="flex-1 overflow-y-auto scrollbar-hide p-8 md:p-10 animate-in fade-in duration-500">
-                        {isEditingReport ? (
-                          <div className="h-full flex flex-col">
-                            <textarea
-                               value={reportContent}
-                               onChange={(e) => setReportContent(e.target.value)}
-                               className="flex-1 w-full bg-slate-50/50 p-6 md:p-8 rounded-2xl outline-none font-mono text-sm leading-relaxed resize-none text-slate-700 border-none placeholder:text-slate-200"
-                               placeholder="Refine strategy..."
-                               autoFocus
-                            />
-                            <div className="mt-4 text-center text-[8px] font-black text-slate-300 uppercase tracking-[2px]">
-                               Manual Collaborative Mode
-                            </div>
-                          </div>
-                        ) : (
-                          <div 
-                            onDoubleClick={() => setIsEditingReport(true)}
-                            title="Double-click to edit"
-                            className="relative"
-                          >
-                             <div className="prose prose-slate prose-sm max-w-none 
-                               prose-h1:text-2xl prose-h1:font-black prose-h1:tracking-tight prose-h1:mb-6 prose-h1:text-slate-900
-                               prose-h2:text-lg prose-h2:font-bold prose-h2:tracking-tight prose-h2:text-slate-800 prose-h2:mt-8 prose-h2:mb-4
-                               prose-p:text-slate-600 prose-p:leading-6 prose-p:mb-4
-                               prose-li:text-slate-600 prose-li:my-1 prose-strong:text-slate-900 prose-strong:font-bold
-                               text-justify
-                             ">
-                              {showDiff && existingProject?.planningHistory && existingProject.planningHistory.length > 0 ? (
-                                <DiffViewer 
-                                  oldText={existingProject.planningHistory[existingProject.planningHistory.length - 1].content} 
-                                  newText={reportContent} 
-                                  version={existingProject.planningHistory.length}
-                                />
-                              ) : (
-                                <ReactMarkdown>{reportContent}</ReactMarkdown>
-                              )}
-                            </div>
-
-                            {/* Decorative divider */}
-                            <div className="my-10 w-full h-px bg-gradient-to-r from-blue-100 to-transparent"></div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+              {/* Bubble */}
+              <div
+                className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] ${
+                  msg.sender === "agent"
+                    ? "bg-white border border-slate-100 shadow-[0_5px_15px_-5px_rgba(0,0,0,0.05)] text-slate-700 rounded-tl-none"
+                    : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none text-justify"
+                }`}
+              >
+                <div className="prose prose-sm max-w-none text-current text-justify prose-table:border-collapse prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.text ?? ""}
+                  </ReactMarkdown>
                 </div>
+
+                {msg.suggestedAction && (
+                  <div className="mt-5 p-4 rounded-2xl bg-blue-50/50 border border-blue-100/50 backdrop-blur-sm animate-pulse">
+                    <p className="text-[11px] text-blue-600 flex items-center gap-2 italic tracking-wide">
+                      <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+                      {msg.suggestedAction.hint}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            /* Phase 2: Tasks List */
-            <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700 bg-white">
-              <div className="w-1/3 bg-slate-50/50 border-r border-slate-100 p-12 flex flex-col overflow-y-auto">
-                 <div className="mb-10">
-                   <button
-                    onClick={() => setPhase("planning")}
-                    className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest hover:gap-3 transition-all underline underline-offset-8"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back to Planning
-                  </button>
-                 </div>
-                
-                {/* Queue Messages - Pending State */}
-                {messageQueue.map((text, idx) => (
-                  <div key={`queued-${idx}`} className="flex justify-end gap-3 mb-6 animate-in fade-in slide-in-from-right-4 duration-300 opacity-40">
-                    <div className="max-w-[85%] px-5 py-3 rounded-2xl text-[14px] leading-relaxed bg-slate-100 text-slate-500 rounded-br-none shadow-sm relative group border border-slate-200">
-                      <p className="font-medium text-justify">{text}</p>
-                      <div className="absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Clock className="w-3 h-3" /> Queued
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 shadow-sm self-end">
-                      Me
-                    </div>
-                  </div>
-                ))}
+          ))}
 
-                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
-                  <h3 className="text-[10px] font-black text-slate-400 tracking-[3px] mb-4 uppercase">PROJECT VISION</h3>
-                  <h4 className="text-xl font-black text-slate-900 mb-4">{structuredReport?.title}</h4>
-                  <p className="text-sm text-slate-500 leading-relaxed italic">
-                    "{structuredReport?.goal}"
-                  </p>
-                  
-                  <div className="mt-8 space-y-4">
-                     <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                        Optimized Roadmap
-                     </div>
-                     <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                        AI-Powered Assistance
-                     </div>
-                  </div>
-                </div>
+          {/* Typing indicator */}
+          {chat.isTyping && (
+            <div className="flex gap-4 max-w-[90%]">
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-slate-300" />
               </div>
-
-              <div className="flex-1 bg-white p-20 overflow-y-auto scrollbar-hide">
-                <div className="max-w-2xl mx-auto">
-                  <h2 className="text-5xl font-black text-slate-900 tracking-tight mb-12">Step-by-Step Plan</h2>
-                  
-                  <div className="space-y-6">
-                    {(structuredReport?.suggested_tasks || []).map((task: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className="p-8 rounded-[32px] bg-white border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-200 transition-all flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-6">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-50 border-2 border-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-all font-black text-lg">
-                            {idx + 1}
-                          </div>
-                          <span className="text-lg font-bold text-slate-700 tracking-tight">{task}</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          Task #{idx + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-16 p-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[45px] text-white flex items-center justify-between shadow-2xl shadow-blue-500/30">
-                    <div>
-                      <p className="text-white/60 text-[10px] font-black uppercase tracking-[3px] mb-2 text-center">FINAL STEP</p>
-                      <h3 className="text-2xl font-black">Start implementation!</h3>
-                    </div>
-                    <button
-                      onClick={handleStartExecution}
-                      className="bg-white text-blue-600 px-10 py-5 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-blue-50 active:scale-95 transition-all shadow-xl flex items-center gap-2"
-                    >
-                      Begin Execution <Play className="w-5 h-5 fill-current" />
-                    </button>
-                  </div>
-                </div>
+              <div className="p-5 rounded-[24px] rounded-tl-none bg-slate-50 text-slate-400 italic text-xs flex items-center gap-3 border border-slate-100/50">
+                <span className="flex gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:200ms]" />
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:400ms]" />
+                </span>
+                Assistant is thinking...
               </div>
             </div>
           )}
+
+          {isGeneratingReport && (
+            <div className="flex gap-4 max-w-[90%]">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-blue-300" />
+              </div>
+              <div className="p-5 rounded-[24px] rounded-tl-none bg-blue-50 text-blue-400 italic text-xs flex items-center gap-3 border border-blue-100">
+                <span className="flex gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:200ms]" />
+                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:400ms]" />
+                </span>
+                Generating project report...
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
+
+        {/* Chat Input */}
+        <div className="max-w-4xl mx-auto w-full px-8 pb-4">
+          <div className="relative group/input flex items-end gap-2 bg-white border border-slate-100 rounded-2xl p-2 shadow-sm hover:shadow-md transition-all focus-within:border-blue-400">
+            <textarea
+              rows={1}
+              placeholder="Share your vision or ask questions..."
+              className="flex-1 bg-transparent pl-4 pr-2 py-2 text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none resize-none max-h-[200px] overflow-y-auto"
+              value={chat.inputText}
+              onChange={(e) => {
+                chat.setInputText(e.target.value);
+                e.currentTarget.style.height = "auto";
+                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+              }}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing
+                ) {
+                  e.preventDefault();
+                  chat.sendMessage();
+                  e.currentTarget.style.height = "auto";
+                }
+              }}
+            />
+            <button
+              onClick={() => chat.sendMessage()}
+              className={`absolute right-2 bottom-2 p-4 rounded-2xl transition-all ${
+                chat.inputText.trim()
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700"
+                  : "bg-slate-50 text-slate-300"
+              }`}
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-[0.2em] opacity-60">
+            Tips: Detailed descriptions help the AI plan better! 💡
+          </p>
+        </div>
+      </div>
+
+      {/* ── Report Panel ── */}
+      <div className="flex-1 bg-[#fcfdfe] overflow-y-auto px-10 py-10">
+        <div className="max-w-5xl mx-auto flex flex-col h-full">
+          <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
+            {!reportContent ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-50 rounded-3xl m-4">
+                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-200 mb-4">
+                  <FileText className="w-8 h-8" />
+                </div>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Awaiting Wisdom
+                </h4>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-8 md:p-10 animate-in fade-in duration-500">
+                {isEditingReport ? (
+                  <div className="h-full flex flex-col">
+                    <textarea
+                      value={reportContent}
+                      onChange={(e) => onReportChange(e.target.value)}
+                      className="flex-1 w-full bg-slate-50/50 p-6 md:p-8 rounded-2xl outline-none font-mono text-sm leading-relaxed resize-none text-slate-700"
+                      placeholder="Refine strategy..."
+                      autoFocus
+                    />
+                    <div className="mt-4 text-center text-[8px] font-black text-slate-300 uppercase tracking-[2px]">
+                      Manual Collaborative Mode
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDoubleClick={onEditReport}
+                    title="Double-click to edit"
+                    className="relative"
+                  >
+                    <div className="prose prose-slate prose-sm max-w-none font-['Inter','system-ui','sans-serif'] prose-h1:text-3xl prose-h1:font-black prose-h1:tracking-tight prose-h1:mb-8 prose-h1:text-slate-900 prose-h2:text-[18px] prose-h2:font-black prose-h2:text-slate-800 prose-h2:border-t prose-h2:border-slate-100 prose-h2:pt-6 prose-h2:mt-10 prose-h2:mb-5 prose-h3:text-sm prose-h3:font-bold prose-h3:text-slate-800 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-[14px] prose-p:text-slate-600 prose-p:leading-7 prose-p:mb-5 prose-li:text-[14px] prose-li:text-slate-600 prose-li:my-2 prose-strong:text-slate-900 prose-strong:font-bold prose-blockquote:border-l-4 prose-blockquote:border-slate-200 prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:text-slate-500 prose-code:bg-slate-50 prose-code:text-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-pre:bg-slate-900 prose-pre:text-slate-300 prose-pre:rounded-2xl prose-pre:p-6 prose-pre:shadow-xl prose-table:w-full prose-table:border-collapse prose-table:my-6 prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50/80 prose-th:px-4 prose-th:py-3 prose-th:text-left prose-th:text-xs prose-th:font-bold prose-th:text-slate-700 prose-td:border prose-td:border-slate-200 prose-td:px-4 prose-td:py-3 prose-td:text-sm prose-td:text-slate-600 text-justify">
+                      {showDiff &&
+                      existingProject?.planningHistory &&
+                      existingProject.planningHistory.length > 0 ? (
+                        <DiffViewer
+                          oldText={
+                            existingProject.planningHistory[
+                              existingProject.planningHistory.length - 1
+                            ].content
+                          }
+                          newText={reportContent}
+                          version={existingProject.planningHistory.length}
+                        />
+                      ) : (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {reportContent}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                    <div className="my-10 w-full h-px bg-gradient-to-r from-blue-100 to-transparent" />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASKS PHASE VIEW — AI-elaborated task cards
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TasksPhaseViewProps {
+  elaboration: ReturnType<typeof useTaskElaboration>;
+  structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
+  messageQueue: string[];
+  onBackToPlanning: () => void;
+  onStartExecution: () => void;
+}
+
+function TasksPhaseView({
+  elaboration,
+  structuredReport,
+  messageQueue,
+  onBackToPlanning,
+  onStartExecution,
+}: TasksPhaseViewProps) {
+  const { detailedTasks, elaborationSummary, isElaborating, expandedTasks, toggleTaskExpand, elaborate } = elaboration;
+  const hasTasks = detailedTasks.length > 0;
+  const hasSuggestedTitles = (structuredReport?.suggested_tasks?.length ?? 0) > 0;
+
+  return (
+    <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700 bg-white">
+      {/* Left panel — context */}
+      <div className="w-1/3 bg-slate-50/50 border-r border-slate-100 p-12 flex flex-col overflow-y-auto">
+        <div className="mb-10">
+          <button
+            onClick={onBackToPlanning}
+            className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest hover:gap-3 transition-all underline underline-offset-8"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Planning
+          </button>
+        </div>
+
+        {/* Queued messages */}
+        {messageQueue.map((text, idx) => (
+          <div
+            key={`queued-${idx}`}
+            className="flex justify-end gap-3 mb-6 animate-in fade-in slide-in-from-right-4 duration-300 opacity-40"
+          >
+            <div className="max-w-[85%] px-5 py-3 rounded-2xl text-[14px] leading-relaxed bg-slate-100 text-slate-500 rounded-br-none shadow-sm relative group border border-slate-200">
+              <p className="font-medium text-justify">{text}</p>
+              <div className="absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                <Clock className="w-3 h-3" /> Queued
+              </div>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 shadow-sm self-end">
+              Me
+            </div>
+          </div>
+        ))}
+
+        {/* Project vision card */}
+        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
+          <h3 className="text-[10px] font-black text-slate-400 tracking-[3px] mb-4 uppercase">
+            PROJECT VISION
+          </h3>
+          <h4 className="text-xl font-black text-slate-900 mb-4">
+            {structuredReport?.title}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed italic">
+            "{structuredReport?.goal}"
+          </p>
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              Optimized Roadmap
+            </div>
+            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+              AI-Powered Assistance
+            </div>
+          </div>
+        </div>
+
+        {elaborationSummary && (
+          <div className="mt-6 p-6 bg-blue-50 rounded-[24px] border border-blue-100">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-blue-500" />
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                AI Plan Summary
+              </span>
+            </div>
+            <p className="text-sm text-blue-800 font-medium leading-relaxed">
+              {elaborationSummary}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Right panel — tasks */}
+      <div className="flex-1 bg-white p-16 overflow-y-auto scrollbar-hide">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-12">
+            <h2 className="text-5xl font-black text-slate-900 tracking-tight">
+              Execution Plan
+            </h2>
+            {!hasTasks && !isElaborating && hasSuggestedTitles && (
+              <button
+                onClick={elaborate}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+              >
+                <Sparkles className="w-4 h-4" /> AI Elaborate Tasks
+              </button>
+            )}
+          </div>
+
+          {/* Elaborating state */}
+          {isElaborating && (
+            <div className="flex flex-col items-center justify-center py-20 gap-6 animate-in fade-in duration-500">
+              <div className="w-16 h-16 rounded-3xl bg-blue-50 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-blue-500 animate-pulse" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-black text-slate-800 mb-2">
+                  AI is elaborating tasks...
+                </h3>
+                <p className="text-sm text-slate-400 font-medium">
+                  Generating descriptions, subtasks and context for each task
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {hasTasks
+              ? detailedTasks.map((task, idx) => (
+                  <TaskCard
+                    key={idx}
+                    task={task}
+                    index={idx}
+                    isExpanded={expandedTasks.has(idx)}
+                    onToggle={() => toggleTaskExpand(idx)}
+                  />
+                ))
+              : !isElaborating &&
+                (structuredReport?.suggested_tasks ?? []).map(
+                  (title: string, idx: number) => (
+                    <BareTitleCard key={idx} title={title} index={idx} />
+                  )
+                )}
+          </div>
+
+          {/* Begin Execution CTA */}
+          {(hasTasks || (hasSuggestedTitles && !isElaborating)) && (
+            <div className="mt-16 p-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[45px] text-white flex items-center justify-between shadow-2xl shadow-blue-500/30">
+              <div>
+                <p className="text-white/60 text-[10px] font-black uppercase tracking-[3px] mb-2">
+                  FINAL STEP
+                </p>
+                <h3 className="text-2xl font-black">Start implementation!</h3>
+                {hasTasks && (
+                  <p className="text-blue-200/70 text-sm mt-1">
+                    {detailedTasks.length} tasks ready with AI-generated details
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={onStartExecution}
+                className="bg-white text-blue-600 px-10 py-5 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-blue-50 active:scale-95 transition-all shadow-xl flex items-center gap-2"
+              >
+                Begin Execution <Play className="w-5 h-5 fill-current" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASK CARD — AI-elaborated, expandable
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TaskCardProps {
+  task: DetailedTask;
+  index: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function TaskCard({ task, index, isExpanded, onToggle }: TaskCardProps) {
+  return (
+    <div className="rounded-[28px] bg-white border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-200 transition-all overflow-hidden">
+      {/* Header — always visible */}
+      <div
+        className="flex items-center justify-between p-7 cursor-pointer group"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 border-2 border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-all font-black text-lg flex-shrink-0">
+            {index + 1}
+          </div>
+          <div>
+            <span className="text-base font-bold text-slate-800 tracking-tight block">
+              {task.title}
+            </span>
+            <span
+              className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                AGENT_COLORS[task.agent_hint] ?? "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {task.agent_hint}
+            </span>
+          </div>
+        </div>
+        <ChevronDown
+          className={`w-5 h-5 text-slate-300 transition-transform ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </div>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <div className="px-7 pb-7 pt-0 border-t border-slate-50 animate-in slide-in-from-top-2 duration-200">
+          {task.description && (
+            <div className="mt-5">
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                What this involves
+              </h5>
+              <p className="text-sm text-slate-600 leading-relaxed">{task.description}</p>
+            </div>
+          )}
+
+          {task.why && (
+            <div className="mt-5 p-4 bg-amber-50/60 rounded-2xl border border-amber-100">
+              <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                <Lightbulb className="w-3 h-3" /> Why this matters
+              </h5>
+              <p className="text-sm text-amber-900 font-medium leading-relaxed">{task.why}</p>
+            </div>
+          )}
+
+          {task.suggested_subtasks.length > 0 && (
+            <div className="mt-5">
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                Subtasks
+              </h5>
+              <ul className="space-y-2">
+                {task.suggested_subtasks.map((sub, sIdx) => (
+                  <li key={sIdx} className="flex items-center gap-3 text-sm text-slate-600">
+                    <div className="w-5 h-5 rounded-md border-2 border-slate-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                    </div>
+                    {sub}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BARE TITLE CARD — fallback before AI elaboration
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BareTitleCard({ title, index }: { title: string; index: number }) {
+  return (
+    <div className="p-8 rounded-[32px] bg-white border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-200 transition-all flex items-center justify-between group">
+      <div className="flex items-center gap-6">
+        <div className="w-12 h-12 rounded-2xl bg-slate-50 border-2 border-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-all font-black text-lg">
+          {index + 1}
+        </div>
+        <span className="text-lg font-bold text-slate-700 tracking-tight">{title}</span>
+      </div>
+      <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        Task #{index + 1}
       </div>
     </div>
   );

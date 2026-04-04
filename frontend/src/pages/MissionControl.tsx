@@ -1,16 +1,8 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Rocket, BookOpen, Zap, Search, Archive, Plus, MoreHorizontal, MessageSquare, Clock, CheckCircle2, XCircle, ArrowLeft, FileText } from "lucide-react";
-import { useProjectStore } from "@/store/useProjectStore";
-import type { TaskStatus } from "@/store/useProjectStore";
-
-const COLUMNS: { id: TaskStatus; label: string; icon: any; agent: string }[] = [
-  { id: 'todo', label: 'TO DO', icon: Rocket, agent: 'Starter Agent' },
-  { id: 'planning', label: 'PLANNING', icon: BookOpen, agent: 'Planner Agent' },
-  { id: 'doing', label: 'DOING', icon: Zap, agent: 'Doer Agent' },
-  { id: 'review', label: 'REVIEW', icon: Search, agent: 'Reviewer Agent' },
-  { id: 'done', label: 'DONE', icon: CheckCircle2, agent: 'Reporter Agent' },
-  { id: 'cancelled', label: 'CANCELLED', icon: XCircle, agent: 'System' },
-];
+import { Archive, Plus, MoreHorizontal, MessageSquare, Clock, ArrowLeft, FileText, Zap, XCircle, Rocket } from "lucide-react";
+import { useProjectStore } from "@/store";
+import { KANBAN_COLUMNS } from "@/constants/agents";
+import type { TaskStatus } from "@/types/domain";
 
 export function MissionControl() {
   const { id } = useParams();
@@ -42,10 +34,10 @@ export function MissionControl() {
           </button>
 
           <nav className="flex flex-col gap-1">
-            {COLUMNS.filter(c => c.id !== 'cancelled').map(col => (
+            {KANBAN_COLUMNS.filter(c => c.id !== 'cancelled').map(col => (
               <a key={col.id} href="#" className="flex items-center justify-between px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-lg text-sm font-medium transition-colors group">
                 <div className="flex items-center gap-3">
-                  <col.icon className="w-4 h-4 text-gray-400 group-hover:text-[#0a192f]" />
+                  <col.Icon className="w-4 h-4 text-gray-400 group-hover:text-[#0a192f]" />
                   <span className="group-hover:text-[#0a192f]">{col.agent.split(' ')[0]}</span>
                 </div>
                 <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{getTasksByStatus(col.id).length}</span>
@@ -107,12 +99,12 @@ export function MissionControl() {
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-8 pb-4">
           <div className="flex gap-6 h-full items-start min-w-max">
             
-            {COLUMNS.map(column => (
+            {KANBAN_COLUMNS.map(column => (
               <div key={column.id} className="w-80 flex flex-col h-full rounded-[2.5rem] bg-gray-50/50 border border-gray-100 shadow-inner overflow-hidden">
                 <div className="p-6 flex justify-between items-center bg-transparent border-b border-gray-100/50">
                   <div className="flex items-center gap-3 font-bold text-[10px] text-gray-400 tracking-[0.2em] uppercase">
                     <div className={`p-2 rounded-xl ${column.id === 'doing' ? 'bg-blue-100/50 text-blue-600' : 'bg-gray-100 text-gray-400 border border-gray-200 shadow-sm'}`}>
-                      <column.icon className="w-3.5 h-3.5" />
+                      <column.Icon className="w-3.5 h-3.5" />
                     </div>
                     {column.label} 
                     <span className="bg-white border border-gray-200 text-[#0a192f] w-6 h-6 rounded-lg flex items-center justify-center text-[10px] shadow-sm ml-1 font-black">{getTasksByStatus(column.id).length}</span>

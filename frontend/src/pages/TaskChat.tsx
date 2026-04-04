@@ -2,17 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Send, Paperclip, MoreVertical, Zap, CheckCircle2, FileText, Rocket, BookOpen, Search, XCircle, Download, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
-import { useProjectStore } from "@/store/useProjectStore";
-import type { TaskStatus } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store";
 import { chatWithAgent } from "@/lib/llm";
-
-const AGENT_ICONS: Record<string, any> = {
-  'Starter Agent': Rocket,
-  'Planner Agent': BookOpen,
-  'Doer Agent': Zap,
-  'Reviewer Agent': Search,
-  'Reporter Agent': FileText
-};
+import { AGENT_ICONS } from "@/constants/agents";
+import type { TaskStatus } from "@/types/domain";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
 

@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
 import { Plus, Upload, Clock, X, ArrowRight, Sparkles, Layout, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useProjectStore } from "@/store/useProjectStore";
-import type { Project } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store";
+import type { Project } from "@/types/domain";
 
 export function Home() {
   const navigate = useNavigate();
