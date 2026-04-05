@@ -41,6 +41,14 @@ export interface StoreState {
   /** Store the AI-elaborated detailed task list */
   updateProjectDetailedTasks: (id: string, tasks: DetailedTask[]) => void;
 
+  /** Update a specific detailed task and record history */
+  updateProjectDetailedTask: (
+    projectId: string,
+    taskIndex: number,
+    updatedTask: Partial<DetailedTask>,
+    author: "ai" | "user"
+  ) => void;
+
   // ── Execution ──────────────────────────────────────────────────────────────
   /** Transition project from planning → execution with generated tasks */
   startExecution: (id: string, tasks: Task[]) => void;
@@ -119,6 +127,39 @@ export const useProjectStore = create<StoreState>()(
           projects: state.projects.map((p) =>
             p.id === id ? { ...p, planningDetailedTasks: tasks } : p
           ),
+        })),
+
+      updateProjectDetailedTask: (projectId, taskIndex, updatedFields, author) =>
+        set((state) => ({
+          projects: state.projects.map((p) => {
+            if (p.id !== projectId || !p.planningDetailedTasks) return p;
+            
+            const newTasks = [...p.planningDetailedTasks];
+            const oldTask = newTasks[taskIndex];
+            if (!oldTask) return p;
+
+            // Only update history if title or description actually changed
+            const hasChanged = (updatedFields.title && updatedFields.title !== oldTask.title) || 
+                               (updatedFields.description && updatedFields.description !== oldTask.description);
+
+            if (hasChanged) {
+              const historyEntry = {
+                title: oldTask.title,
+                description: oldTask.description,
+                timestamp: Date.now(),
+                author
+              };
+              newTasks[taskIndex] = {
+                ...oldTask,
+                ...updatedFields,
+                history: [...(oldTask.history ?? []), historyEntry]
+              };
+            } else {
+              newTasks[taskIndex] = { ...oldTask, ...updatedFields };
+            }
+
+            return { ...p, planningDetailedTasks: newTasks };
+          }),
         })),
 
       // ── Execution ────────────────────────────────────────────────────────

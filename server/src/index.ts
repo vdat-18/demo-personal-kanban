@@ -105,6 +105,85 @@ app.post("/api/chat", async (c) => {
   }
 });
 
+// ── POST /api/chat/multimodal — vision-capable, bypasses Pi RPC ───────────────
+// Accepts messages where content can be string or array of {type, text/base64} parts.
+// Converts to OpenAI Vision format and calls the LLM REST API directly.
+app.post("/api/chat/multimodal", async (c) => {
+  try {
+    const { messages: rawMessages } = await c.req.json<{ messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; base64?: string; mimeType?: string }> }> }>();
+    if (!rawMessages?.length) return c.json({ error: "messages required" }, 400);
+
+    const apiKey  = process.env.LLM_API_KEY  || process.env.VITE_LLM_API_KEY  || "9router-dat";
+    const baseUrl = process.env.LLM_BASE_URL || process.env.VITE_LLM_BASE_URL || "http://e1.chiasegpu.vn:27318/v1";
+    const model   = process.env.LLM_MODEL_NAME || process.env.VITE_LLM_MODEL_NAME || "gemini-unlimited";
+
+    // Convert messages to OpenAI Vision format
+    const openaiMessages = rawMessages.map((msg) => {
+      // Plain string content — keep as-is
+      if (typeof msg.content === "string") {
+        return { role: msg.role, content: msg.content };
+      }
+
+      // Array of parts — convert each part
+      const content = msg.content.map((part) => {
+        if (part.type === "text") {
+          return { type: "text", text: part.text ?? "" };
+        }
+        if (part.type === "image" && part.base64 && part.mimeType) {
+          return {
+            type: "image_url",
+            image_url: { url: `data:${part.mimeType};base64,${part.base64}` },
+          };
+        }
+        return { type: "text", text: "" };
+      }).filter(Boolean);
+
+      return { role: msg.role, content };
+    });
+
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, messages: openaiMessages, stream: false }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("[/api/chat/multimodal] LLM error:", errText);
+      return c.json({ error: errText }, 500);
+    }
+    
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      // In case the API stubbornly ignores stream: false and sends SSE anyway
+      console.error("API returned non-JSON. Attempting to parse SSE:", rawText.slice(0, 50));
+      const chunks = rawText.split("\n").filter(l => l.startsWith("data: "));
+      let fullContent = "";
+      for (const line of chunks) {
+        if (line.includes("[DONE]")) continue;
+        try {
+          const chunkData = JSON.parse(line.slice(5).trim());
+          const delta = chunkData.choices?.[0]?.delta?.content;
+          if (delta) fullContent += delta;
+        } catch { /* ignore bad chunk */ }
+      }
+      return c.json({ reply: fullContent });
+    }
+
+    const reply = data.choices?.[0]?.message?.content ?? "";
+    return c.json({ reply });
+  } catch (err) {
+    console.error("[/api/chat/multimodal]", err);
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
 // ── POST /api/chat/stream — SSE streaming ────────────────────────────────────
 app.post("/api/chat/stream", async (c) => {
   const req = await c.req.json<ChatRequest>();

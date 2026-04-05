@@ -5,13 +5,16 @@
 
 import { useState, useEffect } from "react";
 import { useProjectStore } from "@/store";
-import { chatWithAgenticAI } from "@/lib/llm";
+import { chatWithAgenticAI, postChatMultimodal } from "@/lib/llm";
+import type { MultimodalMessage, MultimodalPart } from "@/lib/llm";
 import type { SuggestedAction, AgenticResponse } from "@/types/domain";
+import type { ExtractedAttachment } from "@/lib/fileReader";
 
 export interface ChatMessage {
   sender: "agent" | "user";
   text: string;
   suggestedAction?: SuggestedAction | null;
+  attachments?: ExtractedAttachment[];
 }
 
 export interface UsePlanningChatOptions {
@@ -33,6 +36,11 @@ export interface UsePlanningChatReturn {
   setPendingAction: (action: SuggestedAction | null) => void;
   inputText: string;
   setInputText: (text: string) => void;
+  /** Files queued to be sent with the next message */
+  pendingAttachments: ExtractedAttachment[];
+  addAttachment: (file: ExtractedAttachment) => void;
+  addAttachments: (files: ExtractedAttachment[]) => void;
+  removeAttachment: (name: string) => void;
 }
 
 export function usePlanningChat({
@@ -45,6 +53,7 @@ export function usePlanningChat({
     projects,
     addProject,
     updateProjectPlanning,
+    updateProjectDetailedTask,
   } = useProjectStore();
 
   const existingProject = projects.find((p) => p.id === projectId);
@@ -66,6 +75,16 @@ export function usePlanningChat({
   const [isSending, setIsSending] = useState(false);
   const [messageQueue, setMessageQueue] = useState<string[]>([]);
   const [pendingAction, setPendingAction] = useState<SuggestedAction | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<ExtractedAttachment[]>([]);
+
+  const addAttachment = (file: ExtractedAttachment) =>
+    setPendingAttachments((prev) => [...prev, file]);
+
+  const addAttachments = (files: ExtractedAttachment[]) =>
+    setPendingAttachments((prev) => [...prev, ...files]);
+
+  const removeAttachment = (name: string) =>
+    setPendingAttachments((prev) => prev.filter((a) => a.name !== name));
 
   // ── Sync to store whenever messages change ─────────────────────────────────
   useEffect(() => {
@@ -95,11 +114,11 @@ export function usePlanningChat({
 
   // ── Core send logic ────────────────────────────────────────────────────────
   const sendMessage = async (manualText?: string) => {
-    const text = manualText ?? inputText;
-    if (!text.trim()) return;
+    const textToSend = manualText ?? inputText;
+    if (!textToSend.trim() && pendingAttachments.length === 0) return;
 
     if (isSending) {
-      setMessageQueue((prev) => [...prev, text]);
+      setMessageQueue((prev) => [...prev, textToSend]);
       if (!manualText) setInputText("");
       return;
     }
@@ -107,51 +126,126 @@ export function usePlanningChat({
     setIsSending(true);
     if (!manualText) setInputText("");
 
-    const userMsg: ChatMessage = { sender: "user", text };
+    const snapshot = [...pendingAttachments];
+    setPendingAttachments([]);
+
+    const userMsg: ChatMessage = {
+      sender: "user",
+      text: textToSend || "Đính kèm file",
+      attachments: snapshot.length > 0 ? snapshot : undefined,
+    };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setIsTyping(true);
 
     try {
-      const history = updated.map((m) => ({
-        role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
-        content: m.text,
-      }));
+      // ── Decide: multimodal (has images) or plain text ──────────────────────
+      const hasImages = snapshot.some((a) => a.type === "image");
 
-      const response: AgenticResponse = await chatWithAgenticAI(
-        history,
-        pendingAction?.type,
-        reportContent
-      );
+      let responseText: string;
+      let parsedResponse: AgenticResponse | null = null;
 
-      if (response.userIntent === "confirm") {
-        // Inline report update if AI returned one
-        if (response.suggestedAction?.type === "generate_report" && response.report) {
-          // Caller handles report — just notify
-        }
-        const actionToDispatch = pendingAction ?? {
-          type: "generate_report" as const,
-          hint: "Generating based on your request...",
+      if (hasImages) {
+        // Build multimodal history for vision endpoint
+        const multimodalHistory: MultimodalMessage[] = updated.map((m) => {
+          if (m.sender !== "user" || !m.attachments?.length) {
+            return { role: m.sender === "user" ? "user" : "assistant", content: m.text };
+          }
+          const parts: MultimodalPart[] = [];
+          if (m.text && m.text !== "Đính kèm file") {
+            parts.push({ type: "text", text: m.text });
+          }
+          for (const att of m.attachments) {
+            if (att.type === "image") {
+              parts.push({ type: "image", base64: att.content, mimeType: att.mimeType ?? "image/png" });
+            } else {
+              parts.push({ type: "text", text: `\n\n[NỘI DUNG FILE "${att.name}":\n${att.content}]` });
+            }
+          }
+          return { role: "user", content: parts };
+        });
+
+        // Prepend agentic system prompt as a user message
+        const systemMsg: MultimodalMessage = {
+          role: "user",
+          content: `Bạn là Intelligent Planning Assistant. Hãy phân tích nội dung file/ảnh được đính kèm và trả lời người dùng bằng tiếng Việt. Trả về JSON: {"reply":"...", "userIntent":"neutral", "suggestedAction": null}`,
         };
-        setPendingAction(null);
-        setMessages((prev) => [
-          ...prev,
-          { sender: "agent", text: response.reply, suggestedAction: null },
-        ]);
-        setTimeout(() => onActionConfirmed(actionToDispatch), 600);
+        responseText = await postChatMultimodal({
+          messages: [systemMsg, ...multimodalHistory],
+        });
       } else {
-        setPendingAction(response.suggestedAction);
+        // Plain text path (existing logic, supports text file attachments)
+        const history = updated.map((m) => {
+          let content = m.text;
+          if (m.attachments?.length) {
+            content += "\n\n" + m.attachments
+              .map((a) => `[NỘI DUNG FILE "${a.name}":\n${a.content}]`)
+              .join("\n\n");
+          }
+          return {
+            role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
+            content,
+          };
+        });
+
+        const response: AgenticResponse = await chatWithAgenticAI(
+          history,
+          pendingAction?.type,
+          reportContent
+        );
+        parsedResponse = response;
+        responseText = response.reply;
+      }
+
+      // ── Handle response ────────────────────────────────────────────────────
+      if (parsedResponse) {
+        // Structured agentic response (text-only path)
+        if (parsedResponse.userIntent === "confirm") {
+          const actionToDispatch = pendingAction ?? {
+            type: "generate_report" as const,
+            hint: "Generating based on your request...",
+          };
+          setPendingAction(null);
+          setMessages((prev) => [
+            ...prev,
+            { sender: "agent", text: parsedResponse!.reply, suggestedAction: null },
+          ]);
+          setTimeout(() => onActionConfirmed(actionToDispatch), 600);
+        } else {
+          const resp = parsedResponse as AgenticResponse & { taskUpdate?: { index: number; title: string; description: string } };
+          if (resp.taskUpdate) {
+            updateProjectDetailedTask(
+              projectId,
+              resp.taskUpdate.index,
+              { title: resp.taskUpdate.title, description: resp.taskUpdate.description },
+              "ai"
+            );
+          }
+          setPendingAction(parsedResponse.suggestedAction);
+          setMessages((prev) => [
+            ...prev,
+            { sender: "agent", text: parsedResponse!.reply, suggestedAction: parsedResponse!.suggestedAction },
+          ]);
+        }
+      } else {
+        // Vision path — raw reply (may or may not be JSON)
+        let replyText = responseText;
+        try {
+          const parsed = JSON.parse(responseText.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? responseText.slice(responseText.indexOf("{")));
+          replyText = parsed.reply ?? responseText;
+        } catch { /* not JSON, use raw */ }
+
         setMessages((prev) => [
           ...prev,
-          {
-            sender: "agent",
-            text: response.reply,
-            suggestedAction: response.suggestedAction,
-          },
+          { sender: "agent", text: replyText, suggestedAction: null },
         ]);
       }
     } catch (err) {
       console.error("[usePlanningChat] AI call failed:", err);
+      setMessages((prev) => [
+        ...prev,
+        { sender: "agent", text: "Có lỗi xảy ra khi gọi AI. Vui lòng thử lại.", suggestedAction: null },
+      ]);
     } finally {
       setIsTyping(false);
       setIsSending(false);
@@ -176,5 +270,9 @@ export function usePlanningChat({
     setPendingAction,
     inputText,
     setInputText,
+    pendingAttachments,
+    addAttachment,
+    addAttachments,
+    removeAttachment,
   };
 }

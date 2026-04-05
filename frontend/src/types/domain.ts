@@ -27,6 +27,13 @@ export interface Task {
   subtasks: Subtask[];
   agentType: string;
   updatedAt: string;
+  lastModifiedBy?: "ai" | "user";
+  history?: {
+    title: string;
+    description: string;
+    timestamp: number;
+    author: "ai" | "user";
+  }[];
 }
 
 export interface PlanningHistoryEntry {
@@ -84,6 +91,11 @@ export interface AgenticResponse {
   userIntent: UserIntent;
   suggestedAction: SuggestedAction | null;
   report?: string;
+  taskUpdate?: {
+    index: number;
+    title: string;
+    description: string;
+  };
 }
 
 export type AgentHint =
@@ -99,6 +111,12 @@ export interface DetailedTask {
   why: string;
   suggested_subtasks: string[];
   agent_hint: AgentHint;
+  history?: {
+    title: string;
+    description: string;
+    timestamp: number;
+    author: "ai" | "user";
+  }[];
 }
 
 export interface DetailedTasksResponse {

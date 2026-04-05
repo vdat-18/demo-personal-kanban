@@ -27,7 +27,9 @@ import {
   EyeOff,
   Lightbulb,
   ChevronDown,
-  Clock,
+  History,
+  Paperclip,
+  X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -41,6 +43,7 @@ import { newId } from "@/lib/utils";
 
 import { usePlanningChat } from "@/features/planning/hooks/usePlanningChat";
 import { useTaskElaboration } from "@/features/planning/hooks/useTaskElaboration";
+import { extractFileContent } from "@/lib/fileReader";
 
 import type { Task, SuggestedAction, DetailedTask } from "@/types/domain";
 
@@ -79,6 +82,10 @@ export function PlanningScreen() {
   const [showDiff, setShowDiff] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // File input refs for robust picking
+  const topFileInputRef = useRef<HTMLInputElement>(null);
+  const bottomFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
   const chat = usePlanningChat({
@@ -286,6 +293,19 @@ export function PlanningScreen() {
                 </button>
               )}
 
+              {reportContent && !isEditingReport && phase === "planning" && (
+                <button
+                  onClick={() => {
+                    elaboration.elaborate();
+                    setPhase("tasks");
+                  }}
+                  title="Proceed to Execution Plan"
+                  className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 hover:bg-blue-700 active:scale-90 transition-all animate-in zoom-in ml-2"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
+
               {/* Phase stepper */}
               <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100 ml-2">
                 <div
@@ -324,16 +344,20 @@ export function PlanningScreen() {
               isEditingReport={isEditingReport}
               isGeneratingReport={isGeneratingReport}
               messagesEndRef={messagesEndRef}
+              topFileInputRef={topFileInputRef}
               onEditReport={() => setIsEditingReport(true)}
               onReportChange={setReportContent}
             />
           ) : (
             <TasksPhaseView
+              projectId={currentProjectId}
+              chat={chat}
               elaboration={elaboration}
               structuredReport={structuredReport}
-              messageQueue={chat.messageQueue}
               onBackToPlanning={() => setPhase("planning")}
               onStartExecution={handleStartExecution}
+              messagesEndRef={messagesEndRef}
+              bottomFileInputRef={bottomFileInputRef}
             />
           )}
         </div>
@@ -355,6 +379,7 @@ interface PlanningPhaseViewProps {
   isEditingReport: boolean;
   isGeneratingReport: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  topFileInputRef: React.RefObject<HTMLInputElement | null>;
   onEditReport: () => void;
   onReportChange: (v: string) => void;
 }
@@ -367,6 +392,7 @@ function PlanningPhaseView({
   isEditingReport,
   isGeneratingReport,
   messagesEndRef,
+  topFileInputRef,
   onEditReport,
   onReportChange,
 }: PlanningPhaseViewProps) {
@@ -407,8 +433,18 @@ function PlanningPhaseView({
               >
                 <div className="prose prose-sm max-w-none text-current text-justify prose-table:border-collapse prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.text ?? ""}
+                    {(msg as any).text ?? ""}
                   </ReactMarkdown>
+                  {(msg as any).attachments && (msg as any).attachments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-white/20">
+                      {(msg as any).attachments.map((a: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
+                          <Paperclip className="w-3.5 h-3.5 opacity-70" />
+                          <span className="font-medium max-w-[150px] truncate">{a.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {msg.suggestedAction && (
@@ -461,7 +497,61 @@ function PlanningPhaseView({
 
         {/* Chat Input */}
         <div className="max-w-4xl mx-auto w-full px-8 pb-4">
+          {chat.pendingAttachments && chat.pendingAttachments.length > 0 && (() => {
+            // Group pages of same PDF into one chip
+            const groups = new Map<string, typeof chat.pendingAttachments>();
+            for (const a of chat.pendingAttachments) {
+              const key = a.originalFileName ?? a.name;
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(a);
+            }
+            return (
+              <div className="flex flex-wrap gap-2 mb-3 px-1">
+                {[...groups.entries()].map(([groupKey, items]) => {
+                  const label = groupKey;
+                  const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                  return (
+                    <div key={groupKey} className="flex items-center gap-1.5 bg-blue-50 text-blue-600 text-[11px] px-3 py-1.5 rounded-full border border-blue-100 shadow-sm animate-in fade-in zoom-in duration-300">
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span className="font-medium max-w-[180px] truncate">{label}{pageCount}</span>
+                      <button
+                        onClick={() => items.forEach(a => chat.removeAttachment(a.name))}
+                        className="ml-1 hover:bg-white rounded-full p-0.5 text-blue-400 hover:text-blue-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
           <div className="relative group/input flex items-end gap-2 bg-white border border-slate-100 rounded-2xl p-2 shadow-sm hover:shadow-md transition-all focus-within:border-blue-400">
+            <input 
+              type="file" 
+              multiple 
+              className="hidden" 
+              ref={topFileInputRef}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files ?? []);
+                for (const file of files) {
+                  try {
+                    const extracted = await extractFileContent(file);
+                    chat.addAttachments(extracted);
+                  } catch (err) {
+                    alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
+                  }
+                }
+                e.target.value = ''; // Reset
+              }}
+            />
+            <button
+              onClick={() => topFileInputRef.current?.click()}
+              className="p-3 mb-0.5 rounded-xl transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
+              title="Upload file (ảnh, PDF, DOCX, text...)"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
             <textarea
               rows={1}
               placeholder="Share your vision or ask questions..."
@@ -571,19 +661,25 @@ function PlanningPhaseView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TasksPhaseViewProps {
+  projectId: string;
+  chat: any;
   elaboration: ReturnType<typeof useTaskElaboration>;
   structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
-  messageQueue: string[];
   onBackToPlanning: () => void;
   onStartExecution: () => void;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  bottomFileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 function TasksPhaseView({
+  projectId,
+  chat,
   elaboration,
   structuredReport,
-  messageQueue,
   onBackToPlanning,
   onStartExecution,
+  messagesEndRef,
+  bottomFileInputRef,
 }: TasksPhaseViewProps) {
   const { detailedTasks, elaborationSummary, isElaborating, expandedTasks, toggleTaskExpand, elaborate } = elaboration;
   const hasTasks = detailedTasks.length > 0;
@@ -591,76 +687,150 @@ function TasksPhaseView({
 
   return (
     <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700 bg-white">
-      {/* Left panel — context */}
-      <div className="w-1/3 bg-slate-50/50 border-r border-slate-100 p-12 flex flex-col overflow-y-auto">
-        <div className="mb-10">
-          <button
-            onClick={onBackToPlanning}
-            className="flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest hover:gap-3 transition-all underline underline-offset-8"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Planning
-          </button>
-        </div>
+      {/* ── Chat Column ── */}
+      <div className="w-[45%] flex flex-col bg-white border-r border-slate-100 relative shadow-[10px_0_30px_-15px_rgba(0,0,0,0.03)] z-10">
+        <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col gap-6 scrollbar-hide">
+          <div className="mb-4">
+            <button
+              onClick={onBackToPlanning}
+              className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:gap-3 transition-all"
+            >
+              <ArrowLeft className="w-3 h-3" /> Back to Strategy Overview
+            </button>
+          </div>
 
-        {/* Queued messages */}
-        {messageQueue.map((text, idx) => (
-          <div
-            key={`queued-${idx}`}
-            className="flex justify-end gap-3 mb-6 animate-in fade-in slide-in-from-right-4 duration-300 opacity-40"
-          >
-            <div className="max-w-[85%] px-5 py-3 rounded-2xl text-[14px] leading-relaxed bg-slate-100 text-slate-500 rounded-br-none shadow-sm relative group border border-slate-200">
-              <p className="font-medium text-justify">{text}</p>
-              <div className="absolute -left-12 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                <Clock className="w-3 h-3" /> Queued
+          {/* Project vision summary inside chat column */}
+          <div className="bg-slate-50/80 p-6 rounded-3xl border border-slate-100 mb-4">
+             <h4 className="text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Project Vision</h4>
+             <h5 className="text-sm font-bold text-slate-900 mb-1">{structuredReport?.title}</h5>
+             <p className="text-[11px] text-slate-500 leading-relaxed italic">{structuredReport?.goal}</p>
+          </div>
+
+          {chat.messages.map((msg: any, i: number) => (
+            <div
+              key={i}
+              className={`flex gap-4 max-w-[92%] transition-all animate-in slide-in-from-bottom-5 duration-500 ${
+                msg.sender === "user" ? "ml-auto flex-row-reverse" : ""
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center text-xs font-bold border-2 ${
+                msg.sender === "agent" ? "bg-gradient-to-br from-slate-800 to-slate-900 text-white border-slate-800 shadow-lg" : "bg-white text-slate-600 border-slate-100 shadow-sm"
+              }`}>
+                {msg.sender === "agent" ? <Sparkles className="w-5 h-5 text-blue-400" /> : "Me"}
+              </div>
+              <div className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] ${
+                msg.sender === "agent" ? "bg-white border border-slate-100 shadow-sm text-slate-700 rounded-tl-none" : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none text-justify"
+              }`}>
+                <div className="prose prose-sm max-w-none text-current text-justify prose-table:border-collapse prose-th:border prose-th:border-slate-200">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text || ""}</ReactMarkdown>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-white/20">
+                      {msg.attachments.map((a: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
+                          <Paperclip className="w-3.5 h-3.5 opacity-70" />
+                          <span className="font-medium max-w-[150px] truncate">{a.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100 flex-shrink-0 shadow-sm self-end">
-              Me
-            </div>
-          </div>
-        ))}
-
-        {/* Project vision card */}
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
-          <h3 className="text-[10px] font-black text-slate-400 tracking-[3px] mb-4 uppercase">
-            PROJECT VISION
-          </h3>
-          <h4 className="text-xl font-black text-slate-900 mb-4">
-            {structuredReport?.title}
-          </h4>
-          <p className="text-sm text-slate-500 leading-relaxed italic">
-            "{structuredReport?.goal}"
-          </p>
-          <div className="mt-8 space-y-4">
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-              Optimized Roadmap
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-              AI-Powered Assistance
-            </div>
-          </div>
+          ))}
+          {chat.isTyping && (
+             <div className="flex gap-4 max-w-[90%]">
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center"><Sparkles className="w-5 h-5 text-slate-300" /></div>
+                <div className="p-5 rounded-[24px] rounded-tl-none bg-slate-50 text-slate-400 italic text-xs animate-pulse">Assistant is thinking...</div>
+             </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
-        {elaborationSummary && (
-          <div className="mt-6 p-6 bg-blue-50 rounded-[24px] border border-blue-100">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-blue-500" />
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                AI Plan Summary
-              </span>
-            </div>
-            <p className="text-sm text-blue-800 font-medium leading-relaxed">
-              {elaborationSummary}
-            </p>
+        {/* Chat Input Inside Tasks View */}
+        <div className="w-full px-8 pb-6 bg-white border-t border-slate-50 pt-4">
+          {chat.pendingAttachments && chat.pendingAttachments.length > 0 && (() => {
+            // Group pages of same PDF into one chip
+            const groups = new Map<string, typeof chat.pendingAttachments>();
+            for (const a of chat.pendingAttachments) {
+              const key = a.originalFileName ?? a.name;
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(a);
+            }
+            return (
+              <div className="flex flex-wrap gap-2 mb-3 px-1">
+                {[...groups.entries()].map(([groupKey, items]) => {
+                  const label = groupKey;
+                  const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                  return (
+                    <div key={groupKey} className="flex items-center gap-1.5 bg-blue-50 text-blue-600 text-[11px] px-3 py-1.5 rounded-full border border-blue-100 shadow-sm animate-in fade-in zoom-in duration-300">
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span className="font-medium max-w-[180px] truncate">{label}{pageCount}</span>
+                      <button
+                        onClick={() => items.forEach((a: { name: string }) => chat.removeAttachment(a.name))}
+                        className="ml-1 hover:bg-white rounded-full p-0.5 text-blue-400 hover:text-blue-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          <div className="relative group/input flex items-end gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-2 shadow-sm focus-within:border-blue-400">
+            <input 
+              type="file" 
+              multiple 
+              className="hidden" 
+              ref={bottomFileInputRef}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files ?? []);
+                for (const file of files) {
+                  try {
+                    const extracted = await extractFileContent(file);
+                    chat.addAttachments(extracted);
+                  } catch (err) {
+                    alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
+                  }
+                }
+                e.target.value = ''; // Reset
+              }}
+            />
+            <button
+              onClick={() => bottomFileInputRef.current?.click()}
+              className="p-3 mb-0.5 rounded-xl transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
+              title="Upload file (ảnh, PDF, DOCX, text...)"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+            <textarea
+              rows={1}
+              placeholder="Ask AI to refine tasks or add new ones..."
+              className="flex-1 bg-transparent pl-4 pr-2 py-2 text-sm text-slate-700 focus:outline-none resize-none max-h-[120px] overflow-y-auto"
+              value={chat.inputText}
+              onChange={(e) => {
+                chat.setInputText(e.target.value);
+                e.currentTarget.style.height = "auto";
+                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  chat.sendMessage();
+                  e.currentTarget.style.height = "auto";
+                }
+              }}
+            />
+            <button onClick={() => chat.sendMessage()} className={`p-4 rounded-2xl transition-all ${chat.inputText.trim() ? "bg-blue-600 text-white shadow-lg" : "bg-slate-200 text-slate-400"}`}>
+              <Send className="w-5 h-5" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Right panel — tasks */}
       <div className="flex-1 bg-white p-16 overflow-y-auto scrollbar-hide">
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full px-4">
           <div className="flex items-center justify-between mb-12">
             <h2 className="text-5xl font-black text-slate-900 tracking-tight">
               Execution Plan
@@ -702,6 +872,7 @@ function TasksPhaseView({
               ? detailedTasks.map((task, idx) => (
                   <TaskCard
                     key={idx}
+                    projectId={projectId}
                     task={task}
                     index={idx}
                     isExpanded={expandedTasks.has(idx)}
@@ -749,81 +920,145 @@ function TasksPhaseView({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TaskCardProps {
+  projectId: string;
   task: DetailedTask;
   index: number;
   isExpanded: boolean;
   onToggle: () => void;
 }
 
-function TaskCard({ task, index, isExpanded, onToggle }: TaskCardProps) {
+function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProps) {
+  const { updateProjectDetailedTask } = useProjectStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc, setEditDesc] = useState(task.description);
+
+  const handleSave = () => {
+    updateProjectDetailedTask(projectId, index, { title: editTitle, description: editDesc }, "user");
+    setIsEditing(false);
+  };
+
+  const hasHistory = (task.history?.length ?? 0) > 0;
+
   return (
-    <div className="rounded-[28px] bg-white border border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-200 transition-all overflow-hidden">
+    <div className={`rounded-[28px] bg-white border transition-all overflow-hidden ${isEditing ? "border-blue-400 ring-4 ring-blue-50" : "border-slate-100 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-200"}`}>
       {/* Header — always visible */}
       <div
         className="flex items-center justify-between p-7 cursor-pointer group"
-        onClick={onToggle}
+        onClick={() => !isEditing && onToggle()}
+        onDoubleClick={() => setIsEditing(true)}
+        title="Double-click to edit"
       >
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-5 flex-1 mr-4">
           <div className="w-12 h-12 rounded-2xl bg-slate-50 border-2 border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-all font-black text-lg flex-shrink-0">
             {index + 1}
           </div>
-          <div>
-            <span className="text-base font-bold text-slate-800 tracking-tight block">
-              {task.title}
-            </span>
-            <span
-              className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                AGENT_COLORS[task.agent_hint] ?? "bg-slate-100 text-slate-500"
-              }`}
-            >
-              {task.agent_hint}
-            </span>
+          <div className="flex-1">
+            {isEditing ? (
+              <input 
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                className="w-full bg-slate-50 p-2 rounded-lg font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-200"
+                autoFocus
+              />
+            ) : (
+              <span className="text-base font-bold text-slate-800 tracking-tight block">
+                {task.title}
+              </span>
+            )}
           </div>
         </div>
-        <ChevronDown
-          className={`w-5 h-5 text-slate-300 transition-transform ${
-            isExpanded ? "rotate-180" : ""
-          }`}
-        />
+        
+        <div className="flex items-center gap-3">
+          {hasHistory && !isEditing && (
+             <button 
+                onClick={(e) => { e.stopPropagation(); setShowDiff(!showDiff); }} 
+                className={`p-2 rounded-xl transition-all ${showDiff ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
+                title="View Changes"
+             >
+                <History className="w-4 h-4" />
+             </button>
+          )}
+          <ChevronDown
+            className={`w-5 h-5 text-slate-300 transition-transform ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </div>
       </div>
 
       {/* Expanded details */}
-      {isExpanded && (
+      {(isExpanded || isEditing) && (
         <div className="px-7 pb-7 pt-0 border-t border-slate-50 animate-in slide-in-from-top-2 duration-200">
-          {task.description && (
-            <div className="mt-5">
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                What this involves
-              </h5>
-              <p className="text-sm text-slate-600 leading-relaxed">{task.description}</p>
+          <div className="mt-5">
+            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between items-center">
+              What this involves
+            </h5>
+            
+            {isEditing ? (
+              <textarea 
+                value={editDesc}
+                onChange={e => setEditDesc(e.target.value)}
+                className="w-full bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 leading-relaxed outline-none focus:ring-2 focus:ring-blue-200 min-h-[120px]"
+              />
+            ) : (
+              <div className="relative">
+                {showDiff && task.history && task.history.length > 0 ? (
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                     <DiffViewer 
+                        oldText={task.history[task.history.length-1].description} 
+                        newText={task.description} 
+                        version={task.history.length}
+                     />
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600 leading-relaxed">{task.description}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {isEditing && (
+            <div className="mt-8 flex gap-3">
+              <button onClick={handleSave} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20">
+                Save Changes
+              </button>
+              <button onClick={() => { setIsEditing(false); setEditTitle(task.title); setEditDesc(task.description); }} className="px-6 bg-slate-100 text-slate-500 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200">
+                Cancel
+              </button>
             </div>
           )}
 
-          {task.why && (
-            <div className="mt-5 p-4 bg-amber-50/60 rounded-2xl border border-amber-100">
-              <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                <Lightbulb className="w-3 h-3" /> Why this matters
-              </h5>
-              <p className="text-sm text-amber-900 font-medium leading-relaxed">{task.why}</p>
-            </div>
-          )}
+          {!isEditing && (
+            <>
+              {task.why && (
+                <div className="mt-5 p-4 bg-amber-50/60 rounded-2xl border border-amber-100">
+                  <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <Lightbulb className="w-3 h-3" /> Why this matters
+                  </h5>
+                  <p className="text-sm text-amber-900 font-medium leading-relaxed">{task.why}</p>
+                </div>
+              )}
 
-          {task.suggested_subtasks.length > 0 && (
-            <div className="mt-5">
-              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                Subtasks
-              </h5>
-              <ul className="space-y-2">
-                {task.suggested_subtasks.map((sub, sIdx) => (
-                  <li key={sIdx} className="flex items-center gap-3 text-sm text-slate-600">
-                    <div className="w-5 h-5 rounded-md border-2 border-slate-100 flex items-center justify-center flex-shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                    </div>
-                    {sub}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              {task.suggested_subtasks.length > 0 && (
+                <div className="mt-5">
+                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                    Subtasks
+                  </h5>
+                  <ul className="space-y-2">
+                    {task.suggested_subtasks.map((sub, sIdx) => (
+                      <li key={sIdx} className="flex items-center gap-3 text-sm text-slate-600">
+                        <div className="w-5 h-5 rounded-md border-2 border-slate-100 flex items-center justify-center flex-shrink-0">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        </div>
+                        {sub}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
