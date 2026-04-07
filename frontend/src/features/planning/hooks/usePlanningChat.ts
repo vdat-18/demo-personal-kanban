@@ -168,7 +168,7 @@ export function usePlanningChat({
         // Prepend agentic system prompt as a user message
         const systemMsg: MultimodalMessage = {
           role: "user",
-          content: `Bạn là Intelligent Planning Assistant. Hãy phân tích nội dung file/ảnh được đính kèm và trả lời người dùng bằng tiếng Việt. Trả về JSON: {"reply":"...", "userIntent":"neutral", "suggestedAction": null}`,
+          content: `Bạn là Intelligent Planning Assistant. Hãy phân tích chuyên sâu nội dung file/ảnh được đính kèm và trả lời người dùng trực tiếp bằng tiếng Việt, có sử dụng định dạng Markdown cho đẹp mắt. Dưới góc độ của một chuyên gia nhé.`,
         };
         responseText = await postChatMultimodal({
           messages: [systemMsg, ...multimodalHistory],
@@ -201,10 +201,14 @@ export function usePlanningChat({
       if (parsedResponse) {
         // Structured agentic response (text-only path)
         if (parsedResponse.userIntent === "confirm") {
-          const actionToDispatch = pendingAction ?? {
-            type: "generate_report" as const,
-            hint: "Generating based on your request...",
-          };
+          // Use the action from AI's response if it differs from pendingAction,
+          // otherwise fall back to pendingAction. This handles cases where AI
+          // returns "confirm" + "generate_report" when user wants to update the report.
+          const responseAction = parsedResponse.suggestedAction;
+          const actionToDispatch =
+            responseAction?.type === "generate_report"
+              ? responseAction
+              : pendingAction ?? { type: "generate_report" as const, hint: "Generating..." };
           setPendingAction(null);
           setMessages((prev) => [
             ...prev,

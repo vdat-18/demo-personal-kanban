@@ -114,7 +114,12 @@ export class PiRpcClient extends EventEmitter {
       };
 
       this.on("event", onEvent);
-      this.send({ id, type: "prompt", message });
+      this.send({ 
+        id, 
+        type: "prompt", 
+        message,
+        streamingBehavior: "steer" 
+      });
     });
   }
 
@@ -150,7 +155,12 @@ export class PiRpcClient extends EventEmitter {
       };
 
       this.on("event", onEvent);
-      this.send({ id, type: "prompt", message });
+      this.send({ 
+        id, 
+        type: "prompt", 
+        message,
+        streamingBehavior: "steer" 
+      });
     });
   }
 

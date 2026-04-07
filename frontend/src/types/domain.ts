@@ -17,6 +17,14 @@ export interface Subtask {
   completed: boolean;
 }
 
+export interface TaskMoveRecord {
+  from: TaskStatus;
+  to: TaskStatus;
+  timestamp: number;
+  by: "agent" | "user";
+  note?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -28,6 +36,15 @@ export interface Task {
   agentType: string;
   updatedAt: string;
   lastModifiedBy?: "ai" | "user";
+  /**
+   * Whether the auto-kickoff greeting has already been sent for this
+   * (taskId + status) combination. Prevents duplicate LLM calls on re-render.
+   */
+  kickoffDone?: boolean;
+  /** Reason recorded when task is cancelled */
+  cancelReason?: string;
+  /** Full move history for audit / context to agents */
+  moveHistory?: TaskMoveRecord[];
   history?: {
     title: string;
     description: string;
@@ -122,4 +139,23 @@ export interface DetailedTask {
 export interface DetailedTasksResponse {
   tasks: DetailedTask[];
   summary: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASSET / DIRECTORY TYPES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AssetType = "document" | "spreadsheet" | "image" | "pdf" | "other";
+
+export interface Asset {
+  id: string;
+  name: string;
+  type: AssetType;
+  projectId: string; // Link to project
+  projectName: string; // Cached for easy display
+  agentName: string; // Who created it
+  createdAt: string;
+  size: string;
+  content?: string; // Content for markdown/text or base64 for images
+  url?: string; // Dummy URL for now or download blob
 }

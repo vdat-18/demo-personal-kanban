@@ -6,7 +6,7 @@ import type { ComponentType } from "react";
 import {
   Rocket,
   BookOpen,
-  Zap,
+  Activity,
   Search,
   FileText,
   CheckCircle2,
@@ -30,7 +30,7 @@ export const AGENT_MAPPING: Record<TaskStatus, string> = {
 export const AGENT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   "Starter Agent": Rocket,
   "Planner Agent": BookOpen,
-  "Doer Agent": Zap,
+  "Doer Agent": Activity,
   "Reviewer Agent": Search,
   "Reporter Agent": FileText,
 };
@@ -48,12 +48,12 @@ export const AGENT_COLORS: Record<AgentHint | string, string> = {
 // ── Status → Badge color classes ──────────────────────────────────────────────
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: "bg-gray-50 text-gray-500 border-gray-200",
-  planning: "bg-blue-50 text-blue-600 border-blue-100",
-  doing: "bg-blue-50 text-blue-600 border-blue-100",
-  review: "bg-amber-50 text-amber-600 border-amber-100",
-  done: "bg-green-50 text-green-600 border-green-100",
-  cancelled: "bg-red-50 text-red-500 border-red-100",
+  todo: "bg-slate-100 text-slate-600 border-slate-200",
+  planning: "bg-purple-50 text-purple-600 border-purple-200",
+  doing: "bg-blue-50 text-blue-600 border-blue-200",
+  review: "bg-amber-50 text-amber-600 border-amber-200",
+  done: "bg-emerald-50 text-emerald-600 border-emerald-200",
+  cancelled: "bg-rose-50 text-rose-500 border-rose-200",
 };
 
 // ── Kanban board column definitions ───────────────────────────────────────────
@@ -68,7 +68,7 @@ export interface KanbanColumn {
 export const KANBAN_COLUMNS: KanbanColumn[] = [
   { id: "todo",      label: "TO DO",     Icon: Rocket,       agent: "Starter Agent"   },
   { id: "planning",  label: "PLANNING",  Icon: BookOpen,     agent: "Planner Agent"   },
-  { id: "doing",     label: "DOING",     Icon: Zap,          agent: "Doer Agent"      },
+  { id: "doing",     label: "DOING",     Icon: Activity,     agent: "Doer Agent"      },
   { id: "review",    label: "REVIEW",    Icon: Search,       agent: "Reviewer Agent"  },
   { id: "done",      label: "DONE",      Icon: CheckCircle2, agent: "Reporter Agent"  },
   { id: "cancelled", label: "CANCELLED", Icon: XCircle,      agent: "System"          },

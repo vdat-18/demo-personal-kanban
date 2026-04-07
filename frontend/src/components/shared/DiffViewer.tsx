@@ -4,7 +4,7 @@
 
 import { useMemo } from "react";
 import * as Diff from "diff";
-import { Zap } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 interface Props {
   oldText: string;
@@ -18,7 +18,7 @@ export function DiffViewer({ oldText, newText, version }: Props) {
   return (
     <div className="bg-slate-50/50 p-6 rounded-2xl border border-dashed border-slate-200 animate-in fade-in duration-500">
       <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3">
-        <Zap className="w-3 h-3 text-blue-500" />
+        <Sparkles className="w-3 h-3 text-blue-500" />
         Comparison: v{version} vs Current
       </div>
       <div className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-slate-600 font-medium text-justify">

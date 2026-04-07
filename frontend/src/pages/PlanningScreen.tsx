@@ -22,7 +22,7 @@ import {
   ChevronRight,
   MessageSquare,
   Target,
-  Zap,
+  Bot,
   Eye,
   EyeOff,
   Lightbulb,
@@ -37,7 +37,6 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 
 import { useProjectStore } from "@/store";
 import { generateProjectReport } from "@/lib/llm";
-import { AGENT_COLORS } from "@/constants/agents";
 import { DiffViewer } from "@/components/shared/DiffViewer";
 import { newId } from "@/lib/utils";
 
@@ -62,7 +61,7 @@ export function PlanningScreen() {
   const location = useLocation();
   const { id } = useParams();
 
-  const { projects, updateProjectPlanningReport, startExecution } = useProjectStore();
+  const { projects, updateProjectPlanningReport, startExecution, addAsset } = useProjectStore();
 
   const [sessionId] = useState(newId);
   const currentProjectId = id ?? sessionId;
@@ -106,6 +105,31 @@ export function PlanningScreen() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.messages, chat.isTyping]);
+
+  // ── Asset management helper ────────────────────────────────────────────────
+  const syncFileToAssets = (file: File, extracted: any[]) => {
+    const assetId = `asset-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    
+    let type: any = "document";
+    if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) type = "image";
+    else if (["xlsx", "xls", "csv"].includes(ext)) type = "spreadsheet";
+    else if (ext === "pdf") type = "pdf";
+
+    const mainContent = extracted[0]?.content || "";
+
+    addAsset({
+      id: assetId,
+      name: file.name,
+      type,
+      projectId: currentProjectId,
+      projectName,
+      agentName: "User Upload",
+      createdAt: new Date().toISOString(),
+      size: (file.size / 1024).toFixed(1) + " KB",
+      content: mainContent.length < 50000 ? mainContent : "[File too large for preview]",
+    });
+  };
 
   // ── Report generation ──────────────────────────────────────────────────────
   const handleGenerateReport = async () => {
@@ -169,20 +193,24 @@ export function PlanningScreen() {
             })
           );
 
-    const tasks: Task[] = source.map((t, idx) => ({
-      id: `task-${Date.now()}-${idx}`,
-      title: t.title,
-      description: t.description,
-      why: t.why,
-      status: "todo" as const,
-      subtasks: t.suggested_subtasks.map((text, sIdx) => ({
-        id: `subtask-${Date.now()}-${idx}-${sIdx}`,
-        text,
-        completed: false,
-      })),
-      agentType: t.agent_hint,
-      updatedAt: new Date().toISOString(),
-    }));
+    const tasks: Task[] = source.map((t, idx) => {
+      const existing = existingProject?.tasks?.find(old => old.title === t.title);
+
+      return {
+        id: existing ? existing.id : `task-${Date.now()}-${idx}`,
+        title: t.title,
+        description: t.description,
+        why: t.why,
+        status: existing ? existing.status : "todo" as const,
+        subtasks: existing ? existing.subtasks : t.suggested_subtasks.map((text, sIdx) => ({
+          id: `subtask-${Date.now()}-${idx}-${sIdx}`,
+          text,
+          completed: false,
+        })),
+        agentType: existing ? existing.agentType : t.agent_hint,
+        updatedAt: new Date().toISOString(),
+      };
+    });
 
     startExecution(currentProjectId, tasks);
     navigate(`/mission-control/${currentProjectId}`);
@@ -197,7 +225,7 @@ export function PlanningScreen() {
       {/* ── Sidebar ── */}
       <aside className="w-20 bg-slate-900 flex flex-col items-center py-10 gap-10 flex-shrink-0 shadow-2xl">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-          <Zap className="w-6 h-6 fill-current text-white" />
+          <Bot className="w-6 h-6 fill-current text-white" />
         </div>
         <div className="flex flex-col gap-8 text-slate-500">
           <button
@@ -232,7 +260,13 @@ export function PlanningScreen() {
           {/* Left header */}
           <div className="w-[45%] h-full px-10 flex items-center border-r border-slate-100 bg-white">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => {
+                if (phase === "tasks") {
+                  setPhase("planning");
+                } else {
+                  navigate("/");
+                }
+              }}
               className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 group mr-6"
             >
               <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
@@ -335,29 +369,30 @@ export function PlanningScreen() {
         {/* Body */}
         <div className="flex-1 flex overflow-hidden bg-[#fafbfc]">
           {phase === "planning" ? (
-            <PlanningPhaseView
-              chat={chat}
-              reportContent={reportContent}
-              structuredReport={structuredReport}
-              existingProject={existingProject}
-              showDiff={showDiff}
-              isEditingReport={isEditingReport}
-              isGeneratingReport={isGeneratingReport}
-              messagesEndRef={messagesEndRef}
-              topFileInputRef={topFileInputRef}
-              onEditReport={() => setIsEditingReport(true)}
-              onReportChange={setReportContent}
+             <PlanningPhaseView
+               chat={chat}
+               reportContent={reportContent}
+               existingProject={existingProject}
+               showDiff={showDiff}
+               isEditingReport={isEditingReport}
+               isGeneratingReport={isGeneratingReport}
+               messagesEndRef={messagesEndRef}
+               topFileInputRef={topFileInputRef}
+               onEditReport={() => setIsEditingReport(true)}
+               onReportChange={setReportContent}
+               syncFileToAssets={syncFileToAssets}
             />
           ) : (
             <TasksPhaseView
-              projectId={currentProjectId}
-              chat={chat}
-              elaboration={elaboration}
-              structuredReport={structuredReport}
-              onBackToPlanning={() => setPhase("planning")}
-              onStartExecution={handleStartExecution}
-              messagesEndRef={messagesEndRef}
-              bottomFileInputRef={bottomFileInputRef}
+               projectId={currentProjectId}
+               chat={chat}
+               elaboration={elaboration}
+               structuredReport={structuredReport}
+               onBackToPlanning={() => setPhase("planning")}
+               onStartExecution={handleStartExecution}
+               messagesEndRef={messagesEndRef}
+               bottomFileInputRef={bottomFileInputRef}
+               syncFileToAssets={syncFileToAssets}
             />
           )}
         </div>
@@ -373,8 +408,7 @@ export function PlanningScreen() {
 interface PlanningPhaseViewProps {
   chat: ReturnType<typeof usePlanningChat>;
   reportContent: string;
-  structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
-  existingProject: { planningHistory?: { content: string; timestamp: number; author: string }[] } | null;
+  existingProject: any;
   showDiff: boolean;
   isEditingReport: boolean;
   isGeneratingReport: boolean;
@@ -382,6 +416,7 @@ interface PlanningPhaseViewProps {
   topFileInputRef: React.RefObject<HTMLInputElement | null>;
   onEditReport: () => void;
   onReportChange: (v: string) => void;
+  syncFileToAssets: (file: File, extracted: any[]) => void;
 }
 
 function PlanningPhaseView({
@@ -395,6 +430,7 @@ function PlanningPhaseView({
   topFileInputRef,
   onEditReport,
   onReportChange,
+  syncFileToAssets,
 }: PlanningPhaseViewProps) {
   return (
     <div className="flex w-full h-full overflow-hidden animate-in fade-in duration-700">
@@ -437,12 +473,24 @@ function PlanningPhaseView({
                   </ReactMarkdown>
                   {(msg as any).attachments && (msg as any).attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-white/20">
-                      {(msg as any).attachments.map((a: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
-                          <Paperclip className="w-3.5 h-3.5 opacity-70" />
-                          <span className="font-medium max-w-[150px] truncate">{a.name}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const groups = new Map<string, any[]>();
+                        (msg as any).attachments.forEach((a: any) => {
+                          const key = a.originalFileName ?? a.name;
+                          if (!groups.has(key)) groups.set(key, []);
+                          groups.get(key)!.push(a);
+                        });
+                        return [...groups.entries()].map(([groupKey, items], idx) => {
+                          const label = groupKey;
+                          const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                          return (
+                            <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
+                              <Paperclip className="w-3.5 h-3.5 opacity-70" />
+                              <span className="font-medium max-w-[180px] truncate">{label}{pageCount}</span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
@@ -466,11 +514,6 @@ function PlanningPhaseView({
                 <Sparkles className="w-5 h-5 text-slate-300" />
               </div>
               <div className="p-5 rounded-[24px] rounded-tl-none bg-slate-50 text-slate-400 italic text-xs flex items-center gap-3 border border-slate-100/50">
-                <span className="flex gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:200ms]" />
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:400ms]" />
-                </span>
                 Assistant is thinking...
               </div>
             </div>
@@ -482,11 +525,6 @@ function PlanningPhaseView({
                 <FileText className="w-5 h-5 text-blue-300" />
               </div>
               <div className="p-5 rounded-[24px] rounded-tl-none bg-blue-50 text-blue-400 italic text-xs flex items-center gap-3 border border-blue-100">
-                <span className="flex gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:200ms]" />
-                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:400ms]" />
-                </span>
                 Generating project report...
               </div>
             </div>
@@ -538,6 +576,7 @@ function PlanningPhaseView({
                   try {
                     const extracted = await extractFileContent(file);
                     chat.addAttachments(extracted);
+                    syncFileToAssets(file, extracted);
                   } catch (err) {
                     alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
                   }
@@ -669,6 +708,7 @@ interface TasksPhaseViewProps {
   onStartExecution: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   bottomFileInputRef: React.RefObject<HTMLInputElement | null>;
+  syncFileToAssets: (file: File, extracted: any[]) => void;
 }
 
 function TasksPhaseView({
@@ -680,8 +720,9 @@ function TasksPhaseView({
   onStartExecution,
   messagesEndRef,
   bottomFileInputRef,
+  syncFileToAssets,
 }: TasksPhaseViewProps) {
-  const { detailedTasks, elaborationSummary, isElaborating, expandedTasks, toggleTaskExpand, elaborate } = elaboration;
+  const { detailedTasks, isElaborating, expandedTasks, toggleTaskExpand, elaborate } = elaboration;
   const hasTasks = detailedTasks.length > 0;
   const hasSuggestedTitles = (structuredReport?.suggested_tasks?.length ?? 0) > 0;
 
@@ -725,12 +766,24 @@ function TasksPhaseView({
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text || ""}</ReactMarkdown>
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-white/20">
-                      {msg.attachments.map((a: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
-                          <Paperclip className="w-3.5 h-3.5 opacity-70" />
-                          <span className="font-medium max-w-[150px] truncate">{a.name}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const groups = new Map<string, any[]>();
+                        msg.attachments.forEach((a: any) => {
+                          const key = a.originalFileName ?? a.name;
+                          if (!groups.has(key)) groups.set(key, []);
+                          groups.get(key)!.push(a);
+                        });
+                        return [...groups.entries()].map(([groupKey, items], idx) => {
+                          const label = groupKey;
+                          const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                          return (
+                            <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
+                              <Paperclip className="w-3.5 h-3.5 opacity-70" />
+                              <span className="font-medium max-w-[180px] truncate">{label}{pageCount}</span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>
@@ -789,6 +842,7 @@ function TasksPhaseView({
                   try {
                     const extracted = await extractFileContent(file);
                     chat.addAttachments(extracted);
+                    syncFileToAssets(file, extracted);
                   } catch (err) {
                     alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
                   }
@@ -972,13 +1026,13 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
         
         <div className="flex items-center gap-3">
           {hasHistory && !isEditing && (
-             <button 
-                onClick={(e) => { e.stopPropagation(); setShowDiff(!showDiff); }} 
-                className={`p-2 rounded-xl transition-all ${showDiff ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
-                title="View Changes"
-             >
-                <History className="w-4 h-4" />
-             </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setShowDiff(!showDiff); }} 
+              className={`p-2 rounded-xl transition-all ${showDiff ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
+              title="View Changes"
+            >
+              <History className="w-4 h-4" />
+            </button>
           )}
           <ChevronDown
             className={`w-5 h-5 text-slate-300 transition-transform ${
@@ -1013,7 +1067,7 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
                      />
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-600 leading-relaxed">{task.description}</p>
+                  <p className="text-sm text-slate-600 leading-relaxed text-justify">{task.description}</p>
                 )}
               </div>
             )}
@@ -1037,7 +1091,7 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
                   <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                     <Lightbulb className="w-3 h-3" /> Why this matters
                   </h5>
-                  <p className="text-sm text-amber-900 font-medium leading-relaxed">{task.why}</p>
+                  <p className="text-sm text-amber-900 font-medium leading-relaxed text-justify">{task.why}</p>
                 </div>
               )}
 

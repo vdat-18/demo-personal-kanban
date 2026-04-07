@@ -162,7 +162,7 @@ export function Home() {
                   return (
                     <div 
                       key={project.id}
-                      onClick={() => navigate(project.status === 'planning' ? `/planning/${project.id}` : `/project/${project.id}`)}
+                      onClick={() => navigate(project.status === 'planning' ? `/planning/${project.id}` : `/mission-control/${project.id}`)}
                       className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.05)] hover:shadow-2xl hover:shadow-blue-900/5 hover:-translate-y-2 transition-all duration-500 cursor-pointer group"
                     >
                       <div className="flex justify-between items-start mb-8">
