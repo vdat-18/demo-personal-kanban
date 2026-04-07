@@ -30,6 +30,8 @@ import {
   History,
   Paperclip,
   X,
+  Download,
+  FolderDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -132,6 +134,36 @@ export function PlanningScreen() {
     });
   };
 
+  const handleDownloadMd = () => {
+    if (!reportContent) return;
+    const blob = new Blob([reportContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, "_")}_strategy.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSaveToDirectory = () => {
+    if (!reportContent) return;
+    const bytes = new TextEncoder().encode(reportContent).length;
+    addAsset({
+      id: `report-${Date.now()}`,
+      name: `${projectName} Strategy Overview.md`,
+      type: "document",
+      projectId: currentProjectId,
+      projectName,
+      agentName: "Architect",
+      createdAt: new Date().toISOString(),
+      size: (bytes / 1024).toFixed(1) + " KB",
+      content: reportContent,
+    });
+    alert("Report saved to project directory successfully!");
+  };
+
   // ── Report generation ──────────────────────────────────────────────────────
   const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
@@ -174,7 +206,13 @@ export function PlanningScreen() {
         setPhase("tasks");
         break;
       case "suggest_tasks":
-        elaboration.elaborate();
+        // Elaborate tasks then notify chat with a short success message
+        elaboration.elaborate().then(() => {
+          const count = elaboration.detailedTasks.length || (structuredReport?.suggested_tasks?.length ?? 0);
+          chat.pushAgentMessage(
+            `✅ **${count} tasks** have been elaborated and are ready in the **Execution Plan**.\n\nEach task includes a description, rationale, and subtasks. Switch to the Execution Plan tab to review them, then hit **Start Execution** when you're ready.`
+          );
+        });
         break;
     }
   };
@@ -295,6 +333,26 @@ export function PlanningScreen() {
             </div>
 
             <div className="flex items-center gap-4">
+              {reportContent && phase === "planning" && (
+                <>
+                  <button
+                    onClick={handleDownloadMd}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100"
+                    title="Download as Markdown"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                  <button
+                    onClick={handleSaveToDirectory}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-all border border-transparent hover:border-amber-100"
+                    title="Save to Project Directory"
+                  >
+                    <FolderDown className="w-3.5 h-3.5" /> Save to Directory
+                  </button>
+                  <div className="w-px h-6 bg-slate-200 mx-1" />
+                </>
+              )}
+
               {(existingProject?.planningHistory?.length ?? 0) > 0 && (
                 <button
                   onClick={() => setShowDiff((v) => !v)}
@@ -397,6 +455,142 @@ export function PlanningScreen() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORT MARKDOWN — rich visual renderer for the Strategy Overview panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+function ReportMarkdown({ content }: { content: string }) {
+  // We use CSS styling instead of numbers for H2 to ensure clean rendering.
+  return (
+    <div className="report-markdown-container">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // ── H1: large prominent document title ───────────────────────────────
+          h1: ({ children }) => (
+            <div className="mb-12 pb-8 border-b border-slate-100/60 relative">
+              <div className="absolute -top-6 -left-6 w-16 h-16 bg-blue-100/50 rounded-full blur-2xl" />
+              <div className="absolute -bottom-6 right-10 w-24 h-24 bg-violet-100/40 rounded-full blur-3xl" />
+              <h1 className="relative text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-slate-800 to-slate-600 tracking-tight leading-tight">
+                {children}
+              </h1>
+            </div>
+          ),
+
+          // ── H2: elegant section header ───────────────────────────────────────
+          h2: ({ children }) => (
+            <h2 className="group flex items-center gap-3 mt-14 mb-6 relative">
+              <span className="w-1.5 h-6 rounded-full bg-gradient-to-b from-blue-500 to-violet-500 shadow-sm" />
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 tracking-tight">
+                {children}
+              </span>
+            </h2>
+          ),
+
+          // ── H3: subtle sub-section label ───────────────────────────────────
+          h3: ({ children }) => (
+            <h3 className="text-[15px] font-bold text-slate-800 mt-8 mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block shrink-0 ring-4 ring-indigo-50" />
+              {children}
+            </h3>
+          ),
+
+          // ── Paragraph ──────────────────────────────────────────────────────
+          p: ({ children }) => (
+            <p className="text-[15px] text-slate-600 leading-[1.8] mb-5 font-medium">{children}</p>
+          ),
+
+          // ── Unordered list ─────────────────────────────────────────────────
+          ul: ({ children }) => (
+            <ul className="my-5 pl-1 space-y-2.5">{children}</ul>
+          ),
+
+          // ── Ordered list ───────────────────────────────────────────────────
+          ol: ({ children }) => (
+            <ol className="my-5 pl-1 space-y-2.5 list-decimal list-inside text-slate-600 font-medium">{children}</ol>
+          ),
+
+          // ── List item ──────────────────────────────────────────────────────
+          li: ({ children }) => (
+            <li className="flex items-start gap-3 text-[14.5px] text-slate-600 leading-[1.7] relative group">
+              <span className="mt-[8.5px] w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors duration-300 shrink-0" />
+              <span className="flex-1 font-medium">{children}</span>
+            </li>
+          ),
+
+          // ── Bold ───────────────────────────────────────────────────────────
+          strong: ({ children }) => (
+            <strong className="font-bold text-slate-900 bg-slate-100/50 px-1 rounded">
+              {children}
+            </strong>
+          ),
+
+          // ── Blockquote ─────────────────────────────────────────────────────
+          blockquote: ({ children }) => (
+            <blockquote className="my-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50/50 to-blue-50/30 border border-indigo-100/50 p-6 px-7 text-[14.5px] text-indigo-900/80 italic font-medium shadow-sm">
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-blue-500" />
+              {children}
+            </blockquote>
+          ),
+
+          // ── Inline code ────────────────────────────────────────────────────
+          code: ({ children, className }) => {
+            const isBlock = className?.includes("language-");
+            if (isBlock) {
+              return (
+                <div className="my-6 relative rounded-2xl overflow-hidden shadow-md border border-slate-800 bg-[#0a0f18] group">
+                  <div className="absolute top-0 w-full h-8 bg-white/5 border-b border-white/5 flex items-center px-4 gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500/90" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500/90" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
+                  </div>
+                  <code className="block text-slate-300 text-[13px] font-mono p-5 pt-12 overflow-x-auto leading-relaxed">
+                    {children}
+                  </code>
+                </div>
+              );
+            }
+            return (
+              <code className="bg-white text-indigo-600 text-[13px] font-mono px-1.5 py-0.5 rounded-md font-semibold border border-slate-200/70 shadow-sm">
+                {children}
+              </code>
+            );
+          },
+
+          // ── Horizontal rule ────────────────────────────────────────────────
+          hr: () => (
+            <div className="my-12 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+          ),
+
+          // ── Table ──────────────────────────────────────────────────────────
+          table: ({ children }) => (
+            <div className="my-8 overflow-x-auto rounded-xl border border-slate-200/60 shadow-sm bg-white">
+              <table className="w-full text-sm border-collapse">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => (
+            <thead className="bg-slate-50/80 text-slate-600 text-[11px] font-black uppercase tracking-wider border-b border-slate-200/60">
+              {children}
+            </thead>
+          ),
+          th: ({ children }) => (
+            <th className="px-5 py-3.5 text-left">{children}</th>
+          ),
+          td: ({ children }) => (
+            <td className="px-5 py-3 border-b border-slate-100/80 text-slate-600 font-medium">{children}</td>
+          ),
+          tr: ({ children }) => (
+            <tr className="hover:bg-slate-50/50 transition-colors">{children}</tr>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -664,10 +858,10 @@ function PlanningPhaseView({
                     title="Double-click to edit"
                     className="relative"
                   >
-                    <div className="prose prose-slate prose-sm max-w-none font-['Inter','system-ui','sans-serif'] prose-h1:text-3xl prose-h1:font-black prose-h1:tracking-tight prose-h1:mb-8 prose-h1:text-slate-900 prose-h2:text-[18px] prose-h2:font-black prose-h2:text-slate-800 prose-h2:border-t prose-h2:border-slate-100 prose-h2:pt-6 prose-h2:mt-10 prose-h2:mb-5 prose-h3:text-sm prose-h3:font-bold prose-h3:text-slate-800 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-[14px] prose-p:text-slate-600 prose-p:leading-7 prose-p:mb-5 prose-li:text-[14px] prose-li:text-slate-600 prose-li:my-2 prose-strong:text-slate-900 prose-strong:font-bold prose-blockquote:border-l-4 prose-blockquote:border-slate-200 prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:text-slate-500 prose-code:bg-slate-50 prose-code:text-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-xs prose-pre:bg-slate-900 prose-pre:text-slate-300 prose-pre:rounded-2xl prose-pre:p-6 prose-pre:shadow-xl prose-table:w-full prose-table:border-collapse prose-table:my-6 prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50/80 prose-th:px-4 prose-th:py-3 prose-th:text-left prose-th:text-xs prose-th:font-bold prose-th:text-slate-700 prose-td:border prose-td:border-slate-200 prose-td:px-4 prose-td:py-3 prose-td:text-sm prose-td:text-slate-600 text-justify">
-                      {showDiff &&
-                      existingProject?.planningHistory &&
-                      existingProject.planningHistory.length > 0 ? (
+                    {showDiff &&
+                    existingProject?.planningHistory &&
+                    existingProject.planningHistory.length > 0 ? (
+                      <div className="p-2">
                         <DiffViewer
                           oldText={
                             existingProject.planningHistory[
@@ -677,12 +871,10 @@ function PlanningPhaseView({
                           newText={reportContent}
                           version={existingProject.planningHistory.length}
                         />
-                      ) : (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {reportContent}
-                        </ReactMarkdown>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <ReportMarkdown content={reportContent} />
+                    )}
                     <div className="my-10 w-full h-px bg-gradient-to-r from-blue-100 to-transparent" />
                   </div>
                 )}

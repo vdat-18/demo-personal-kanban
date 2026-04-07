@@ -58,21 +58,30 @@ export async function generateProjectReport(
   const raw = await postChat({ projectName, messages });
 
   let structured: ProjectReportResult["structured"] = null;
+  const extractedJson = extractJSON(raw);
+  
   try {
-    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) structured = JSON.parse(jsonMatch[1].trim());
+    if (extractedJson && extractedJson.startsWith("{")) {
+      structured = JSON.parse(extractedJson);
+    }
   } catch {
     // structured stays null
   }
 
-  // Strip all JSON code blocks from the report so they don't render in the UI.
-  // The LLM appends a structured JSON block at the end per the system prompt.
-  // We extract it for `structured` above, then remove it from the visible report.
-  const reportWithoutJson = raw
-    // Remove fenced code blocks: ```json ... ``` or ``` ... ```
+  // Strip all JSON out so non-technical users don't see it.
+  let reportWithoutJson = raw;
+
+  // 1. If we successfully extracted and parsed the JSON, safely replace that exact substring.
+  if (structured && extractedJson) {
+    reportWithoutJson = reportWithoutJson.replace(extractedJson, "");
+  }
+
+  // 2. Extra safety passes: Clean up any remaining markdown blocks or loose trailing JSON
+  reportWithoutJson = reportWithoutJson
+    // Remove fenced code blocks
     .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
-    // Remove any trailing bare JSON object (starts with { on its own line near end)
-    .replace(/\n\s*\{[\s\S]*\}\s*$/, "")
+    // Remove trailing JSON block matching just to be safe
+    .replace(/\s*\{[\s\S]*\}\s*$/, "")
     .trim();
 
   return { report: reportWithoutJson, structured };
@@ -175,6 +184,10 @@ export async function chatWithAgenticAI(
     }
   }
 
-  // All strategies failed — return raw text as neutral reply
-  return { reply: raw, userIntent: "neutral", suggestedAction: null };
+  // All strategies failed — strip any JSON / code-fence blocks and return as neutral reply
+  const cleanedRaw = raw
+    .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
+    .replace(/\s*\{[\s\S]*\}\s*$/, "")
+    .trim();
+  return { reply: cleanedRaw || raw, userIntent: "neutral", suggestedAction: null };
 }

@@ -4,6 +4,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
+
+/**
+ * Remove raw JSON objects and fenced code blocks from a chat reply string.
+ * This prevents the AI's internal JSON scaffolding from leaking into the UI.
+ */
+function stripJsonBlocks(text: string): string {
+  return text
+    // Remove ```json ... ``` and ``` ... ``` code fences
+    .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
+    // Remove bare JSON objects { ... } at the end of the string
+    .replace(/\s*\{[\s\S]*\}\s*$/, "")
+    .trim();
+}
+
 import { useProjectStore } from "@/store";
 import { chatWithAgenticAI, postChatMultimodal } from "@/lib/llm";
 import type { MultimodalMessage, MultimodalPart } from "@/lib/llm";
@@ -210,9 +224,24 @@ export function usePlanningChat({
               ? responseAction
               : pendingAction ?? { type: "generate_report" as const, hint: "Generating..." };
           setPendingAction(null);
+
+          // Show a short in-progress message for every action type.
+          // The raw parsedResponse.reply is NEVER shown here because:
+          //   - generate_report: pushAgentMessage() in handleGenerateReport() sends the real result
+          //   - suggest_tasks:   dispatchAction() calls elaborate() which notifies via pushAgentMessage()
+          // Showing the raw reply would dump the full task breakdown / report into the chat.
+          const ACTION_CONFIRM_MSGS: Record<string, string> = {
+            generate_report: "Got it! Generating your strategy report now — it will appear on the right ✨",
+            suggest_tasks:   "On it! Elaborating all tasks now — they will appear in the Execution Plan.",
+            proceed_to_tasks: "Switching to the Execution Plan view now.",
+          };
+          const confirmMsg =
+            ACTION_CONFIRM_MSGS[actionToDispatch.type] ??
+            "Got it! Working on that now…";
+
           setMessages((prev) => [
             ...prev,
-            { sender: "agent", text: parsedResponse!.reply, suggestedAction: null },
+            { sender: "agent", text: confirmMsg, suggestedAction: null },
           ]);
           setTimeout(() => onActionConfirmed(actionToDispatch), 600);
         } else {
@@ -226,9 +255,11 @@ export function usePlanningChat({
             );
           }
           setPendingAction(parsedResponse.suggestedAction);
+          // Strip any stray JSON / code-fence blocks before displaying in chat
+          const cleanReply = stripJsonBlocks(parsedResponse!.reply);
           setMessages((prev) => [
             ...prev,
-            { sender: "agent", text: parsedResponse!.reply, suggestedAction: parsedResponse!.suggestedAction },
+            { sender: "agent", text: cleanReply, suggestedAction: parsedResponse!.suggestedAction },
           ]);
         }
       } else {
@@ -241,7 +272,7 @@ export function usePlanningChat({
 
         setMessages((prev) => [
           ...prev,
-          { sender: "agent", text: replyText, suggestedAction: null },
+          { sender: "agent", text: stripJsonBlocks(replyText), suggestedAction: null },
         ]);
       }
     } catch (err) {
