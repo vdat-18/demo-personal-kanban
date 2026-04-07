@@ -17,7 +17,13 @@ const SYSTEM_PROMPTS: Record<TaskStatus, string> = {
 3. Ask 1-3 focused clarifying questions (not more than 3).
 4. If you want to suggest or update subtasks based on user input, include a JSON block like this at the end of your message:
    \`\`\`json
-   { "action": "SET_SUBTASKS", "subtasks": ["subtask 1", "subtask 2"] }
+   { 
+     "action": "SET_SUBTASKS", 
+     "subtasks": [
+       { "text": "subtask title 1", "description": "detailed explanation of what to do" },
+       { "text": "subtask title 2", "description": "detailed explanation of what to do" }
+     ] 
+   }
    \`\`\`
 5. At the end, explicitly suggest moving to the Planning stage when you have enough context.
 
@@ -28,7 +34,12 @@ Be warm, friendly, and concise. The user is non-technical.`,
 2. Create a detailed, actionable execution plan broken into clear subtasks.
 3. To update the subtask list, include a JSON block at the end of your message:
    \`\`\`json
-   { "action": "SET_SUBTASKS", "subtasks": ["subtask 1", "subtask 2"] }
+   { 
+     "action": "SET_SUBTASKS", 
+     "subtasks": [
+       { "text": "subtask title 1", "description": "detailed explanation of what to do" }
+     ] 
+   }
    \`\`\`
 4. Identify any resources, tools, or information needed.
 5. Present the plan in a structured, easy-to-read format.

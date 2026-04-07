@@ -84,8 +84,9 @@ export async function generateProjectReport(
 
 function buildAgenticSystemPrompt(
   pendingActionType: string | null | undefined,
-  hasReport: boolean
+  reportContent: string | undefined
 ): string {
+  const hasReport = !!reportContent;
   return `You are a Lead System Analyst helping users define a project strategy.
 
 Your goal is to move efficiently from brainstorming to a structured report.
@@ -102,6 +103,7 @@ Do NOT ask one question at a time. Instead:
 Current context:
 - Pending action: ${pendingActionType ?? "none"}
 - Report exists: ${hasReport ? "YES" : "NO"}
+${hasReport ? `\n--- CURRENT REPORT CONTENT ---\n${reportContent}\n--- END CURRENT REPORT ---\n` : ""}
 
 Response format — you MUST return valid JSON (no markdown fences, just raw JSON):
 {
@@ -144,7 +146,7 @@ export async function chatWithAgenticAI(
   reportContent?: string
 ): Promise<AgenticResponse> {
   const messages: ChatMessage[] = [
-    { role: "user", content: buildAgenticSystemPrompt(pendingActionType, !!reportContent) },
+    { role: "user", content: buildAgenticSystemPrompt(pendingActionType, reportContent) },
     ...history,
   ];
 

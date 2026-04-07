@@ -105,7 +105,7 @@ export interface StoreState {
   addSubtask: (projectId: string, taskId: string, text: string) => void;
   deleteSubtask: (projectId: string, taskId: string, subtaskId: string) => void;
   updateSubtask: (projectId: string, taskId: string, subtaskId: string, text: string) => void;
-  setSubtasks: (projectId: string, taskId: string, texts: string[]) => void;
+  setSubtasks: (projectId: string, taskId: string, items: (string | { text: string; description?: string })[]) => void;
 
   // ── Assets ─────────────────────────────────────────────────────────────────
   addAsset: (asset: Asset) => void;
@@ -419,7 +419,7 @@ export const useProjectStore = create<StoreState>()(
           }),
         })),
 
-      setSubtasks: (projectId, taskId, texts) =>
+      setSubtasks: (projectId, taskId, items) =>
         set((state) => ({
           projects: state.projects.map((p) => {
             if (p.id !== projectId) return p;
@@ -427,11 +427,16 @@ export const useProjectStore = create<StoreState>()(
               ...p,
               tasks: p.tasks.map((t) => {
                 if (t.id !== taskId) return t;
-                const subtasks = texts.map((text, i) => ({
-                  id: `sub-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
-                  text,
-                  completed: false,
-                }));
+                const subtasks = items.map((item: any, i: number) => {
+                  const text = typeof item === "string" ? item : item.text;
+                  const description = typeof item === "string" ? undefined : item.description;
+                  return {
+                    id: `sub-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
+                    text,
+                    description,
+                    completed: false,
+                  };
+                });
                 return { ...t, subtasks };
               }),
             };

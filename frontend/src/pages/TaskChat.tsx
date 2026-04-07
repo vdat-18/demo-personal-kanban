@@ -52,8 +52,9 @@ function detectReviewerVerdict(text: string): ReviewVerdict {
   return null;
 }
 
-function detectSubtaskCommand(text: string): string[] | null {
+function detectSubtaskCommand(text: string): any[] | null {
   const jsonStr = extractJSON(text);
+  if (!jsonStr) return null;
   try {
     const data = JSON.parse(jsonStr);
     if (data && data.action === "SET_SUBTASKS" && Array.isArray(data.subtasks)) {
@@ -563,7 +564,12 @@ export function TaskChat() {
                     {task.subtasks.map(s => (
                       <li key={s.id} className="flex items-center gap-3 text-sm font-medium text-gray-700">
                         <CheckCircle2 className={`w-4 h-4 shrink-0 ${s.completed ? "text-green-500" : "text-gray-300"}`} />
-                        <span className={s.completed ? "" : "text-gray-400 line-through"}>{s.text}</span>
+                        <div className="flex flex-col">
+                          <span className={`${s.completed ? "" : "text-gray-400 line-through"}`}>{s.text}</span>
+                          {s.description && (
+                            <span className="text-[10px] text-gray-400 font-medium italic">{s.description}</span>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -984,7 +990,16 @@ export function TaskChat() {
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
-                          <span className="flex-1">{s.text}</span>
+                        <div className="flex-1">
+                          <span className="block">{s.text}</span>
+                          {s.description && (
+                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+                              <p className="overflow-hidden text-[10px] text-gray-400 font-medium italic mt-0 group-hover:mt-1 opacity-0 group-hover:opacity-100 transition-all">
+                                {s.description}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                         )}
                       </div>
 

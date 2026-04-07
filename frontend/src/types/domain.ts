@@ -14,6 +14,7 @@ export type TaskStatus =
 export interface Subtask {
   id: string;
   text: string;
+  description?: string;
   completed: boolean;
 }
 

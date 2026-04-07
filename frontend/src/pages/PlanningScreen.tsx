@@ -44,6 +44,7 @@ import { usePlanningChat } from "@/features/planning/hooks/usePlanningChat";
 import { useTaskElaboration } from "@/features/planning/hooks/useTaskElaboration";
 import { extractFileContent } from "@/lib/fileReader";
 
+import { AGENT_MAPPING } from "@/constants/agents";
 import type { Task, SuggestedAction, DetailedTask } from "@/types/domain";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -207,7 +208,7 @@ export function PlanningScreen() {
           text,
           completed: false,
         })),
-        agentType: existing ? existing.agentType : t.agent_hint,
+        agentType: existing ? existing.agentType : AGENT_MAPPING["todo"],
         updatedAt: new Date().toISOString(),
       };
     });
@@ -388,7 +389,6 @@ export function PlanningScreen() {
                chat={chat}
                elaboration={elaboration}
                structuredReport={structuredReport}
-               onBackToPlanning={() => setPhase("planning")}
                onStartExecution={handleStartExecution}
                messagesEndRef={messagesEndRef}
                bottomFileInputRef={bottomFileInputRef}
@@ -704,7 +704,6 @@ interface TasksPhaseViewProps {
   chat: any;
   elaboration: ReturnType<typeof useTaskElaboration>;
   structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
-  onBackToPlanning: () => void;
   onStartExecution: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   bottomFileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -716,7 +715,6 @@ function TasksPhaseView({
   chat,
   elaboration,
   structuredReport,
-  onBackToPlanning,
   onStartExecution,
   messagesEndRef,
   bottomFileInputRef,
@@ -731,21 +729,6 @@ function TasksPhaseView({
       {/* ── Chat Column ── */}
       <div className="w-[45%] flex flex-col bg-white border-r border-slate-100 relative shadow-[10px_0_30px_-15px_rgba(0,0,0,0.03)] z-10">
         <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col gap-6 scrollbar-hide">
-          <div className="mb-4">
-            <button
-              onClick={onBackToPlanning}
-              className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:gap-3 transition-all"
-            >
-              <ArrowLeft className="w-3 h-3" /> Back to Strategy Overview
-            </button>
-          </div>
-
-          {/* Project vision summary inside chat column */}
-          <div className="bg-slate-50/80 p-6 rounded-3xl border border-slate-100 mb-4">
-             <h4 className="text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Project Vision</h4>
-             <h5 className="text-sm font-bold text-slate-900 mb-1">{structuredReport?.title}</h5>
-             <p className="text-[11px] text-slate-500 leading-relaxed italic">{structuredReport?.goal}</p>
-          </div>
 
           {chat.messages.map((msg: any, i: number) => (
             <div
@@ -889,13 +872,25 @@ function TasksPhaseView({
             <h2 className="text-5xl font-black text-slate-900 tracking-tight">
               Execution Plan
             </h2>
-            {!hasTasks && !isElaborating && hasSuggestedTitles && (
-              <button
-                onClick={elaborate}
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
-              >
-                <Sparkles className="w-4 h-4" /> AI Elaborate Tasks
-              </button>
+            {!isElaborating && (
+              <div className="flex items-center gap-3">
+                {!hasTasks && hasSuggestedTitles && (
+                  <button
+                    onClick={elaborate}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+                  >
+                    <Sparkles className="w-4 h-4" /> AI Elaborate Tasks
+                  </button>
+                )}
+                {hasTasks && (
+                  <button
+                    onClick={onStartExecution}
+                    className="flex items-center gap-2 px-7 py-3 bg-[#0a192f] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-950 transition-all shadow-xl shadow-blue-900/10"
+                  >
+                    Begin Execution <Play className="w-4 h-4 fill-current" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -941,28 +936,6 @@ function TasksPhaseView({
                 )}
           </div>
 
-          {/* Begin Execution CTA */}
-          {(hasTasks || (hasSuggestedTitles && !isElaborating)) && (
-            <div className="mt-16 p-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[45px] text-white flex items-center justify-between shadow-2xl shadow-blue-500/30">
-              <div>
-                <p className="text-white/60 text-[10px] font-black uppercase tracking-[3px] mb-2">
-                  FINAL STEP
-                </p>
-                <h3 className="text-2xl font-black">Start implementation!</h3>
-                {hasTasks && (
-                  <p className="text-blue-200/70 text-sm mt-1">
-                    {detailedTasks.length} tasks ready with AI-generated details
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={onStartExecution}
-                className="bg-white text-blue-600 px-10 py-5 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-blue-50 active:scale-95 transition-all shadow-xl flex items-center gap-2"
-              >
-                Begin Execution <Play className="w-5 h-5 fill-current" />
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
