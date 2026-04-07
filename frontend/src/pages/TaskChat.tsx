@@ -65,6 +65,24 @@ function detectSubtaskCommand(text: string): any[] | null {
   return null;
 }
 
+function detectCompleteSubtask(text: string): string | null {
+  const blocks: string[] = [];
+  const re = /```(?:json)?\s*([\s\S]*?)```/g;
+  let m;
+  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
+  const bare = extractJSON(text);
+  if (bare) blocks.push(bare);
+  for (const block of blocks) {
+    try {
+      const data = JSON.parse(block);
+      if (data && data.action === "COMPLETE_SUBTASK" && data.subtask_text) {
+        return data.subtask_text as string;
+      }
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
 function detectSuggestMove(text: string): { target: string; message: string } | null {
   // The AI may emit multiple JSON blocks; scan all of them
   const blocks: string[] = [];
@@ -315,8 +333,8 @@ export function TaskChat() {
       setSubtasks(project.id, task.id, aiSubtasks);
     }
 
-    // Auto-detect SUGGEST_MOVE from Starter Agent
-    if (task.status === "todo" || task.status === "planning") {
+    // Auto-detect SUGGEST_MOVE from Starter / Planner Agent
+    if (task.status === "todo" || task.status === "planning" || task.status === "doing") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -425,7 +443,7 @@ export function TaskChat() {
     }
 
     // Auto-detect SUGGEST_MOVE in regular chat
-    if (task.status === "todo" || task.status === "planning") {
+    if (task.status === "todo" || task.status === "planning" || task.status === "doing") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -470,6 +488,22 @@ export function TaskChat() {
     setChatMessages(prev => [...prev, { role: "assistant", content: fullReply }]);
     setStreamingReply("");
     setIsStreaming(false);
+
+    // Doer Agent: auto-tick completed subtask
+    if (task.status === "doing") {
+      const completedTitle = detectCompleteSubtask(fullReply);
+      if (completedTitle && project && task) {
+        const match = task.subtasks.find(
+          s => !s.completed && s.text.toLowerCase().includes(completedTitle.toLowerCase().slice(0, 20))
+        );
+        if (match) {
+          toggleSubtask(project.id, task.id, match.id);
+        }
+      }
+      // Check if all subtasks now done → auto SUGGEST_MOVE to review
+      const move = detectSuggestMove(fullReply);
+      if (move) setSuggestMove(move);
+    }
   };
 
 
@@ -831,18 +865,25 @@ export function TaskChat() {
               </div>
             )}
 
-            {/* Agentic SUGGEST_MOVE banner — works for both Starter (todo) and Planner (planning) */}
-            {suggestMove && (task.status === "todo" || task.status === "planning") && !isStreaming && (() => {
-              const isPlanning = task.status === "todo";
-              const targetLabel = isPlanning ? "Planning" : "Doing";
-              const targetStatus: TaskStatus = isPlanning ? "planning" : "doing";
-              const agentLabel = isPlanning ? "Starter Agent · Ready" : "Planner Agent · Plan Complete";
-              const gradient = isPlanning
+            {/* Agentic SUGGEST_MOVE banner — Starter (todo→planning), Planner (planning→doing), Doer (doing→review) */}
+            {suggestMove && (task.status === "todo" || task.status === "planning" || task.status === "doing") && !isStreaming && (() => {
+              const isTodo = task.status === "todo";
+              const isDoing = task.status === "doing";
+              const targetLabel = isTodo ? "Planning" : isDoing ? "Review" : "Doing";
+              const targetStatus: TaskStatus = isTodo ? "planning" : isDoing ? "review" : "doing";
+              const agentLabel = isTodo ? "Starter Agent · Ready" : isDoing ? "Doer Agent · Execution Complete" : "Planner Agent · Plan Complete";
+              const gradient = isTodo
                 ? "from-[#0a192f] to-blue-900"
+                : isDoing
+                ? "from-violet-900 to-purple-800"
                 : "from-emerald-900 to-teal-800";
-              const accentColor = isPlanning ? "text-blue-400" : "text-emerald-400";
-              const iconColor = isPlanning ? "text-blue-300" : "text-emerald-300";
-              const iconBg = isPlanning ? "bg-blue-500/20 border-blue-400/30" : "bg-emerald-500/20 border-emerald-400/30";
+              const accentColor = isTodo ? "text-blue-400" : isDoing ? "text-violet-300" : "text-emerald-400";
+              const iconColor = isTodo ? "text-blue-300" : isDoing ? "text-violet-300" : "text-emerald-300";
+              const iconBg = isTodo
+                ? "bg-blue-500/20 border-blue-400/30"
+                : isDoing
+                ? "bg-violet-500/20 border-violet-400/30"
+                : "bg-emerald-500/20 border-emerald-400/30";
               return (
                 <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 mx-2">
                   <div className={`bg-gradient-to-br ${gradient} rounded-3xl p-6 shadow-xl border border-white/10`}>
