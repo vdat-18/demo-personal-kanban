@@ -104,6 +104,24 @@ function detectSuggestMove(text: string): { target: string; message: string } | 
   return null;
 }
 
+function detectVerdictCommand(text: string): { result: "needs_doing" | "needs_planning"; issues: string[] } | null {
+  const blocks: string[] = [];
+  const re = /```(?:json)?\s*([\s\S]*?)```/g;
+  let m;
+  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
+  const bare = extractJSON(text);
+  if (bare) blocks.push(bare);
+  for (const block of blocks) {
+    try {
+      const data = JSON.parse(block);
+      if (data && data.action === "VERDICT" && (data.result === "needs_doing" || data.result === "needs_planning")) {
+        return { result: data.result, issues: Array.isArray(data.issues) ? data.issues : [] };
+      }
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CANCEL DIALOG
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,24 +337,28 @@ export function TaskChat() {
     // Mark kickoff done in store to prevent duplicate calls
     markKickoffDone(project.id, task.id);
 
-    // After kickoff for reviewer, auto-detect verdict in the reply
-    if (task.status === "review") {
-      const verdict = detectReviewerVerdict(fullReply);
-      if (verdict && verdict !== "approved") {
-        setReviewerVerdict(verdict);
-      }
-    }
-
     // Auto-detect subtask updates
     const aiSubtasks = detectSubtaskCommand(fullReply);
     if (aiSubtasks && project && task) {
       setSubtasks(project.id, task.id, aiSubtasks);
     }
 
-    // Auto-detect SUGGEST_MOVE from Starter / Planner Agent
-    if (task.status === "todo" || task.status === "planning" || task.status === "doing") {
+    // Auto-detect SUGGEST_MOVE from all agents (including Reviewer → done)
+    if (task.status === "todo" || task.status === "planning" || task.status === "doing" || task.status === "review") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
+    }
+
+    // Reviewer: detect VERDICT JSON (primary) with keyword fallback
+    if (task.status === "review") {
+      const verdict = detectVerdictCommand(fullReply);
+      if (verdict) {
+        setReviewerVerdict(verdict.result);
+      } else {
+        // Fallback: keyword detection
+        const kwVerdict = detectReviewerVerdict(fullReply);
+        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict);
+      }
     }
   }, [task?.id, task?.status, task?.kickoffDone, project?.id, isStreaming]);
 
@@ -442,19 +464,22 @@ export function TaskChat() {
       setSubtasks(project.id, task.id, aiSubtasks);
     }
 
-    // Auto-detect SUGGEST_MOVE in regular chat
-    if (task.status === "todo" || task.status === "planning" || task.status === "doing") {
+    // Auto-detect SUGGEST_MOVE in regular chat (all stages)
+    if (task.status === "todo" || task.status === "planning" || task.status === "doing" || task.status === "review") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
 
-    // Auto-detect reviewer verdict after each reply
+    // Reviewer: detect VERDICT JSON (primary) with keyword fallback
     if (task.status === "review") {
-      const verdict = detectReviewerVerdict(fullReply);
-      if (verdict && verdict !== "approved") {
-        setReviewerVerdict(verdict);
-      } else if (verdict === "approved") {
-        setReviewerVerdict("approved");
+      const verdict = detectVerdictCommand(fullReply);
+      if (verdict) {
+        setReviewerVerdict(verdict.result);
+      } else {
+        // Fallback: keyword detection
+        const kwVerdict = detectReviewerVerdict(fullReply);
+        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict);
+        else if (kwVerdict === "approved") setReviewerVerdict("approved");
       }
     }
   };
@@ -865,31 +890,42 @@ export function TaskChat() {
               </div>
             )}
 
-            {/* Agentic SUGGEST_MOVE banner — Starter (todo→planning), Planner (planning→doing), Doer (doing→review) */}
-            {suggestMove && (task.status === "todo" || task.status === "planning" || task.status === "doing") && !isStreaming && (() => {
+            {/* Agentic SUGGEST_MOVE banner — Starter/Planner/Doer/Reviewer */}
+            {suggestMove && (task.status === "todo" || task.status === "planning" || task.status === "doing" || task.status === "review") && !isStreaming && (() => {
               const isTodo = task.status === "todo";
               const isDoing = task.status === "doing";
-              const targetLabel = isTodo ? "Planning" : isDoing ? "Review" : "Doing";
-              const targetStatus: TaskStatus = isTodo ? "planning" : isDoing ? "review" : "doing";
-              const agentLabel = isTodo ? "Starter Agent · Ready" : isDoing ? "Doer Agent · Execution Complete" : "Planner Agent · Plan Complete";
+              const isReview = task.status === "review";
+              const targetLabel = isTodo ? "Planning" : isDoing ? "Review" : isReview ? "Done ✅" : "Doing";
+              const targetStatus: TaskStatus = isTodo ? "planning" : isDoing ? "review" : isReview ? "done" : "doing";
+              const agentLabel = isTodo
+                ? "Starter Agent · Ready"
+                : isDoing
+                ? "Doer Agent · Execution Complete"
+                : isReview
+                ? "Reviewer Agent · Approved"
+                : "Planner Agent · Plan Complete";
               const gradient = isTodo
                 ? "from-[#0a192f] to-blue-900"
                 : isDoing
                 ? "from-violet-900 to-purple-800"
+                : isReview
+                ? "from-orange-600 to-amber-500"
                 : "from-emerald-900 to-teal-800";
-              const accentColor = isTodo ? "text-blue-400" : isDoing ? "text-violet-300" : "text-emerald-400";
-              const iconColor = isTodo ? "text-blue-300" : isDoing ? "text-violet-300" : "text-emerald-300";
+              const accentColor = isTodo ? "text-blue-400" : isDoing ? "text-violet-300" : isReview ? "text-orange-100" : "text-emerald-400";
+              const iconColor = isTodo ? "text-blue-300" : isDoing ? "text-violet-300" : isReview ? "text-white" : "text-emerald-300";
               const iconBg = isTodo
                 ? "bg-blue-500/20 border-blue-400/30"
                 : isDoing
                 ? "bg-violet-500/20 border-violet-400/30"
+                : isReview
+                ? "bg-white/20 border-white/30"
                 : "bg-emerald-500/20 border-emerald-400/30";
               return (
                 <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 mx-2">
                   <div className={`bg-gradient-to-br ${gradient} rounded-3xl p-6 shadow-xl border border-white/10`}>
                     <div className="flex items-start gap-4 mb-5">
                       <div className={`w-10 h-10 rounded-2xl ${iconBg} border flex items-center justify-center shrink-0 mt-0.5`}>
-                        <Rocket className={`w-5 h-5 ${iconColor}`} />
+                        <CheckCircle2 className={`w-5 h-5 ${iconColor}`} />
                       </div>
                       <div>
                         <p className={`text-[10px] font-black ${accentColor} uppercase tracking-widest mb-1`}>{agentLabel}</p>
