@@ -316,7 +316,7 @@ export function TaskChat() {
     }
 
     // Auto-detect SUGGEST_MOVE from Starter Agent
-    if (task.status === "todo") {
+    if (task.status === "todo" || task.status === "planning") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -425,7 +425,7 @@ export function TaskChat() {
     }
 
     // Auto-detect SUGGEST_MOVE in regular chat
-    if (task.status === "todo") {
+    if (task.status === "todo" || task.status === "planning") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -831,40 +831,52 @@ export function TaskChat() {
               </div>
             )}
 
-            {/* Starter Agent: SUGGEST_MOVE banner */}
-            {suggestMove && task.status === "todo" && !isStreaming && (
-              <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 mx-2">
-                <div className="bg-gradient-to-br from-[#0a192f] to-blue-900 rounded-3xl p-6 shadow-xl shadow-blue-900/20 border border-blue-800/30">
-                  <div className="flex items-start gap-4 mb-5">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 mt-0.5">
-                      <Rocket className="w-5 h-5 text-blue-300" />
+            {/* Agentic SUGGEST_MOVE banner — works for both Starter (todo) and Planner (planning) */}
+            {suggestMove && (task.status === "todo" || task.status === "planning") && !isStreaming && (() => {
+              const isPlanning = task.status === "todo";
+              const targetLabel = isPlanning ? "Planning" : "Doing";
+              const targetStatus: TaskStatus = isPlanning ? "planning" : "doing";
+              const agentLabel = isPlanning ? "Starter Agent · Ready" : "Planner Agent · Plan Complete";
+              const gradient = isPlanning
+                ? "from-[#0a192f] to-blue-900"
+                : "from-emerald-900 to-teal-800";
+              const accentColor = isPlanning ? "text-blue-400" : "text-emerald-400";
+              const iconColor = isPlanning ? "text-blue-300" : "text-emerald-300";
+              const iconBg = isPlanning ? "bg-blue-500/20 border-blue-400/30" : "bg-emerald-500/20 border-emerald-400/30";
+              return (
+                <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 mx-2">
+                  <div className={`bg-gradient-to-br ${gradient} rounded-3xl p-6 shadow-xl border border-white/10`}>
+                    <div className="flex items-start gap-4 mb-5">
+                      <div className={`w-10 h-10 rounded-2xl ${iconBg} border flex items-center justify-center shrink-0 mt-0.5`}>
+                        <Rocket className={`w-5 h-5 ${iconColor}`} />
+                      </div>
+                      <div>
+                        <p className={`text-[10px] font-black ${accentColor} uppercase tracking-widest mb-1`}>{agentLabel}</p>
+                        <p className="text-white text-sm font-medium leading-relaxed">{suggestMove.message}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Starter Agent · Ready</p>
-                      <p className="text-white text-sm font-medium leading-relaxed">{suggestMove.message}</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setSuggestMove(null);
+                          doMove(targetStatus);
+                        }}
+                        className="flex-1 bg-white text-[#0a192f] rounded-2xl py-3 text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        Move to {targetLabel}
+                      </button>
+                      <button
+                        onClick={() => setSuggestMove(null)}
+                        className="px-5 py-3 bg-white/10 text-white/70 hover:bg-white/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
+                      >
+                        Not yet
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setSuggestMove(null);
-                        doMove("planning");
-                      }}
-                      className="flex-1 bg-white text-[#0a192f] rounded-2xl py-3 text-xs font-black uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      Move to Planning
-                    </button>
-                    <button
-                      onClick={() => setSuggestMove(null)}
-                      className="px-5 py-3 bg-white/10 text-white/70 hover:bg-white/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
-                    >
-                      Not yet
-                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div ref={messagesEndRef} />
           </div>
