@@ -546,6 +546,8 @@ export function TaskChat() {
       createdAt: new Date().toISOString(),
       size: `${(summary.length / 1024).toFixed(1)} KB`,
       content: summary,
+      scope: "task",
+      taskId: task.id,
     });
 
     const blob = new Blob([summary], { type: "text/markdown" });

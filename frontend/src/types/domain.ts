@@ -159,4 +159,6 @@ export interface Asset {
   size: string;
   content?: string; // Content for markdown/text or base64 for images
   url?: string; // Dummy URL for now or download blob
+  scope?: "global" | "task"; // Logical grouping for project brain vs task context
+  taskId?: string; // ID of the task this asset belongs to (if scope is 'task')
 }

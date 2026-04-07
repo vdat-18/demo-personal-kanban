@@ -131,6 +131,7 @@ export function PlanningScreen() {
       createdAt: new Date().toISOString(),
       size: (file.size / 1024).toFixed(1) + " KB",
       content: mainContent.length < 50000 ? mainContent : "[File too large for preview]",
+      scope: "global",
     });
   };
 
@@ -160,6 +161,7 @@ export function PlanningScreen() {
       createdAt: new Date().toISOString(),
       size: (bytes / 1024).toFixed(1) + " KB",
       content: reportContent,
+      scope: "global",
     });
     alert("Report saved to project directory successfully!");
   };
@@ -464,7 +466,7 @@ export function PlanningScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-function ReportMarkdown({ content }: { content: string }) {
+export function ReportMarkdown({ content }: { content: string }) {
   // We use CSS styling instead of numbers for H2 to ensure clean rendering.
   return (
     <div className="report-markdown-container">
