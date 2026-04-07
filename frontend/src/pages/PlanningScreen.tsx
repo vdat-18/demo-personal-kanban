@@ -482,7 +482,7 @@ function PlanningPhaseView({
                         });
                         return [...groups.entries()].map(([groupKey, items], idx) => {
                           const label = groupKey;
-                          const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                          const pageCount = items.length > 1 ? ` (${items.length} pages)` : "";
                           return (
                             <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
                               <Paperclip className="w-3.5 h-3.5 opacity-70" />
@@ -578,7 +578,7 @@ function PlanningPhaseView({
                     chat.addAttachments(extracted);
                     syncFileToAssets(file, extracted);
                   } catch (err) {
-                    alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
+                    alert("Error reading file: " + file.name + "\nDetails: " + err);
                   }
                 }
                 e.target.value = ''; // Reset
@@ -587,7 +587,7 @@ function PlanningPhaseView({
             <button
               onClick={() => topFileInputRef.current?.click()}
               className="p-3 mb-0.5 rounded-xl transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
-              title="Upload file (ảnh, PDF, DOCX, text...)"
+              title="Upload file (images, PDF, DOCX, text...)"
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -775,7 +775,7 @@ function TasksPhaseView({
                         });
                         return [...groups.entries()].map(([groupKey, items], idx) => {
                           const label = groupKey;
-                          const pageCount = items.length > 1 ? ` (${items.length} trang)` : "";
+                          const pageCount = items.length > 1 ? ` (${items.length} pages)` : "";
                           return (
                             <div key={idx} className="flex items-center gap-1.5 bg-white/10 text-white text-[10px] px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
                               <Paperclip className="w-3.5 h-3.5 opacity-70" />
@@ -844,7 +844,7 @@ function TasksPhaseView({
                     chat.addAttachments(extracted);
                     syncFileToAssets(file, extracted);
                   } catch (err) {
-                    alert("Lỗi khi đọc file: " + file.name + "\nChi tiết: " + err);
+                    alert("Error reading file: " + file.name + "\nDetails: " + err);
                   }
                 }
                 e.target.value = ''; // Reset

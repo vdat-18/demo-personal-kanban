@@ -131,7 +131,7 @@ export function usePlanningChat({
 
     const userMsg: ChatMessage = {
       sender: "user",
-      text: textToSend || "Đính kèm file",
+      text: textToSend || "Attachment",
       attachments: snapshot.length > 0 ? snapshot : undefined,
     };
     const updated = [...messages, userMsg];
@@ -152,14 +152,14 @@ export function usePlanningChat({
             return { role: m.sender === "user" ? "user" : "assistant", content: m.text };
           }
           const parts: MultimodalPart[] = [];
-          if (m.text && m.text !== "Đính kèm file") {
+          if (m.text && m.text !== "Attachment") {
             parts.push({ type: "text", text: m.text });
           }
           for (const att of m.attachments) {
             if (att.type === "image") {
               parts.push({ type: "image", base64: att.content, mimeType: att.mimeType ?? "image/png" });
             } else {
-              parts.push({ type: "text", text: `\n\n[NỘI DUNG FILE "${att.name}":\n${att.content}]` });
+              parts.push({ type: "text", text: `\n\n[FILE CONTENT "${att.name}":\n${att.content}]` });
             }
           }
           return { role: "user", content: parts };
@@ -168,7 +168,7 @@ export function usePlanningChat({
         // Prepend agentic system prompt as a user message
         const systemMsg: MultimodalMessage = {
           role: "user",
-          content: `Bạn là Intelligent Planning Assistant. Hãy phân tích chuyên sâu nội dung file/ảnh được đính kèm và trả lời người dùng trực tiếp bằng tiếng Việt, có sử dụng định dạng Markdown cho đẹp mắt. Dưới góc độ của một chuyên gia nhé.`,
+          content: `You are the Intelligent Planning Assistant. Please analyze the attached files/images in depth and respond directly to the user in English, using beautiful Markdown formatting. Respond from an expert perspective.`,
         };
         responseText = await postChatMultimodal({
           messages: [systemMsg, ...multimodalHistory],
@@ -179,7 +179,7 @@ export function usePlanningChat({
           let content = m.text;
           if (m.attachments?.length) {
             content += "\n\n" + m.attachments
-              .map((a) => `[NỘI DUNG FILE "${a.name}":\n${a.content}]`)
+              .map((a) => `[FILE CONTENT "${a.name}":\n${a.content}]`)
               .join("\n\n");
           }
           return {
@@ -248,7 +248,7 @@ export function usePlanningChat({
       console.error("[usePlanningChat] AI call failed:", err);
       setMessages((prev) => [
         ...prev,
-        { sender: "agent", text: "Có lỗi xảy ra khi gọi AI. Vui lòng thử lại.", suggestedAction: null },
+        { sender: "agent", text: "An error occurred while calling the AI. Please try again.", suggestedAction: null },
       ]);
     } finally {
       setIsTyping(false);

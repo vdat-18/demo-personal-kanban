@@ -38,13 +38,12 @@ type ReviewVerdict = "approved" | "needs_doing" | "needs_planning" | null;
 function detectReviewerVerdict(text: string): ReviewVerdict {
   const upper = text.toUpperCase();
   if (upper.includes("APPROVED")) return "approved";
-  if (upper.includes("NEEDS REVISION") || upper.includes("CẦN LÀM LẠI") || upper.includes("CHƯA ĐẠT")) {
+  if (upper.includes("NEEDS REVISION") || upper.includes("REVISE") || upper.includes("FAIL")) {
     // Check if it suggests going back to Planning vs Doing
     if (
       upper.includes("PLANNING") ||
-      upper.includes("KẾ HOẠCH LẠI") ||
-      upper.includes("LẬP LẠI") ||
-      upper.includes("LÊN KẾ HOẠCH")
+      upper.includes("REPLAN") ||
+      upper.includes("STRATEGY")
     ) {
       return "needs_planning";
     }
@@ -175,7 +174,7 @@ function ReviewerVerdictDialog({
   const targetLabel = isPlanning ? "Planning" : "Doing";
   const reason = isPlanning
     ? "The Reviewer detected a fundamental issue with the plan. The task needs to be re-planned before execution."
-    : "The Reviewer found issues with the output. The Doer Agent needs to fix them.";
+    : "Reviewer found issues with the output. Please fix the reported problems.";
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
