@@ -18,6 +18,13 @@ export interface Subtask {
   completed: boolean;
 }
 
+export interface SubtaskSnapshot {
+  /** Serialised subtask list at that point in time */
+  items: Omit<Subtask, "completed">[];
+  timestamp: number;
+  by: "ai" | "user";
+}
+
 export interface TaskMoveRecord {
   from: TaskStatus;
   to: TaskStatus;
@@ -46,6 +53,8 @@ export interface Task {
   cancelReason?: string;
   /** Full move history for audit / context to agents */
   moveHistory?: TaskMoveRecord[];
+  /** Snapshots of subtask list over time — for diff / View Changes */
+  subtaskHistory?: SubtaskSnapshot[];
   history?: {
     title: string;
     description: string;
@@ -117,7 +126,6 @@ export interface AgenticResponse {
 }
 
 export type AgentHint =
-  | "Starter Agent"
   | "Planner Agent"
   | "Doer Agent"
   | "Reviewer Agent"
@@ -127,7 +135,6 @@ export interface DetailedTask {
   title: string;
   description: string;
   why: string;
-  suggested_subtasks: string[];
   agent_hint: AgentHint;
   history?: {
     title: string;

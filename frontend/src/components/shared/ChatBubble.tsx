@@ -5,6 +5,7 @@
 
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Props {
   sender: "agent" | "user";
@@ -41,8 +42,8 @@ export function ChatBubble({ sender, text, actionHint, className }: Props) {
         )}
       >
         {isAgent ? (
-          <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-slate-800 prose-strong:text-slate-800 prose-p:text-slate-600 prose-li:text-slate-600 prose-p:my-1 prose-headings:my-2">
-            <ReactMarkdown>{text}</ReactMarkdown>
+          <div className="ai-prose">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm leading-relaxed">{text}</p>

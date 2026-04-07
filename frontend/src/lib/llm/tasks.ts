@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { DetailedTask, DetailedTasksResponse } from "@/types/domain";
-import { postChat, extractJSON } from "./client";
+import { postChat } from "./client";
 
 function buildElaborationPrompt(projectReport: string, taskTitles: string[]): string {
   return `You are an expert project manager. Given the project report below and a list of task titles,
@@ -24,7 +24,6 @@ Return ONLY valid JSON in this exact format:
       "title": "Exact task title from the list",
       "description": "5-7 sentences providing a comprehensive overview of the task, its complexity, and the concrete deliverables/outcomes",
       "why": "1-2 sentences explaining why this task is critical to the project",
-      "suggested_subtasks": ["Subtask A", "Subtask B", "Subtask C"],
       "agent_hint": "Doer Agent"
     }
   ]
@@ -47,13 +46,12 @@ export async function generateDetailedTasks(
   });
 
   try {
-    const parsed = JSON.parse(extractJSON(raw));
+    const parsed = JSON.parse(raw.trim());
     const tasks: DetailedTask[] = (parsed.tasks ?? []).map((t: Partial<DetailedTask>) => ({
       title: t.title ?? "",
       description: t.description ?? "",
       why: t.why ?? "",
-      suggested_subtasks: Array.isArray(t.suggested_subtasks) ? t.suggested_subtasks : [],
-      agent_hint: t.agent_hint ?? "Starter Agent",
+      agent_hint: t.agent_hint ?? "Planner Agent",
     }));
     return { summary: parsed.summary ?? "", tasks };
   } catch {
@@ -64,8 +62,7 @@ export async function generateDetailedTasks(
         title,
         description: "",
         why: "",
-        suggested_subtasks: [],
-        agent_hint: "Starter Agent" as const,
+        agent_hint: "Planner Agent" as const,
       })),
     };
   }

@@ -16,8 +16,6 @@ export {
   postChat,
   postChatStream,
   postChatMultimodal,
-  extractJSON,
   API_BASE,
 } from "./client";
 export type { MultimodalPart, MultimodalMessage, MultimodalChatRequest } from "./client";
-

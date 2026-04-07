@@ -8,18 +8,6 @@ import type { ChatMessage } from "@/types/domain";
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Strip markdown code fences from an LLM response before JSON.parse */
-export function extractJSON(raw: string): string {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) return fenced[1].trim();
-  const jsonStart = raw.search(/[{[]/);
-  if (jsonStart !== -1) return raw.slice(jsonStart);
-  return raw.trim();
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // BLOCKING CHAT — POST /api/chat
 // ─────────────────────────────────────────────────────────────────────────────

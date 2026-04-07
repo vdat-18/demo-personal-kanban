@@ -4,7 +4,6 @@
 
 import type { ComponentType } from "react";
 import {
-  Rocket,
   BookOpen,
   Activity,
   Search,
@@ -17,7 +16,7 @@ import type { TaskStatus, AgentHint } from "@/types/domain";
 // ── Status → Agent mapping ───────────────────────────────────────────────────
 
 export const AGENT_MAPPING: Record<TaskStatus, string> = {
-  todo: "Starter Agent",
+  todo: "Planner Agent",
   planning: "Planner Agent",
   doing: "Doer Agent",
   review: "Reviewer Agent",
@@ -28,7 +27,6 @@ export const AGENT_MAPPING: Record<TaskStatus, string> = {
 // ── Agent → Icon mapping (Lucide components) ─────────────────────────────────
 
 export const AGENT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  "Starter Agent": Rocket,
   "Planner Agent": BookOpen,
   "Doer Agent": Activity,
   "Reviewer Agent": Search,
@@ -38,7 +36,6 @@ export const AGENT_ICONS: Record<string, ComponentType<{ className?: string }>> 
 // ── Agent → Badge color classes ───────────────────────────────────────────────
 
 export const AGENT_COLORS: Record<AgentHint | string, string> = {
-  "Starter Agent": "bg-slate-100 text-slate-600",
   "Planner Agent": "bg-blue-50 text-blue-600",
   "Doer Agent": "bg-indigo-50 text-indigo-600",
   "Reviewer Agent": "bg-amber-50 text-amber-600",
@@ -66,8 +63,7 @@ export interface KanbanColumn {
 }
 
 export const KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: "todo",      label: "TO DO",     Icon: Rocket,       agent: "Starter Agent"   },
-  { id: "planning",  label: "PLANNING",  Icon: BookOpen,     agent: "Planner Agent"   },
+  { id: "todo",      label: "TO DO",     Icon: BookOpen,     agent: "Planner Agent"   },
   { id: "doing",     label: "DOING",     Icon: Activity,     agent: "Doer Agent"      },
   { id: "review",    label: "REVIEW",    Icon: Search,       agent: "Reviewer Agent"  },
   { id: "done",      label: "DONE",      Icon: CheckCircle2, agent: "Reporter Agent"  },

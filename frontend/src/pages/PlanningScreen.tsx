@@ -18,7 +18,6 @@ import {
   CheckCircle2,
   ListTodo,
   Sparkles,
-  Play,
   ChevronRight,
   MessageSquare,
   Target,
@@ -219,7 +218,6 @@ export function PlanningScreen() {
     }
   };
 
-  // ── Start execution ────────────────────────────────────────────────────────
   const handleStartExecution = () => {
     const source =
       elaboration.detailedTasks.length > 0
@@ -229,8 +227,7 @@ export function PlanningScreen() {
               title,
               description: "",
               why: "",
-              suggested_subtasks: [],
-              agent_hint: "Starter Agent",
+              agent_hint: "Planner Agent",
             })
           );
 
@@ -243,11 +240,7 @@ export function PlanningScreen() {
         description: t.description,
         why: t.why,
         status: existing ? existing.status : "todo" as const,
-        subtasks: existing ? existing.subtasks : t.suggested_subtasks.map((text, sIdx) => ({
-          id: `subtask-${Date.now()}-${idx}-${sIdx}`,
-          text,
-          completed: false,
-        })),
+        subtasks: existing ? existing.subtasks : [],
         agentType: existing ? existing.agentType : AGENT_MAPPING["todo"],
         updatedAt: new Date().toISOString(),
       };
@@ -256,6 +249,8 @@ export function PlanningScreen() {
     startExecution(currentProjectId, tasks);
     navigate(`/mission-control/${currentProjectId}`);
   };
+
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -388,40 +383,35 @@ export function PlanningScreen() {
                 </button>
               )}
 
-              {reportContent && !isEditingReport && phase === "planning" && (
-                <button
-                  onClick={() => {
-                    elaboration.elaborate();
-                    setPhase("tasks");
-                  }}
-                  title="Proceed to Execution Plan"
-                  className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 hover:bg-blue-700 active:scale-90 transition-all animate-in zoom-in ml-2"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
-
               {/* Phase stepper */}
               <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100 ml-2">
-                <div
+                <button
+                  onClick={() => setPhase("planning")}
                   className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     phase === "planning"
                       ? "bg-white text-blue-600 shadow-sm"
-                      : "text-slate-400"
+                      : "text-slate-400 hover:text-slate-600"
                   }`}
                 >
                   1. Brainstorming
-                </div>
+                </button>
                 <ChevronRight className="w-3 h-3 text-slate-300 mx-1" />
-                <div
+                <button
+                  onClick={() => {
+                    if (reportContent) {
+                      elaboration.elaborate();
+                      setPhase("tasks");
+                    }
+                  }}
+                  disabled={!reportContent}
                   className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     phase === "tasks"
                       ? "bg-white text-blue-600 shadow-sm"
-                      : "text-slate-400"
+                      : "text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   }`}
                 >
                   2. Execution Plan
-                </div>
+                </button>
               </div>
             </div>
           </div>
@@ -449,10 +439,10 @@ export function PlanningScreen() {
                chat={chat}
                elaboration={elaboration}
                structuredReport={structuredReport}
-               onStartExecution={handleStartExecution}
                messagesEndRef={messagesEndRef}
                bottomFileInputRef={bottomFileInputRef}
                syncFileToAssets={syncFileToAssets}
+               onStartExecution={handleStartExecution}
             />
           )}
         </div>
@@ -504,7 +494,7 @@ export function ReportMarkdown({ content }: { content: string }) {
 
           // ── Paragraph ──────────────────────────────────────────────────────
           p: ({ children }) => (
-            <p className="text-[15px] text-slate-600 leading-[1.8] mb-5 font-medium">{children}</p>
+            <p className="text-[15px] text-slate-600 leading-[1.8] mb-5 font-medium text-justify">{children}</p>
           ),
 
           // ── Unordered list ─────────────────────────────────────────────────
@@ -521,7 +511,7 @@ export function ReportMarkdown({ content }: { content: string }) {
           li: ({ children }) => (
             <li className="flex items-start gap-3 text-[14.5px] text-slate-600 leading-[1.7] relative group">
               <span className="mt-[8.5px] w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors duration-300 shrink-0" />
-              <span className="flex-1 font-medium">{children}</span>
+              <span className="flex-1 font-medium text-justify">{children}</span>
             </li>
           ),
 
@@ -657,13 +647,13 @@ function PlanningPhaseView({
 
               {/* Bubble */}
               <div
-                className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] ${
+                className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] text-justify ${
                   msg.sender === "agent"
                     ? "bg-white border border-slate-100 shadow-[0_5px_15px_-5px_rgba(0,0,0,0.05)] text-slate-700 rounded-tl-none"
-                    : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none text-justify"
+                    : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none"
                 }`}
               >
-                <div className="prose prose-sm max-w-none text-current text-justify prose-table:border-collapse prose-th:border prose-th:border-slate-200 prose-th:bg-slate-50 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2">
+                <div className={msg.sender === "agent" ? "ai-prose" : "prose prose-sm max-w-none prose-invert prose-p:text-blue-50/90 prose-headings:text-white prose-strong:text-white prose-li:text-blue-50/80 text-justify"}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {(msg as any).text ?? ""}
                   </ReactMarkdown>
@@ -898,10 +888,10 @@ interface TasksPhaseViewProps {
   chat: any;
   elaboration: ReturnType<typeof useTaskElaboration>;
   structuredReport: { title?: string; goal?: string; suggested_tasks?: string[] } | null;
-  onStartExecution: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   bottomFileInputRef: React.RefObject<HTMLInputElement | null>;
   syncFileToAssets: (file: File, extracted: any[]) => void;
+  onStartExecution: () => void;
 }
 
 function TasksPhaseView({
@@ -909,10 +899,10 @@ function TasksPhaseView({
   chat,
   elaboration,
   structuredReport,
-  onStartExecution,
   messagesEndRef,
   bottomFileInputRef,
   syncFileToAssets,
+  onStartExecution,
 }: TasksPhaseViewProps) {
   const { detailedTasks, isElaborating, expandedTasks, toggleTaskExpand, elaborate } = elaboration;
   const hasTasks = detailedTasks.length > 0;
@@ -936,10 +926,10 @@ function TasksPhaseView({
               }`}>
                 {msg.sender === "agent" ? <Sparkles className="w-5 h-5 text-blue-400" /> : "Me"}
               </div>
-              <div className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] ${
-                msg.sender === "agent" ? "bg-white border border-slate-100 shadow-sm text-slate-700 rounded-tl-none" : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none text-justify"
+              <div className={`group relative p-5 rounded-[24px] text-sm leading-[1.6] text-justify ${
+                msg.sender === "agent" ? "bg-white border border-slate-100 shadow-sm text-slate-700 rounded-tl-none" : "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-500/10 rounded-tr-none"
               }`}>
-                <div className="prose prose-sm max-w-none text-current text-justify prose-table:border-collapse prose-th:border prose-th:border-slate-200">
+                <div className={msg.sender === "agent" ? "ai-prose" : "prose prose-sm max-w-none prose-invert prose-p:text-blue-50/90 prose-headings:text-white prose-strong:text-white prose-li:text-blue-50/80 text-justify"}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text || ""}</ReactMarkdown>
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-white/20">
@@ -1079,9 +1069,10 @@ function TasksPhaseView({
                 {hasTasks && (
                   <button
                     onClick={onStartExecution}
-                    className="flex items-center gap-2 px-7 py-3 bg-[#0a192f] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-950 transition-all shadow-xl shadow-blue-900/10"
+                    className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-90 transition-all animate-in zoom-in ml-2"
+                    title="Switch to Mission Control"
                   >
-                    Begin Execution <Play className="w-4 h-4 fill-current" />
+                    <ChevronRight className="w-6 h-6" />
                   </button>
                 )}
               </div>
@@ -1262,23 +1253,6 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
                 </div>
               )}
 
-              {task.suggested_subtasks.length > 0 && (
-                <div className="mt-5">
-                  <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                    Subtasks
-                  </h5>
-                  <ul className="space-y-2">
-                    {task.suggested_subtasks.map((sub, sIdx) => (
-                      <li key={sIdx} className="flex items-center gap-3 text-sm text-slate-600">
-                        <div className="w-5 h-5 rounded-md border-2 border-slate-100 flex items-center justify-center flex-shrink-0">
-                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                        </div>
-                        {sub}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </>
           )}
         </div>

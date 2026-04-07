@@ -8,7 +8,7 @@ import type {
   SuggestedAction,
   UserIntent,
 } from "@/types/domain";
-import { postChat, extractJSON } from "./client";
+import { postChat } from "./client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // generateProjectReport
@@ -22,16 +22,17 @@ The report must include:
 2. Key objectives and success criteria
 3. Stakeholders and context
 4. Risk considerations
-5. Suggested high-level task titles (as a simple list)
+5. Suggested high-level task titles (as a numbered list)
 
-Also return a structured JSON block at the end of your response in this exact format:
-\`\`\`json
+IMPORTANT: Write ONLY the Markdown report. Do NOT include any JSON, code blocks, or extra text outside the Markdown.`;
+
+const STRUCTURED_EXTRACT_PROMPT = `Based on the project report below, extract the key information as a JSON object.
+Return ONLY a valid JSON object with no markdown, no code fences, and no extra text:
 {
-  "title": "Project title",
-  "goal": "One sentence goal",
+  "title": "The project title",
+  "goal": "One sentence goal statement",
   "suggested_tasks": ["Task 1", "Task 2", "Task 3"]
-}
-\`\`\``;
+}`;
 
 export interface ProjectReportResult {
   report: string;
@@ -46,46 +47,44 @@ export async function generateProjectReport(
   projectName: string,
   history: ChatMessage[]
 ): Promise<ProjectReportResult> {
-  const messages: ChatMessage[] = [
+  // ── Call 1: Generate the full Markdown report ──────────────────────────────
+  const reportMessages: ChatMessage[] = [
     { role: "user", content: REPORT_SYSTEM_PROMPT },
     ...history,
     {
       role: "user",
-      content: `Now generate the full project report for: "${projectName}". Include the JSON block at the end.`,
+      content: `Now generate the complete Markdown project report for: "${projectName}". Write ONLY Markdown, no JSON.`,
     },
   ];
 
-  const raw = await postChat({ projectName, messages });
+  const rawReport = await postChat({ projectName, messages: reportMessages });
 
-  let structured: ProjectReportResult["structured"] = null;
-  const extractedJson = extractJSON(raw);
-  
-  try {
-    if (extractedJson && extractedJson.startsWith("{")) {
-      structured = JSON.parse(extractedJson);
-    }
-  } catch {
-    // structured stays null
-  }
-
-  // Strip all JSON out so non-technical users don't see it.
-  let reportWithoutJson = raw;
-
-  // 1. If we successfully extracted and parsed the JSON, safely replace that exact substring.
-  if (structured && extractedJson) {
-    reportWithoutJson = reportWithoutJson.replace(extractedJson, "");
-  }
-
-  // 2. Extra safety passes: Clean up any remaining markdown blocks or loose trailing JSON
-  reportWithoutJson = reportWithoutJson
-    // Remove fenced code blocks
-    .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
-    // Remove trailing JSON block matching just to be safe
-    .replace(/\s*\{[\s\S]*\}\s*$/, "")
+  // Strip any accidentally included code blocks or JSON residue
+  const cleanReport = rawReport
+    .replace(/`{3}(?:json)?[\s\S]*?`{3}/g, "")
     .trim();
 
-  return { report: reportWithoutJson, structured };
+  // ── Call 2: Extract structured JSON from the report ───────────────────────
+  let structured: ProjectReportResult["structured"] = null;
+  try {
+    const extractMessages: ChatMessage[] = [
+      { role: "user", content: STRUCTURED_EXTRACT_PROMPT },
+      { role: "assistant", content: cleanReport },
+      { role: "user", content: "Extract the JSON now. Return ONLY the JSON object, nothing else." },
+    ];
+    const rawJson = await postChat({ projectName, messages: extractMessages });
+    
+    const parsed = JSON.parse(rawJson.trim());
+    if (parsed && parsed.suggested_tasks && Array.isArray(parsed.suggested_tasks)) {
+      structured = parsed;
+    }
+  } catch {
+    // structured stays null — report still shows, just no task suggestions
+  }
+
+  return { report: cleanReport, structured };
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // chatWithAgenticAI
@@ -161,33 +160,18 @@ export async function chatWithAgenticAI(
 
   const raw = await postChat({ messages });
 
-  // Try multiple parse strategies: raw JSON first, then code-fence extraction
-  const attempts = [
-    () => JSON.parse(raw.trim()),
-    () => JSON.parse(extractJSON(raw)),
-  ];
-
-  for (const attempt of attempts) {
-    try {
-      const parsed = attempt();
-      if (parsed && typeof parsed === "object" && "reply" in parsed) {
-        return {
-          reply: parsed.reply ?? raw,
-          userIntent: (parsed.userIntent ?? "neutral") as UserIntent,
-          suggestedAction: (parsed.suggestedAction ?? null) as SuggestedAction | null,
-          report: parsed.report,
-          taskUpdate: parsed.taskUpdate,
-        };
-      }
-    } catch {
-      // Try next strategy
-    }
+  // Since we assume LLM outputs perfect JSON 100% of the time
+  try {
+    const parsed = JSON.parse(raw.trim());
+    return {
+      reply: parsed.reply ?? raw,
+      userIntent: (parsed.userIntent ?? "neutral") as UserIntent,
+      suggestedAction: (parsed.suggestedAction ?? null) as SuggestedAction | null,
+      report: parsed.report,
+      taskUpdate: parsed.taskUpdate,
+    };
+  } catch {
+    // Basic network or blank response fallback
+    return { reply: raw, userIntent: "neutral", suggestedAction: null };
   }
-
-  // All strategies failed — strip any JSON / code-fence blocks and return as neutral reply
-  const cleanedRaw = raw
-    .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
-    .replace(/\s*\{[\s\S]*\}\s*$/, "")
-    .trim();
-  return { reply: cleanedRaw || raw, userIntent: "neutral", suggestedAction: null };
 }

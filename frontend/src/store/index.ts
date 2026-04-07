@@ -14,6 +14,7 @@ import type {
   PlanningHistoryEntry,
   Asset,
   TaskMoveRecord,
+  SubtaskSnapshot,
 } from "@/types/domain";
 import { AGENT_MAPPING } from "@/constants/agents";
 
@@ -105,7 +106,7 @@ export interface StoreState {
   addSubtask: (projectId: string, taskId: string, text: string) => void;
   deleteSubtask: (projectId: string, taskId: string, subtaskId: string) => void;
   updateSubtask: (projectId: string, taskId: string, subtaskId: string, text: string) => void;
-  setSubtasks: (projectId: string, taskId: string, items: (string | { text: string; description?: string })[]) => void;
+  setSubtasks: (projectId: string, taskId: string, items: (string | { text: string; description?: string })[], by?: "ai" | "user") => void;
 
   // ── Assets ─────────────────────────────────────────────────────────────────
   addAsset: (asset: Asset) => void;
@@ -419,7 +420,7 @@ export const useProjectStore = create<StoreState>()(
           }),
         })),
 
-      setSubtasks: (projectId, taskId, items) =>
+      setSubtasks: (projectId, taskId, items, by = "ai") =>
         set((state) => ({
           projects: state.projects.map((p) => {
             if (p.id !== projectId) return p;
@@ -437,7 +438,17 @@ export const useProjectStore = create<StoreState>()(
                     completed: false,
                   };
                 });
-                return { ...t, subtasks };
+                // Take a snapshot of the PREVIOUS subtask list before overwriting
+                const snapshot: SubtaskSnapshot = {
+                  items: t.subtasks.map(s => ({ id: s.id, text: s.text, description: s.description })),
+                  timestamp: Date.now(),
+                  by,
+                };
+                return {
+                  ...t,
+                  subtasks,
+                  subtaskHistory: [...(t.subtaskHistory ?? []), snapshot],
+                };
               }),
             };
           }),

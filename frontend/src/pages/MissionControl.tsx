@@ -70,7 +70,17 @@ function CancelDialog({
 // ─────────────────────────────────────────────────────────────────────────────
 function SubtaskProgress({ task }: { task: Task }) {
   const total = task.subtasks.length;
-  if (total === 0) return null;
+  if (total === 0) {
+    if (task.status === "todo") {
+      return (
+        <div className="mt-4 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl flex justify-center items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+          <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.1em] whitespace-nowrap overflow-hidden text-ellipsis">Waiting for breakdown</span>
+        </div>
+      );
+    }
+    return null;
+  }
   const done = task.subtasks.filter(s => s.completed).length;
   const pct = Math.round((done / total) * 100);
 
@@ -113,8 +123,7 @@ export function MissionControl() {
 
   const getNextStatus = (status: TaskStatus): TaskStatus | null => {
     switch (status) {
-      case "todo": return "planning";
-      case "planning": return "doing";
+      case "todo": return "doing";
       case "doing": return "review";
       case "review": return "done";
       default: return null;

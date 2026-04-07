@@ -5,19 +5,6 @@
 
 import { useState, useEffect } from "react";
 
-/**
- * Remove raw JSON objects and fenced code blocks from a chat reply string.
- * This prevents the AI's internal JSON scaffolding from leaking into the UI.
- */
-function stripJsonBlocks(text: string): string {
-  return text
-    // Remove ```json ... ``` and ``` ... ``` code fences
-    .replace(/`{3}(?:json)?\s*[\s\S]*?`{3}/g, "")
-    // Remove bare JSON objects { ... } at the end of the string
-    .replace(/\s*\{[\s\S]*\}\s*$/, "")
-    .trim();
-}
-
 import { useProjectStore } from "@/store";
 import { chatWithAgenticAI, postChatMultimodal } from "@/lib/llm";
 import type { MultimodalMessage, MultimodalPart } from "@/lib/llm";
@@ -255,24 +242,24 @@ export function usePlanningChat({
             );
           }
           setPendingAction(parsedResponse.suggestedAction);
-          // Strip any stray JSON / code-fence blocks before displaying in chat
-          const cleanReply = stripJsonBlocks(parsedResponse!.reply);
           setMessages((prev) => [
             ...prev,
-            { sender: "agent", text: cleanReply, suggestedAction: parsedResponse!.suggestedAction },
+            { sender: "agent", text: parsedResponse!.reply, suggestedAction: parsedResponse!.suggestedAction },
           ]);
         }
       } else {
         // Vision path — raw reply (may or may not be JSON)
         let replyText = responseText;
         try {
-          const parsed = JSON.parse(responseText.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? responseText.slice(responseText.indexOf("{")));
-          replyText = parsed.reply ?? responseText;
+          const parsed = JSON.parse(responseText.trim());
+          if (parsed && typeof parsed === "object" && typeof parsed.reply === "string") {
+            replyText = parsed.reply;
+          }
         } catch { /* not JSON, use raw */ }
 
         setMessages((prev) => [
           ...prev,
-          { sender: "agent", text: stripJsonBlocks(replyText), suggestedAction: null },
+          { sender: "agent", text: replyText, suggestedAction: null },
         ]);
       }
     } catch (err) {

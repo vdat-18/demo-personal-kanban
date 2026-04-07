@@ -17,11 +17,13 @@ import {
   Plus,
   Trash2,
   Edit3,
+  History,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectStore } from "@/store";
-import { chatWithAgent, buildKickoffUserMessage, getAgentSystemPrompt, extractJSON } from "@/lib/llm";
+import { chatWithAgent, buildKickoffUserMessage, getAgentSystemPrompt } from "@/lib/llm";
 import { AGENT_ICONS } from "@/constants/agents";
 import type { TaskStatus } from "@/types/domain";
 
@@ -32,19 +34,20 @@ interface ChatMsg { role: "user" | "assistant"; content: string; }
 // Parse agent reply to detect if Reviewer says APPROVED, NEEDS REVISION,
 // and whether to go back to DOING or PLANNING
 // ─────────────────────────────────────────────────────────────────────────────
-type ReviewVerdict = "approved" | "needs_doing" | "needs_planning" | null;
+type ReviewVerdict = "approved" | "needs_doing" | "needs_todo" | null;
 
 function detectReviewerVerdict(text: string): ReviewVerdict {
   const upper = text.toUpperCase();
   if (upper.includes("APPROVED")) return "approved";
   if (upper.includes("NEEDS REVISION") || upper.includes("REVISE") || upper.includes("FAIL")) {
-    // Check if it suggests going back to Planning vs Doing
+    // Check if it suggests going back to Todo vs Doing
     if (
       upper.includes("PLANNING") ||
       upper.includes("REPLAN") ||
-      upper.includes("STRATEGY")
+      upper.includes("STRATEGY") ||
+      upper.includes("TODO")
     ) {
-      return "needs_planning";
+      return "needs_todo";
     }
     return "needs_doing";
   }
@@ -52,10 +55,8 @@ function detectReviewerVerdict(text: string): ReviewVerdict {
 }
 
 function detectSubtaskCommand(text: string): any[] | null {
-  const jsonStr = extractJSON(text);
-  if (!jsonStr) return null;
   try {
-    const data = JSON.parse(jsonStr);
+    const data = JSON.parse(text.trim());
     if (data && data.action === "SET_SUBTASKS" && Array.isArray(data.subtasks)) {
       return data.subtasks;
     }
@@ -66,58 +67,37 @@ function detectSubtaskCommand(text: string): any[] | null {
 }
 
 function detectCompleteSubtask(text: string): string | null {
-  const blocks: string[] = [];
-  const re = /```(?:json)?\s*([\s\S]*?)```/g;
-  let m;
-  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
-  const bare = extractJSON(text);
-  if (bare) blocks.push(bare);
-  for (const block of blocks) {
-    try {
-      const data = JSON.parse(block);
-      if (data && data.action === "COMPLETE_SUBTASK" && data.subtask_text) {
-        return data.subtask_text as string;
-      }
-    } catch { /* skip */ }
+  try {
+    const data = JSON.parse(text.trim());
+    if (data && data.action === "COMPLETE_SUBTASK" && data.subtask_text) {
+      return data.subtask_text as string;
+    }
+  } catch {
+    // ignore
   }
   return null;
 }
 
 function detectSuggestMove(text: string): { target: string; message: string } | null {
-  // The AI may emit multiple JSON blocks; scan all of them
-  const blocks: string[] = [];
-  const re = /```(?:json)?\s*([\s\S]*?)```/g;
-  let m;
-  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
-  // Also try bare JSON
-  const bare = extractJSON(text);
-  if (bare) blocks.push(bare);
-
-  for (const block of blocks) {
-    try {
-      const data = JSON.parse(block);
-      if (data && data.action === "SUGGEST_MOVE" && data.target) {
-        return { target: data.target, message: data.message ?? "Ready to move to the next stage." };
-      }
-    } catch { /* skip */ }
+  try {
+    const data = JSON.parse(text.trim());
+    if (data && data.action === "SUGGEST_MOVE" && data.target) {
+      return { target: data.target, message: data.message ?? "Ready to move to the next stage." };
+    }
+  } catch {
+    // ignore
   }
   return null;
 }
 
-function detectVerdictCommand(text: string): { result: "needs_doing" | "needs_planning"; issues: string[] } | null {
-  const blocks: string[] = [];
-  const re = /```(?:json)?\s*([\s\S]*?)```/g;
-  let m;
-  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
-  const bare = extractJSON(text);
-  if (bare) blocks.push(bare);
-  for (const block of blocks) {
-    try {
-      const data = JSON.parse(block);
-      if (data && data.action === "VERDICT" && (data.result === "needs_doing" || data.result === "needs_planning")) {
-        return { result: data.result, issues: Array.isArray(data.issues) ? data.issues : [] };
-      }
-    } catch { /* skip */ }
+function detectVerdictCommand(text: string): { result: "needs_doing" | "needs_todo"; issues: string[] } | null {
+  try {
+    const data = JSON.parse(text.trim());
+    if (data && data.action === "VERDICT" && (data.result === "needs_doing" || data.result === "needs_todo")) {
+      return { result: data.result, issues: Array.isArray(data.issues) ? data.issues : [] };
+    }
+  } catch {
+    // ignore
   }
   return null;
 }
@@ -226,11 +206,11 @@ function ReviewerVerdictDialog({
 }) {
   if (!verdict || verdict === "approved") return null;
 
-  const isPlanning = verdict === "needs_planning";
-  const targetStatus: TaskStatus = isPlanning ? "planning" : "doing";
-  const targetLabel = isPlanning ? "Planning" : "Doing";
+  const isPlanning = verdict === "needs_todo";
+  const targetStatus: TaskStatus = isPlanning ? "todo" : "doing";
+  const targetLabel = isPlanning ? "To Do" : "Doing";
   const reason = isPlanning
-    ? "The Reviewer detected a fundamental issue with the plan. The task needs to be re-planned before execution."
+    ? "The Reviewer detected a fundamental issue with the plan. The task needs to be re-planned in the To Do stage."
     : "Reviewer found issues with the output. Please fix the reported problems.";
 
   return (
@@ -281,13 +261,14 @@ export function TaskChat() {
   const [pendingMoveStatus, setPendingMoveStatus] = useState<TaskStatus | null>(null);
   const [reviewerVerdict, setReviewerVerdict] = useState<ReviewVerdict>(null);
 
-  // Starter Agent: AI-suggested move to planning
+  // Planner Agent (TODO phase): AI-suggested move to doing
   const [suggestMove, setSuggestMove] = useState<{ target: string; message: string } | null>(null);
 
   // Manual subtask edit state
   const [newSubtaskText, setNewSubtaskText] = useState("");
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [showSubtaskHistory, setShowSubtaskHistory] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -340,11 +321,11 @@ export function TaskChat() {
     // Auto-detect subtask updates
     const aiSubtasks = detectSubtaskCommand(fullReply);
     if (aiSubtasks && project && task) {
-      setSubtasks(project.id, task.id, aiSubtasks);
+      setSubtasks(project.id, task.id, aiSubtasks, "ai");
     }
 
     // Auto-detect SUGGEST_MOVE from all agents (including Reviewer → done)
-    if (task.status === "todo" || task.status === "planning" || task.status === "doing" || task.status === "review") {
+    if (task.status === "todo" || task.status === "doing" || task.status === "review") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -353,11 +334,11 @@ export function TaskChat() {
     if (task.status === "review") {
       const verdict = detectVerdictCommand(fullReply);
       if (verdict) {
-        setReviewerVerdict(verdict.result);
+        setReviewerVerdict(verdict.result as "needs_doing" | "needs_todo");
       } else {
         // Fallback: keyword detection
         const kwVerdict = detectReviewerVerdict(fullReply);
-        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict);
+        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict as "needs_doing" | "needs_todo");
       }
     }
   }, [task?.id, task?.status, task?.kickoffDone, project?.id, isStreaming]);
@@ -387,7 +368,7 @@ export function TaskChat() {
   // ── Move helpers ───────────────────────────────────────────────────────────
   const STATUS_LABELS: Record<TaskStatus, string> = {
     todo: "To Do",
-    planning: "Planning",
+    planning: "To Do", // Map planning to To Do label
     doing: "Doing",
     review: "Review",
     done: "Done",
@@ -401,8 +382,7 @@ export function TaskChat() {
 
   const handleNextPhase = () => {
     let nextStatus: TaskStatus = "done";
-    if (task.status === "todo") nextStatus = "planning";
-    else if (task.status === "planning") nextStatus = "doing";
+    if (task.status === "todo") nextStatus = "doing"; // Skip planning
     else if (task.status === "doing") nextStatus = "review";
     else if (task.status === "review") nextStatus = "done";
 
@@ -424,8 +404,8 @@ export function TaskChat() {
   const handleReviewReject = () => {
     // Show manual choice if no auto-verdict yet
     if (!reviewerVerdict) {
-      // Default to doing if no auto verdict
-      setReviewerVerdict("needs_doing");
+      // Default to todo if no auto verdict
+      setReviewerVerdict("needs_todo");
     }
   };
 
@@ -461,11 +441,11 @@ export function TaskChat() {
     // Auto-detect subtask updates in regular chat too
     const aiSubtasks = detectSubtaskCommand(fullReply);
     if (aiSubtasks && project && task) {
-      setSubtasks(project.id, task.id, aiSubtasks);
+      setSubtasks(project.id, task.id, aiSubtasks, "ai");
     }
 
     // Auto-detect SUGGEST_MOVE in regular chat (all stages)
-    if (task.status === "todo" || task.status === "planning" || task.status === "doing" || task.status === "review") {
+    if (task.status === "todo" || task.status === "doing" || task.status === "review") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
@@ -474,11 +454,11 @@ export function TaskChat() {
     if (task.status === "review") {
       const verdict = detectVerdictCommand(fullReply);
       if (verdict) {
-        setReviewerVerdict(verdict.result);
+        setReviewerVerdict(verdict.result as "needs_doing" | "needs_todo");
       } else {
         // Fallback: keyword detection
         const kwVerdict = detectReviewerVerdict(fullReply);
-        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict);
+        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict as "needs_doing" | "needs_todo");
         else if (kwVerdict === "approved") setReviewerVerdict("approved");
       }
     }
@@ -564,6 +544,15 @@ export function TaskChat() {
 
   const handleAddSubtask = () => {
     if (!newSubtaskText.trim() || !project || !task) return;
+    // Save snapshot before manually adding
+    if (task.subtasks.length > 0) {
+      setSubtasks(
+        project.id,
+        task.id,
+        task.subtasks.map(s => ({ text: s.text, description: s.description })),
+        "user"
+      );
+    }
     addSubtask(project.id, task.id, newSubtaskText.trim());
     setNewSubtaskText("");
   };
@@ -815,7 +804,11 @@ export function TaskChat() {
               onClick={handleNextPhase}
               className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-2xl transition-all shadow-xl flex items-center gap-3 border-b-4 bg-[#0a192f] text-white hover:bg-blue-900 shadow-blue-900/10 border-blue-950"
             >
-              Move to Next Stage <ArrowLeft className="w-4 h-4 rotate-180" />
+              {task.status === "todo" ? (
+                <>Start Doing <ArrowLeft className="w-4 h-4 rotate-180" /></>
+              ) : (
+                <>Move to Next Stage <ArrowLeft className="w-4 h-4 rotate-180" /></>
+              )}
             </button>
           )}
 
@@ -850,44 +843,74 @@ export function TaskChat() {
             )}
 
             {/* Visible chat history (kickoff prompt hidden) */}
-            {visibleMessages.map((msg, i) => (
-              <div key={i} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse ml-auto max-w-[85%]" : "max-w-[90%]"}`}>
-                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${
-                  msg.role === "assistant" ? "bg-[#0a192f] text-white" : "bg-gray-100 text-gray-600 border border-gray-200"
-                }`}>
-                  {msg.role === "assistant" ? "AI" : "Me"}
-                </div>
-                <div className={`p-4 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === "assistant"
-                    ? "bg-[#f8f9fa] border border-gray-100 shadow-sm text-gray-800"
-                    : "bg-blue-50 border border-blue-100 text-[#0a192f]"
-                }`}>
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+            {visibleMessages.map((msg, i) => {
+              const isAI = msg.role === "assistant";
+              return (
+                <div key={i} className={`flex gap-4 group animate-in fade-in slide-in-from-bottom-2 duration-300 ${isAI ? "max-w-[92%]" : "flex-row-reverse ml-auto max-w-[85%]"}`}>
+                  {/* Avatar/Icon */}
+                  <div className={`w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center shadow-sm transition-all group-hover:scale-105 ${
+                    isAI ? "bg-[#0a192f] text-white rotate-[-2deg]" : "bg-white text-blue-600 border border-slate-100 rotate-[2deg]"
+                  }`}>
+                    {isAI ? <AgentIcon className="w-5 h-5" /> : <div className="text-[10px] font-black uppercase tracking-widest leading-none">Me</div>}
+                  </div>
+
+                  {/* Message Bubble */}
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    {/* Header: Agent Name / Timestamp (Optional) */}
+                    <div className={`flex items-center gap-2 px-1 ${!isAI ? "flex-row-reverse" : ""}`}>
+                      {isAI && (
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                          {task.agentType}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bubble Content */}
+                    <div className={`p-6 rounded-[2rem] text-[15px] leading-[1.8] text-justify tracking-normal transition-all duration-300 ${
+                      isAI 
+                        ? "bg-white border border-slate-100 shadow-xl shadow-slate-200/20 text-slate-700 rounded-tl-none group-hover:border-blue-100 group-hover:shadow-blue-500/5 group-hover:-translate-y-0.5" 
+                        : "bg-[#0a192f] text-white rounded-tr-none shadow-2xl shadow-blue-900/10 group-hover:-translate-y-0.5"
+                    }`}>
+                      {isAI ? (
+                        <div className="ai-prose text-justify">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="prose prose-sm max-w-none prose-invert prose-p:text-blue-50/90 prose-headings:text-white prose-strong:text-white prose-code:text-blue-200 prose-li:text-blue-50/80 text-justify">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Streaming reply */}
-            {isStreaming && streamingReply && (
-              <div className="flex gap-4 max-w-[90%]">
-                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white text-[10px]">AI</div>
-                <div className="p-4 rounded-2xl bg-[#f8f9fa] border border-gray-100 shadow-sm text-sm text-gray-800">
-                  <div className="prose prose-sm max-w-none"><ReactMarkdown>{streamingReply}</ReactMarkdown></div>
+            {isStreaming && (
+              <div className="flex gap-4 max-w-[92%] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white rotate-[-2deg] shadow-lg">
+                  {streamingReply ? <AgentIcon className="w-5 h-5" /> : <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />}
                 </div>
-              </div>
-            )}
-
-            {isStreaming && !streamingReply && visibleMessages.length > 0 && (
-              <div className="flex gap-4 max-w-[90%]">
-                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white text-[10px]">AI</div>
-                <div className="p-4 rounded-2xl bg-[#f8f9fa] border border-gray-100 shadow-sm text-sm text-gray-800">
-                  <span className="flex gap-1 items-center text-gray-400 italic">
-                    <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:300ms]" />
-                  </span>
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] animate-pulse">
+                      {streamingReply ? `${task.agentType} Typing...` : "AI Thinking..."}
+                    </span>
+                  </div>
+                  <div className="p-6 rounded-[2rem] rounded-tl-none bg-white border border-blue-50 shadow-2xl shadow-blue-500/5 text-[15px] leading-[1.8] text-slate-700">
+                    {streamingReply ? (
+                      <div className="ai-prose text-justify">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingReply}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5 items-center py-2 h-6">
+                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 bg-blue-300 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 bg-blue-200 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -897,10 +920,10 @@ export function TaskChat() {
               const isTodo = task.status === "todo";
               const isDoing = task.status === "doing";
               const isReview = task.status === "review";
-              const targetLabel = isTodo ? "Planning" : isDoing ? "Review" : isReview ? "Done ✅" : "Doing";
-              const targetStatus: TaskStatus = isTodo ? "planning" : isDoing ? "review" : isReview ? "done" : "doing";
+              const targetLabel = isTodo ? "Doing" : isDoing ? "Review" : isReview ? "Done ✅" : "Doing";
+              const targetStatus: TaskStatus = isTodo ? "doing" : isDoing ? "review" : isReview ? "done" : "doing";
               const agentLabel = isTodo
-                ? "Starter Agent · Ready"
+                ? "Planner Agent · Plan Ready"
                 : isDoing
                 ? "Doer Agent · Execution Complete"
                 : isReview
@@ -1044,6 +1067,20 @@ export function TaskChat() {
               <h2 className="text-[10px] font-black tracking-[0.3em] text-gray-400 mb-8 flex items-center gap-3 uppercase">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
                 {task.status === "review" ? "Validation Checklist" : "Execution Plan"}
+                {/* View Changes toggle — only in TODO and if history exists */}
+                {task.status === "todo" && (task.subtaskHistory?.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => setShowSubtaskHistory(v => !v)}
+                    className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                      showSubtaskHistory
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-white border border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-600"
+                    }`}
+                  >
+                    <History className="w-3 h-3" />
+                    View Changes
+                  </button>
+                )}
               </h2>
 
               <div className="bg-white border border-gray-100 rounded-[2.5rem] p-10 shadow-xl shadow-blue-900/5">
@@ -1193,6 +1230,52 @@ export function TaskChat() {
                   )}
                 </div>
               </div>
+
+              {/* Subtask history / diff view */}
+              {task.status === "todo" && showSubtaskHistory && (task.subtaskHistory?.length ?? 0) > 0 && (() => {
+                const history = task.subtaskHistory!;
+                const prev = history[history.length - 1];
+                const currentTexts = task.subtasks.map(s => s.text);
+                const prevTexts = prev.items.map(s => s.text);
+                const added = currentTexts.filter(t => !prevTexts.includes(t));
+                const removed = prevTexts.filter(t => !currentTexts.includes(t));
+                const unchanged = currentTexts.filter(t => prevTexts.includes(t));
+                const byLabel = prev.by === "ai" ? "AI" : "You";
+                const timeLabel = new Date(prev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div className="mt-6 bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm animate-in fade-in duration-300">
+                    <div className="flex items-center gap-3 mb-5">
+                      <History className="w-4 h-4 text-blue-500" />
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Last change by {byLabel} · {timeLabel}
+                      </h4>
+                      <span className="ml-auto text-[9px] font-black bg-gray-50 border border-gray-100 text-gray-400 px-2 py-0.5 rounded-lg uppercase tracking-widest">
+                        {history.length} revision{history.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 font-mono text-xs">
+                      {removed.map((t, i) => (
+                        <div key={`r-${i}`} className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-100 rounded-xl text-red-600">
+                          <span className="font-black text-red-400 shrink-0">&minus;</span>
+                          <span className="line-through opacity-70">{t}</span>
+                        </div>
+                      ))}
+                      {added.map((t, i) => (
+                        <div key={`a-${i}`} className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-green-700">
+                          <span className="font-black text-green-500 shrink-0">+</span>
+                          <span>{t}</span>
+                        </div>
+                      ))}
+                      {unchanged.map((t, i) => (
+                        <div key={`u-${i}`} className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-gray-500">
+                          <span className="font-black text-gray-300 shrink-0">&nbsp;&nbsp;</span>
+                          <span>{t}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             {/* Artifacts section */}

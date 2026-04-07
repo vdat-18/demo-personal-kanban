@@ -66,8 +66,7 @@ export function useTaskElaboration({
         title,
         description: "",
         why: "",
-        suggested_subtasks: [],
-        agent_hint: "Starter Agent" as const,
+        agent_hint: "Planner Agent" as const,
       }));
       setDetailedTasks(fallback);
     } finally {
