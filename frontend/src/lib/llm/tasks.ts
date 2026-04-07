@@ -22,7 +22,7 @@ Return ONLY valid JSON in this exact format:
   "tasks": [
     {
       "title": "Exact task title from the list",
-      "description": "2-3 sentences describing what this task involves and what the output looks like",
+      "description": "5-7 sentences providing a comprehensive overview of the task, its complexity, and the concrete deliverables/outcomes",
       "why": "1-2 sentences explaining why this task is critical to the project",
       "suggested_subtasks": ["Subtask A", "Subtask B", "Subtask C"],
       "agent_hint": "Doer Agent"

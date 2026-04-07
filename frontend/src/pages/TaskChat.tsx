@@ -12,7 +12,6 @@ import {
   XCircle,
   Download,
   ExternalLink,
-  Archive,
   AlertTriangle,
   RotateCcw,
   Plus,
@@ -62,6 +61,27 @@ function detectSubtaskCommand(text: string): any[] | null {
     }
   } catch {
     // ignore
+  }
+  return null;
+}
+
+function detectSuggestMove(text: string): { target: string; message: string } | null {
+  // The AI may emit multiple JSON blocks; scan all of them
+  const blocks: string[] = [];
+  const re = /```(?:json)?\s*([\s\S]*?)```/g;
+  let m;
+  while ((m = re.exec(text)) !== null) blocks.push(m[1].trim());
+  // Also try bare JSON
+  const bare = extractJSON(text);
+  if (bare) blocks.push(bare);
+
+  for (const block of blocks) {
+    try {
+      const data = JSON.parse(block);
+      if (data && data.action === "SUGGEST_MOVE" && data.target) {
+        return { target: data.target, message: data.message ?? "Ready to move to the next stage." };
+      }
+    } catch { /* skip */ }
   }
   return null;
 }
@@ -225,6 +245,9 @@ export function TaskChat() {
   const [pendingMoveStatus, setPendingMoveStatus] = useState<TaskStatus | null>(null);
   const [reviewerVerdict, setReviewerVerdict] = useState<ReviewVerdict>(null);
 
+  // Starter Agent: AI-suggested move to planning
+  const [suggestMove, setSuggestMove] = useState<{ target: string; message: string } | null>(null);
+
   // Manual subtask edit state
   const [newSubtaskText, setNewSubtaskText] = useState("");
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
@@ -290,6 +313,12 @@ export function TaskChat() {
     const aiSubtasks = detectSubtaskCommand(fullReply);
     if (aiSubtasks && project && task) {
       setSubtasks(project.id, task.id, aiSubtasks);
+    }
+
+    // Auto-detect SUGGEST_MOVE from Starter Agent
+    if (task.status === "todo") {
+      const move = detectSuggestMove(fullReply);
+      if (move) setSuggestMove(move);
     }
   }, [task?.id, task?.status, task?.kickoffDone, project?.id, isStreaming]);
 
@@ -395,6 +424,12 @@ export function TaskChat() {
       setSubtasks(project.id, task.id, aiSubtasks);
     }
 
+    // Auto-detect SUGGEST_MOVE in regular chat
+    if (task.status === "todo") {
+      const move = detectSuggestMove(fullReply);
+      if (move) setSuggestMove(move);
+    }
+
     // Auto-detect reviewer verdict after each reply
     if (task.status === "review") {
       const verdict = detectReviewerVerdict(fullReply);
@@ -437,21 +472,6 @@ export function TaskChat() {
     setIsStreaming(false);
   };
 
-  const handleSaveMessageAsAsset = (content: string, index: number) => {
-    if (!task || !project) return;
-    addAsset({
-      id: `asset-msg-${Date.now()}-${index}`,
-      name: `Output - ${task.title} (Part ${index + 1}).md`,
-      type: "document",
-      projectId: project.id,
-      projectName: project.name,
-      agentName: task.agentType,
-      createdAt: new Date().toISOString(),
-      size: `${(content.length / 1024).toFixed(1)} KB`,
-      content,
-    });
-    alert("Saved to Directory!");
-  };
 
   const handleExportSummary = () => {
     if (!task || !project) return;
@@ -784,16 +804,6 @@ export function TaskChat() {
                   <div className="prose prose-sm max-w-none">
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
-                  {msg.role === "assistant" && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
-                      <button
-                        onClick={() => handleSaveMessageAsAsset(msg.content, i)}
-                        className="flex items-center gap-1.5 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700 transition-colors"
-                      >
-                        <Archive className="w-3.5 h-3.5" /> Save to Directory
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
@@ -817,6 +827,41 @@ export function TaskChat() {
                     <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:150ms]" />
                     <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:300ms]" />
                   </span>
+                </div>
+              </div>
+            )}
+
+            {/* Starter Agent: SUGGEST_MOVE banner */}
+            {suggestMove && task.status === "todo" && !isStreaming && (
+              <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 mx-2">
+                <div className="bg-gradient-to-br from-[#0a192f] to-blue-900 rounded-3xl p-6 shadow-xl shadow-blue-900/20 border border-blue-800/30">
+                  <div className="flex items-start gap-4 mb-5">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0 mt-0.5">
+                      <Rocket className="w-5 h-5 text-blue-300" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Starter Agent · Ready</p>
+                      <p className="text-white text-sm font-medium leading-relaxed">{suggestMove.message}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setSuggestMove(null);
+                        doMove("planning");
+                      }}
+                      className="flex-1 bg-white text-[#0a192f] rounded-2xl py-3 text-xs font-black uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      Move to Planning
+                    </button>
+                    <button
+                      onClick={() => setSuggestMove(null)}
+                      className="px-5 py-3 bg-white/10 text-white/70 hover:bg-white/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
+                    >
+                      Not yet
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

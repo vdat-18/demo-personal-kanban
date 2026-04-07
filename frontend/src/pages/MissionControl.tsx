@@ -319,7 +319,7 @@ export function MissionControl() {
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id, task.status)}
                       onClick={() => task.status !== "cancelled" && navigate(`/chat/${task.id}`)}
-                      className={`bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-b-4 transition-all group relative overflow-hidden select-none ${
+                      className={`bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-b-4 transition-all group relative select-none ${
                         task.status === "cancelled"
                           ? "opacity-60 cursor-default border-red-100"
                           : "hover:border-blue-400 hover:shadow-xl hover:shadow-blue-900/5 cursor-pointer"
@@ -332,12 +332,22 @@ export function MissionControl() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.2em] uppercase border ${STATUS_COLORS[task.status]}`}>
-                          {task.status}
-                        </span>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.2em] uppercase border ${STATUS_COLORS[task.status]}`}>
+                            {task.status}
+                          </span>
+                        </div>
 
-                        <div className="flex items-center gap-1">
+                        <h3 className={`font-bold text-sm leading-snug pr-4 ${
+                          task.status === "cancelled"
+                            ? "text-gray-400 line-through"
+                            : "text-[#0a192f] group-hover:text-blue-600 transition-colors"
+                        }`}>
+                          {task.title}
+                        </h3>
+
+                        <div className="absolute top-4 right-4 flex items-center gap-1.5 translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
                           {/* Restore button for cancelled tasks */}
                           {task.status === "cancelled" && (
                             <button
@@ -345,10 +355,10 @@ export function MissionControl() {
                                 e.stopPropagation();
                                 restoreTask(project.id, task.id);
                               }}
-                              className="w-6 h-6 rounded-full bg-green-50 hover:bg-green-600 text-green-500 hover:text-white flex items-center justify-center transition-all shadow-sm z-10"
+                              className="w-8 h-8 rounded-full bg-green-50 hover:bg-green-600 text-green-500 hover:text-white flex items-center justify-center transition-all shadow-md z-10"
                               title="Restore task to To Do"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" />
+                              <RotateCcw className="w-4 h-4" />
                             </button>
                           )}
 
@@ -359,10 +369,10 @@ export function MissionControl() {
                                 e.stopPropagation();
                                 setCancelTarget(task);
                               }}
-                              className="w-6 h-6 rounded-full bg-red-50 hover:bg-red-500 text-red-300 hover:text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-sm z-10"
+                              className="w-8 h-8 rounded-full bg-red-50 hover:bg-red-500 text-red-300 hover:text-white flex items-center justify-center transition-all shadow-md z-10"
                               title="Cancel task"
                             >
-                              <XCircle className="w-3.5 h-3.5" />
+                              <XCircle className="w-4 h-4" />
                             </button>
                           )}
 
@@ -374,22 +384,14 @@ export function MissionControl() {
                                 const next = getNextStatus(task.status);
                                 if (next) moveTask(project.id, task.id, next, "user");
                               }}
-                              className="w-6 h-6 rounded-full bg-slate-50 hover:bg-[#0a192f] text-slate-400 hover:text-white flex items-center justify-center transition-all shadow-sm z-10"
+                              className="w-8 h-8 rounded-full bg-slate-50 hover:bg-[#0a192f] text-slate-400 hover:text-white flex items-center justify-center transition-all shadow-md z-10"
                               title="Move to next stage"
                             >
-                              <ArrowRight className="w-3.5 h-3.5" />
+                              <ArrowRight className="w-4 h-4" />
                             </button>
                           )}
                         </div>
                       </div>
-
-                      <h3 className={`font-bold text-sm leading-snug ${
-                        task.status === "cancelled"
-                          ? "text-gray-400 line-through"
-                          : "text-[#0a192f] group-hover:text-blue-600 transition-colors"
-                      }`}>
-                        {task.title}
-                      </h3>
 
                       {/* Cancel reason */}
                       {task.status === "cancelled" && task.cancelReason && (

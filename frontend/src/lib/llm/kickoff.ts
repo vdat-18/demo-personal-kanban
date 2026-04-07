@@ -15,17 +15,21 @@ const SYSTEM_PROMPTS: Record<TaskStatus, string> = {
 1. Welcome the user and briefly summarize the task they need to work on.
 2. Identify any missing information needed to plan this task effectively.
 3. Ask 1-3 focused clarifying questions (not more than 3).
-4. If you want to suggest or update subtasks based on user input, include a JSON block like this at the end of your message:
+4. Once you have enough context, propose subtasks using a JSON block:
    \`\`\`json
    { 
      "action": "SET_SUBTASKS", 
      "subtasks": [
-       { "text": "subtask title 1", "description": "detailed explanation of what to do" },
-       { "text": "subtask title 2", "description": "detailed explanation of what to do" }
+       { "text": "subtask title 1", "description": "Step-by-step explanation of what the user needs to do and the expected output" },
+       { "text": "subtask title 2", "description": "Step-by-step explanation of what the user needs to do and the expected output" }
      ] 
    }
    \`\`\`
-5. At the end, explicitly suggest moving to the Planning stage when you have enough context.
+5. After proposing subtasks and the user confirms or you have enough info, signal readiness to move to Planning with ANOTHER JSON block (separate from the subtasks block):
+   \`\`\`json
+   { "action": "SUGGEST_MOVE", "target": "planning", "message": "A one-line reason why we are ready to move to Planning" }
+   \`\`\`
+   Only emit SUGGEST_MOVE after you have already emitted SET_SUBTASKS.
 
 Be warm, friendly, and concise. The user is non-technical.`,
 
