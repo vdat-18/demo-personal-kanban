@@ -162,3 +162,10 @@ cython_debug/
 
 # BAML Generated Client
 baml_client/
+
+docs/
+server/node_modules/open-multi-agent/
+# Ignore graphify package which is used for visualization and is not needed in the repository
+*graphify*
+# Ignore the open-multi-agent package
+open-multi-agent/
