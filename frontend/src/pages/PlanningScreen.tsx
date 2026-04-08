@@ -1032,7 +1032,7 @@ function TasksPhaseView({
             <button
               onClick={() => bottomFileInputRef.current?.click()}
               className="p-3 mb-0.5 rounded-xl transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
-              title="Upload file (ảnh, PDF, DOCX, text...)"
+              title="Upload file (image, PDF, DOCX, text...)"
             >
               <Paperclip className="w-5 h-5" />
             </button>

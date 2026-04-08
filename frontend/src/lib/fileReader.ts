@@ -104,7 +104,7 @@ async function extractDocx(file: File): Promise<ExtractedAttachment[]> {
 
   const arrayBuffer = await file.arrayBuffer();
   
-  // 1. Phân tích văn bản gốc
+  // 1. Extract raw text
   const textResult = await mammoth.extractRawText({ arrayBuffer });
   const results: ExtractedAttachment[] = [
     {
@@ -115,12 +115,12 @@ async function extractDocx(file: File): Promise<ExtractedAttachment[]> {
     },
   ];
 
-  // 2. Mổ xẻ lõi ZIP để moi mọi hình ảnh được chèn lặn bên trong
+  // 2. Unzip the DOCX core to extract all embedded images
   try {
     const zip = new JSZip();
     await zip.loadAsync(arrayBuffer);
 
-    // Quét tìm tất cả các file nằm ở thư mục "word/media/"
+    // Scan all files in the "word/media/" directory
     for (const [filename, zipEntry] of Object.entries(zip.files)) {
       if (filename.startsWith("word/media/") && !zipEntry.dir) {
         const base64 = await zipEntry.async("base64");

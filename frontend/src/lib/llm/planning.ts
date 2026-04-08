@@ -12,37 +12,23 @@ import { postChat } from "./client";
 // generateProjectReport
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REPORT_SYSTEM_PROMPT_NEW = `You are an expert project strategist.
-Based on the brainstorming conversation below, generate a comprehensive project report in Markdown.
+const REPORT_SYSTEM_PROMPT_NEW = `You are a project strategist. Generate a structured Markdown project report from the brainstorming conversation.
 
-The report must include:
-1. A clear project title and goal statement
-2. Key objectives and success criteria
-3. Stakeholders and context
-4. Risk considerations
-5. Suggested high-level task titles (as a numbered list)
+Include: project title, goal, objectives & success criteria, stakeholders, risks, suggested task titles (numbered list).
+Write ONLY Markdown — no JSON, no code blocks, no extra text.`;
 
-IMPORTANT: Write ONLY the Markdown report. Do NOT include any JSON, code blocks, or extra text outside the Markdown.`;
+const REPORT_SYSTEM_PROMPT_UPDATE = `You are a project strategist. Update an existing project report based on the user's instruction.
 
-const REPORT_SYSTEM_PROMPT_UPDATE = `You are an expert project strategist.
-You are given an EXISTING project report and a USER INSTRUCTION describing what changes to make.
+Rules:
+- Apply ONLY the requested changes. Preserve everything else.
+- Do not regenerate the full report from scratch.
+- Write ONLY the updated Markdown — no JSON, no code blocks, no extra text.`;
 
-Your job:
-- Apply ONLY the specific changes requested by the user.
-- Preserve all sections that are not affected by the request.
-- Do NOT regenerate the entire report from scratch — keep the existing structure and content, then apply the edit.
-- If the user asks to "add X", add it to the appropriate section.
-- If the user asks to "change X to Y", update only that part.
-- If the user asks to "remove X", delete only that part.
-
-IMPORTANT: Write ONLY the updated Markdown report. Do NOT include any JSON, code blocks, or extra explanation outside the Markdown.`;
-
-const STRUCTURED_EXTRACT_PROMPT = `Based on the project report below, extract the key information as a JSON object.
-Return ONLY a valid JSON object with no markdown, no code fences, and no extra text:
+const STRUCTURED_EXTRACT_PROMPT = `Extract key information from the project report below as raw JSON (no markdown, no code fences):
 {
-  "title": "The project title",
-  "goal": "One sentence goal statement",
-  "suggested_tasks": ["Task 1", "Task 2", "Task 3"]
+  "title": "project title",
+  "goal": "one sentence goal",
+  "suggested_tasks": ["Task 1", "Task 2"]
 }`;
 
 export interface ProjectReportResult {
@@ -110,57 +96,31 @@ function buildAgenticSystemPrompt(
   reportContent: string | undefined
 ): string {
   const hasReport = !!reportContent;
-  return `You are a Lead System Analyst helping users define a project strategy.
+  return `You are a project analyst helping users define a project strategy via brainstorming.
 
-Your goal is to move efficiently from brainstorming to a structured report.
-Do NOT ask one question at a time. Instead:
-1. Identify ALL missing information pillars at once:
-    - Purpose & Vision
-    - Platform & Tech
-    - Scope & Features
-    - Constraints & Audience
-2. Present your questions in a CLEAR, STRUCTURED way (use Markdown bullet points).
-3. Encourage the user to provide as much detail as possible in one go.
-4. Once these factors are clarified, proactively set suggestedAction.type = "generate_report".
+Move efficiently toward a structured report. Identify all missing pillars at once (Purpose, Platform, Scope, Constraints).
+Once clarified, set suggestedAction.type = "generate_report".
 
 Current context:
 - Pending action: ${pendingActionType ?? "none"}
 - Report exists: ${hasReport ? "YES" : "NO"}
-${hasReport ? `\n--- CURRENT REPORT CONTENT ---\n${reportContent}\n--- END CURRENT REPORT ---\n` : ""}
+${hasReport ? `\n--- CURRENT REPORT ---\n${reportContent}\n--- END REPORT ---\n` : ""}
 
-Response format — you MUST return valid JSON (no markdown fences, just raw JSON):
+Return raw JSON (no markdown fences):
 {
-  "reply": "Your professional response in English",
+  "reply": "response text",
   "userIntent": "confirm|explore|reject|neutral",
-  "suggestedAction": {
-    "type": "generate_report|proceed_to_tasks|suggest_tasks",
-    "hint": "Hint for user (e.g. 'Type yes to proceed')"
-  }
+  "suggestedAction": { "type": "generate_report|proceed_to_tasks|suggest_tasks", "hint": "hint text" }
 }
 
-CRITICAL RULES about "userIntent":
-- "confirm": Use this when the user explicitly says yes/ok/go ahead OR when the user gives a DIRECT COMMAND to update, revise, or change the report/tasks (e.g. "Update the report", "Add section X", "Sửa lại report..."). This triggers immediate execution.
-- "neutral": Use when user is providing new information, asking general questions, or still in the brainstorming flow.
-- "explore": Use when user wants to discuss or explore options further.
-- "reject": Use when user declines a suggestion.
+userIntent rules:
+- "confirm": user says yes/ok/go ahead, or gives a direct command to update/revise the report or tasks.
+- "neutral": user provides information or asks questions.
+- "explore": user wants to discuss options.
+- "reject": user declines.
 
-EXECUTION LOGIC:
-- If the user asks to UPDATE or REVISE the report:
-  → Set userIntent = "confirm"
-  → Set suggestedAction.type = "generate_report"
-  → In reply: acknowledge the change and say you are regenerating the report now.
-
-- If the user asks for more info or adjustments that require a new report version:
-  → Set userIntent = "confirm"
-  → Set suggestedAction.type = "generate_report"
-
-Other rules:
-- Speak professionally in English.
-- Do not use technical UI jargon.
-- IF USER REQUESTS TO EDIT A SPECIFIC TASK (e.g. 'edit task 1 to...'):
-  1. Respond with confirmation in 'reply'.
-  2. Must include 'taskUpdate' with 'index' (0-based) and the new content.
-  3. No need to set 'suggestedAction' for individual task edits.`;
+If user asks to UPDATE/REVISE the report → userIntent = "confirm", suggestedAction.type = "generate_report".
+If user asks to EDIT A SPECIFIC TASK (e.g. "edit task 1 to...") → confirm in reply + include taskUpdate { index (0-based), title, description }.`;
 }
 
 export async function chatWithAgenticAI(
