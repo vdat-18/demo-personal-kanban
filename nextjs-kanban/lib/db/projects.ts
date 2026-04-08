@@ -1,5 +1,5 @@
 import prisma from './client'
-import { Project } from '@prisma/client'
+import { Project } from '../generated/prisma'
 
 export async function getProjects() {
   return prisma.project.findMany({
@@ -42,11 +42,10 @@ export async function getProjectWithTaskCount(id: string) {
     where: { id },
     include: {
       _count: {
-        select: true,
-        where: { projectId: id }
+        select: { tasks: true }
       }
     }
   })
-  
+
   return project
 }

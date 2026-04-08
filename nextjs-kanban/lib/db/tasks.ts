@@ -1,5 +1,5 @@
 import prisma from './client'
-import { Task, TaskStatus, TaskPriority } from '@prisma/client'
+import { Task, TaskStatus, TaskPriority } from '../generated/prisma'
 
 export async function getTasks(status?: TaskStatus, projectId?: string) {
   const where: any = {}
@@ -43,7 +43,7 @@ export async function updateTask(
     description?: string
     status?: TaskStatus
     priority?: TaskPriority
-    projectId?: string
+    projectId?: string | null
   }>
 ) {
   return prisma.task.update({

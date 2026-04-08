@@ -1,5 +1,5 @@
 import prisma from './client'
-import { Conversation, Task } from '@prisma/client'
+import { Conversation, Task } from '../generated/prisma'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'

@@ -1,11 +1,7 @@
 import { defineConfig } from 'prisma/config'
 
-import { PrismaClient } from '@prisma/client'
-
-const client = new PrismaClient({
-  adapter: 'prisma-client',
-})
-
 export default defineConfig({
-  client,
+  datasource: {
+    url: process.env.DATABASE_URL ?? 'postgresql://localhost:5432/kanban',
+  },
 })
