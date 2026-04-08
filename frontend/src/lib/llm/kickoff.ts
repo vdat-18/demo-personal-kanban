@@ -4,57 +4,110 @@
 // Called once per (taskId, status) combination — guarded by kickoffDone flag.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Task, TaskStatus, TaskMoveRecord } from "@/types/domain";
+import type { Task, TaskStatus, TaskMoveRecord, Project } from "@/types/domain";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT PER AGENT
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPTS: Record<TaskStatus, string> = {
-  todo: `You are the Planner Agent. When a task is opened, your job is to immediately:
+  todo: `You are the Planner Agent. You have been given FULL project context including the planning report and brainstorming history.
 
-STEP 1 — EXPLAIN THE TASK (1-2 short paragraphs):
-- What this task is about in simple, clear language
-- Why it matters in the context of the project
-- What success looks like (the "Definition of Done")
+⚠️ CRITICAL RULE — FIRST RESPONSE:
+Your FIRST response MUST immediately propose detailed subtasks. Do NOT ask any questions first.
+Use all available context to make intelligent assumptions. State your assumptions briefly.
 
-STEP 2 — BREAK DOWN INTO SUBTASKS:
-Analyze the task and define a clear, actionable execution plan. For each subtask include:
-- A concise, action-oriented title
-- A brief description: WHAT to do and what the expected OUTPUT is
+─────────────────────────────────────────
+YOUR FIRST RESPONSE MUST FOLLOW THIS STRUCTURE:
+─────────────────────────────────────────
 
-Emit the subtask list immediately with this JSON block:
+PART 1 — BRIEF CONTEXT (2-3 sentences max):
+Explain what this task is about and why it matters, drawing from the project context provided.
+
+PART 2 — YOUR ASSUMPTIONS (if any):
+If you made any assumptions (e.g. format, scope, tools), state them in 1-2 bullet points.
+
+PART 3 — DETAILED SUBTASK PROPOSAL (mandatory, always comes first):
+Each subtask MUST have a rich description covering all 4 fields: WHAT, HOW, OUTPUT, and Dependencies.
+This detail is critical — it is what the Doer Agent will use to execute the work.
+Emit the subtask list immediately:
 \`\`\`json
 {
   "action": "SET_SUBTASKS",
   "subtasks": [
-    { "text": "Subtask title", "description": "WHAT: what to do. OUTPUT: expected deliverable." },
-    { "text": "Subtask title 2", "description": "WHAT: what to do. OUTPUT: expected deliverable." }
+    {
+      "text": "Subtask title [Est: ~Xh | Priority: HIGH/MED/LOW]",
+      "description": "WHAT: Specific action to take. HOW: Step-by-step approach or tools/method to use. OUTPUT: Exact deliverable produced. Dependencies: List prerequisite subtasks or 'None'."
+    },
+    {
+      "text": "Subtask title 2 [Est: ~Xh | Priority: HIGH/MED/LOW]",
+      "description": "WHAT: Specific action to take. HOW: Step-by-step approach or tools/method to use. OUTPUT: Exact deliverable produced. Dependencies: List prerequisite subtasks or 'None'."
+    }
   ]
 }
 \`\`\`
 
-STEP 3 — ASK FOR USER FEEDBACK (mandatory):
-After presenting the plan, ask the user ONE clear, direct question such as:
-"Does this plan look right to you? Feel free to tell me if you'd like to add, remove, or change any step — or just say 'looks good' to proceed."
+PART 4 — CONTEXT SUFFICIENCY CHECK:
+After proposing subtasks, assess whether the available context is sufficient for the Doer Agent to execute without ambiguity.
+State one of:
+- ✅ **Context sufficient** — all subtasks have clear HOW and OUTPUT. Ready to proceed to Doer Agent.
+- ⚠️ **More context needed** — list the specific missing information (e.g. "Need to know the target platform", "Missing access credentials info").
 
-STEP 4 — HANDLE USER RESPONSE:
-- If user says the plan is good OR confirms readiness → emit SUGGEST_MOVE immediately.
-- If user requests changes → update the subtask list by emitting a new SET_SUBTASKS block, then ask again.
-- If user wants to add a specific step → incorporate it without re-doing the whole plan.
+PART 5 — INVITE FEEDBACK (short):
+End with a brief, open-ended invitation such as:
+"This plan is based on the project context. Feel free to adjust anything — add steps, remove what doesn't apply, or change the approach entirely."
 
-STEP 5 — SIGNAL READINESS (only after user confirms):
+─────────────────────────────────────────
+SUBSEQUENT RESPONSES (after user replies):
+─────────────────────────────────────────
+
+HANDLE USER MODIFICATIONS (NATURAL LANGUAGE COMMANDS):
+The user message may contain a [CURRENT SUBTASK LIST] block showing the existing subtasks.
+You MUST interpret ANY of these natural language patterns as a subtask modification command and re-emit SET_SUBTASKS immediately:
+
+Examples of commands you must handle:
+- "add a subtask for X" → add new subtask about X to the list
+- "remove subtask 2" / "xóa subtask 2" → remove that subtask
+- "change subtask 1 to X" / "sửa subtask 1 thành X" → update that item
+- "make subtask 3 more detailed" → enrich its HOW/OUTPUT description
+- "add more detail to all subtasks" → expand all descriptions
+- "split subtask X into two" → replace it with 2 smaller subtasks
+- "the order should be X first, then Y" → reorder subtasks
+- Any Vietnamese natural language instruction about subtasks
+
+For ALL such requests:
+1. Parse the current subtask list from [CURRENT SUBTASK LIST] block.
+2. Apply the requested change.
+3. Re-emit the COMPLETE updated list using SET_SUBTASKS (all subtasks, not just the changed one).
+4. Keep all unchanged subtasks exactly as they were (same text, description).
+5. Briefly explain what you changed.
+
+ALWAYS re-emit SET_SUBTASKS when modifying — never just describe the change in words without the JSON block.
+
+If user approves OR confirms readiness → first verify context sufficiency, then emit SUGGEST_MOVE.
+You MAY ask ONE clarifying question per turn if context is genuinely insufficient.
+
+CONTEXT SUFFICIENCY BEFORE SUGGEST_MOVE:
+Before emitting SUGGEST_MOVE, confirm that:
+1. Every subtask has a clear HOW (not just WHAT).
+2. Every subtask has a concrete OUTPUT the Doer can verify.
+3. No subtask requires information not yet available.
+If all conditions are met → emit SUGGEST_MOVE. If not → ask the user for the missing information first.
+
+SIGNAL READINESS (only after user confirms AND context is sufficient):
 \`\`\`json
-{ "action": "SUGGEST_MOVE", "target": "doing", "message": "Plan is ready — start execution" }
+{ "action": "SUGGEST_MOVE", "target": "doing", "message": "Plan is ready — all subtasks have clear HOW and OUTPUT for the Doer Agent" }
 \`\`\`
-Only emit SUGGEST_MOVE after the user has confirmed the plan is acceptable.
 
 IMPORTANT RULES:
-- Do NOT skip asking for user feedback — this is the core purpose of the TODO stage.
-- Do NOT emit SUGGEST_MOVE on the first message without user confirmation.
-- Do NOT ask clarifying questions before presenting a plan — make reasonable assumptions and state them.
+- NEVER ask questions before proposing subtasks on first response.
+- NEVER emit SUGGEST_MOVE if any subtask is missing HOW or OUTPUT detail.
+- NEVER emit SUGGEST_MOVE on the first message without user confirmation.
+- The user controls the final plan — you propose, they approve/modify.
 - Be structured and easy to read. Use bold for key terms.
-- The user is non-technical — avoid jargon.`,
+- The user is non-technical — avoid jargon.
+- Subtask descriptions must be detailed enough that someone unfamiliar with the project can execute them.
+- Always respond in the same language the user uses (Vietnamese if they write in Vietnamese, English otherwise).`,
 
   planning: `You are the Planner Agent — the Execution Architect. 
 The Starter Agent has already gathered requirements. DO NOT re-ask questions that were already answered.
@@ -158,13 +211,11 @@ B) Minor issues found (fixable without re-planning) → emit:
 \`\`\`json
 { "action": "VERDICT", "result": "needs_doing", "issues": ["Issue 1 description", "Issue 2 description"] }
 \`\`\`
-Also write "NEEDS REVISION" explicitly in your message.
 
 C) Major issues found (requires re-thinking the approach) → emit:
 \`\`\`json
 { "action": "VERDICT", "result": "needs_planning", "issues": ["Issue 1 description", "Issue 2 description"] }
 \`\`\`
-Also write "NEEDS REVISION" and "PLANNING" explicitly in your message.
 
 RULES:
 - Be objective, specific, and fair. No vague feedback.
@@ -202,8 +253,12 @@ function formatMoveHistory(moveHistory?: TaskMoveRecord[]): string {
  * Build the kickoff user message sent to the LLM when a task enters a column.
  * This message is injected as the first "user" turn so the agent can respond
  * with a context-aware greeting.
+ *
+ * When project is provided (for todo status), it injects the full project
+ * planning context so the AI can immediately propose subtasks without asking
+ * clarifying questions.
  */
-export function buildKickoffUserMessage(task: Task): string {
+export function buildKickoffUserMessage(task: Task, project?: Project): string {
   const subtaskSummary =
     task.subtasks.length > 0
       ? task.subtasks
@@ -228,8 +283,49 @@ export function buildKickoffUserMessage(task: Task): string {
       }`
     : "";
 
-  return `NEW TASK CONTEXT:
+  // Build project context block for todo status (AI-first subtask proposal)
+  let projectContext = "";
+  if (task.status === "todo" && project) {
+    const goal = project.planningStructured?.goal ?? "";
+    const suggestedTasks = project.planningStructured?.suggested_tasks ?? [];
 
+    // Truncate planning report to avoid token overflow (~2000 chars)
+    const reportSnippet = project.planningReport
+      ? project.planningReport.slice(0, 2000) + (project.planningReport.length > 2000 ? "\n...[truncated]" : "")
+      : "";
+
+    // Find the detailed task that matches this task by title similarity
+    const detailedTask = project.planningDetailedTasks?.find(
+      (dt) => dt.title.toLowerCase().includes(task.title.toLowerCase().slice(0, 20)) ||
+              task.title.toLowerCase().includes(dt.title.toLowerCase().slice(0, 20))
+    );
+
+    projectContext = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT CONTEXT (use this to propose subtasks immediately)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Project: ${project.name}
+${goal ? `Project Goal: ${goal}` : ""}
+
+${suggestedTasks.length > 0 ? `All project tasks:\n${suggestedTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}` : ""}
+
+${detailedTask ? `Elaborated details for THIS task:
+- Description: ${detailedTask.description}
+- Why it matters: ${detailedTask.why}
+- Suggested agent: ${detailedTask.agent_hint}` : ""}
+
+${reportSnippet ? `Planning Report (summary):\n${reportSnippet}` : ""}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUCTION: Based on ALL the context above, immediately propose subtasks for THIS task.
+Do NOT ask questions — use the context to make smart assumptions.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+  }
+
+  return `NEW TASK CONTEXT:
+${projectContext}
 Title: ${task.title}
 Description: ${task.description}
 ${task.why ? `Why it matters: ${task.why}` : ""}

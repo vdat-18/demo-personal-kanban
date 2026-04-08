@@ -18,6 +18,7 @@ import {
   Trash2,
   Edit3,
   History,
+  Sparkles,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,75 +30,57 @@ import type { TaskStatus } from "@/types/domain";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REVIEWER VERDICT DETECTOR
-// Parse agent reply to detect if Reviewer says APPROVED, NEEDS REVISION,
-// and whether to go back to DOING or PLANNING
-// ─────────────────────────────────────────────────────────────────────────────
-type ReviewVerdict = "approved" | "needs_doing" | "needs_todo" | null;
 
-function detectReviewerVerdict(text: string): ReviewVerdict {
-  const upper = text.toUpperCase();
-  if (upper.includes("APPROVED")) return "approved";
-  if (upper.includes("NEEDS REVISION") || upper.includes("REVISE") || upper.includes("FAIL")) {
-    // Check if it suggests going back to Todo vs Doing
-    if (
-      upper.includes("PLANNING") ||
-      upper.includes("REPLAN") ||
-      upper.includes("STRATEGY") ||
-      upper.includes("TODO")
-    ) {
-      return "needs_todo";
+function extractJsonBlock(text: string): any | null {
+  try {
+    return JSON.parse(text.trim());
+  } catch (e) {}
+
+  try {
+    const blockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (blockMatch) {
+      return JSON.parse(blockMatch[1]);
     }
-    return "needs_doing";
-  }
+  } catch (e) {}
+
+  try {
+    const objMatch = text.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      return JSON.parse(objMatch[0]);
+    }
+  } catch (e) {}
+
   return null;
 }
 
 function detectSubtaskCommand(text: string): any[] | null {
-  try {
-    const data = JSON.parse(text.trim());
-    if (data && data.action === "SET_SUBTASKS" && Array.isArray(data.subtasks)) {
-      return data.subtasks;
-    }
-  } catch {
-    // ignore
+  const data = extractJsonBlock(text);
+  if (data && data.action === "SET_SUBTASKS" && Array.isArray(data.subtasks)) {
+    return data.subtasks;
   }
   return null;
 }
 
 function detectCompleteSubtask(text: string): string | null {
-  try {
-    const data = JSON.parse(text.trim());
-    if (data && data.action === "COMPLETE_SUBTASK" && data.subtask_text) {
-      return data.subtask_text as string;
-    }
-  } catch {
-    // ignore
+  const data = extractJsonBlock(text);
+  if (data && data.action === "COMPLETE_SUBTASK" && data.subtask_text) {
+    return data.subtask_text as string;
   }
   return null;
 }
 
 function detectSuggestMove(text: string): { target: string; message: string } | null {
-  try {
-    const data = JSON.parse(text.trim());
-    if (data && data.action === "SUGGEST_MOVE" && data.target) {
-      return { target: data.target, message: data.message ?? "Ready to move to the next stage." };
-    }
-  } catch {
-    // ignore
+  const data = extractJsonBlock(text);
+  if (data && data.action === "SUGGEST_MOVE" && data.target) {
+    return { target: data.target, message: data.message ?? "Ready to move to the next stage." };
   }
   return null;
 }
 
 function detectVerdictCommand(text: string): { result: "needs_doing" | "needs_todo"; issues: string[] } | null {
-  try {
-    const data = JSON.parse(text.trim());
-    if (data && data.action === "VERDICT" && (data.result === "needs_doing" || data.result === "needs_todo")) {
-      return { result: data.result, issues: Array.isArray(data.issues) ? data.issues : [] };
-    }
-  } catch {
-    // ignore
+  const data = extractJsonBlock(text);
+  if (data && data.action === "VERDICT" && (data.result === "needs_doing" || data.result === "needs_todo")) {
+    return { result: data.result, issues: Array.isArray(data.issues) ? data.issues : [] };
   }
   return null;
 }
@@ -200,11 +183,11 @@ function ReviewerVerdictDialog({
   onConfirm,
   onClose,
 }: {
-  verdict: ReviewVerdict;
+  verdict: "needs_doing" | "needs_todo" | null;
   onConfirm: (target: TaskStatus) => void;
   onClose: () => void;
 }) {
-  if (!verdict || verdict === "approved") return null;
+  if (!verdict) return null;
 
   const isPlanning = verdict === "needs_todo";
   const targetStatus: TaskStatus = isPlanning ? "todo" : "doing";
@@ -255,11 +238,13 @@ export function TaskChat() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [streamingReply, setStreamingReply] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  // Ref to track streaming state without causing stale closures in useCallback
+  const isStreamingRef = useRef(false);
 
   // Dialog state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [pendingMoveStatus, setPendingMoveStatus] = useState<TaskStatus | null>(null);
-  const [reviewerVerdict, setReviewerVerdict] = useState<ReviewVerdict>(null);
+  const [reviewerVerdict, setReviewerVerdict] = useState<"needs_doing" | "needs_todo" | null>(null);
 
   // Planner Agent (TODO phase): AI-suggested move to doing
   const [suggestMove, setSuggestMove] = useState<{ target: string; message: string } | null>(null);
@@ -284,22 +269,30 @@ export function TaskChat() {
   const kickoffFired = useRef(false);
 
   const fireKickoff = useCallback(async () => {
-    if (!task || !project || isStreaming) return;
+    if (!task || !project || isStreamingRef.current) return;
     if (task.kickoffDone) return;
     if (kickoffFired.current) return;
     kickoffFired.current = true;
 
     const systemPrompt = getAgentSystemPrompt(task.status);
-    const kickoffMsg: ChatMsg = { role: "user", content: buildKickoffUserMessage(task) };
+    const kickoffMsg: ChatMsg = { role: "user", content: buildKickoffUserMessage(task, project) };
+
+    // Snapshot task/project values before async operations to avoid stale closure issues
+    const taskId = task.id;
+    const taskStatus = task.status;
+    const projectId = project.id;
+    const agentType = task.agentType;
+    const taskTitle = task.title;
 
     setChatMessages([kickoffMsg]);
+    isStreamingRef.current = true;
     setIsStreaming(true);
     setStreamingReply("");
 
     let fullReply = "";
     try {
       await chatWithAgent(
-        task.agentType,
+        agentType,
         [kickoffMsg],
         (delta) => {
           fullReply += delta;
@@ -308,40 +301,39 @@ export function TaskChat() {
         systemPrompt
       );
     } catch (e) {
-      fullReply = `I'm your ${task.agentType}. Ready to help with: **${task.title}**. What would you like to do first?`;
+      fullReply = `I'm your ${agentType}. Ready to help with: **${taskTitle}**. What would you like to do first?`;
     }
 
+    // Fix: Batch all setState updates atomically to prevent intermediate renders
+    // that cause duplicate message display (streaming bubble + assistant message)
     setChatMessages([kickoffMsg, { role: "assistant", content: fullReply }]);
     setStreamingReply("");
+    isStreamingRef.current = false;
     setIsStreaming(false);
 
     // Mark kickoff done in store to prevent duplicate calls
-    markKickoffDone(project.id, task.id);
+    markKickoffDone(projectId, taskId);
 
     // Auto-detect subtask updates
     const aiSubtasks = detectSubtaskCommand(fullReply);
-    if (aiSubtasks && project && task) {
-      setSubtasks(project.id, task.id, aiSubtasks, "ai");
+    if (aiSubtasks) {
+      setSubtasks(projectId, taskId, aiSubtasks, "ai");
     }
 
     // Auto-detect SUGGEST_MOVE from all agents (including Reviewer → done)
-    if (task.status === "todo" || task.status === "doing" || task.status === "review") {
+    if (taskStatus === "todo" || taskStatus === "doing" || taskStatus === "review") {
       const move = detectSuggestMove(fullReply);
       if (move) setSuggestMove(move);
     }
 
-    // Reviewer: detect VERDICT JSON (primary) with keyword fallback
-    if (task.status === "review") {
+    // Reviewer: detect VERDICT JSON (primary)
+    if (taskStatus === "review") {
       const verdict = detectVerdictCommand(fullReply);
       if (verdict) {
         setReviewerVerdict(verdict.result as "needs_doing" | "needs_todo");
-      } else {
-        // Fallback: keyword detection
-        const kwVerdict = detectReviewerVerdict(fullReply);
-        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict as "needs_doing" | "needs_todo");
       }
     }
-  }, [task?.id, task?.status, task?.kickoffDone, project?.id, isStreaming]);
+  }, [task?.id, task?.status, task?.kickoffDone, project?.id]);
 
   // Reset kickoffFired ref when task or status changes (new column entry)
   useEffect(() => {
@@ -352,7 +344,8 @@ export function TaskChat() {
     if (task && !task.kickoffDone && task.status !== "cancelled") {
       fireKickoff();
     }
-  }, [task?.id, task?.status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id, task?.status, task?.kickoffDone, fireKickoff]);
 
   // ── Subtask derived state ──────────────────────────────────────────────────
   const completedSubtasks = task?.subtasks.filter(s => s.completed).length ?? 0;
@@ -411,11 +404,26 @@ export function TaskChat() {
 
   // ── Chat ──────────────────────────────────────────────────────────────────
   const handleSend = async () => {
-    if (!inputText.trim() || isStreaming || !task) return;
-    const userMsg: ChatMsg = { role: "user", content: inputText.trim() };
+    if (!inputText.trim() || isStreamingRef.current || !task) return;
+
+    // In TODO/planning phase: inject current subtask list as a system-level context note
+    // so AI always knows what subtasks exist and can update them when user speaks naturally
+    let messageContent = inputText.trim();
+    if ((task.status === "todo" || task.status === "planning") && task.subtasks.length > 0) {
+      const subtaskContext = task.subtasks
+        .map((s, i) => `${i + 1}. [${s.completed ? "x" : " "}] ${s.text}${s.description ? `\n   ${s.description}` : ""}`)
+        .join("\n");
+      messageContent = `${inputText.trim()}\n\n[CURRENT SUBTASK LIST — update this if needed:\n${subtaskContext}\n]`;
+    }
+
+    const userMsg: ChatMsg = { role: "user", content: messageContent };
+    // Show the user's original message in chat (not the injected context)
+    const displayMsg: ChatMsg = { role: "user", content: inputText.trim() };
     const newHistory = [...chatMessages, userMsg];
-    setChatMessages(newHistory);
+    const displayHistory = [...chatMessages, displayMsg];
+    setChatMessages(displayHistory);
     setInputText("");
+    isStreamingRef.current = true;
     setIsStreaming(true);
     setStreamingReply("");
 
@@ -436,6 +444,7 @@ export function TaskChat() {
 
     setChatMessages(prev => [...prev, { role: "assistant", content: fullReply }]);
     setStreamingReply("");
+    isStreamingRef.current = false;
     setIsStreaming(false);
 
     // Auto-detect subtask updates in regular chat too
@@ -450,28 +459,24 @@ export function TaskChat() {
       if (move) setSuggestMove(move);
     }
 
-    // Reviewer: detect VERDICT JSON (primary) with keyword fallback
+    // Reviewer: detect VERDICT JSON (primary)
     if (task.status === "review") {
       const verdict = detectVerdictCommand(fullReply);
       if (verdict) {
         setReviewerVerdict(verdict.result as "needs_doing" | "needs_todo");
-      } else {
-        // Fallback: keyword detection
-        const kwVerdict = detectReviewerVerdict(fullReply);
-        if (kwVerdict && kwVerdict !== "approved") setReviewerVerdict(kwVerdict as "needs_doing" | "needs_todo");
-        else if (kwVerdict === "approved") setReviewerVerdict("approved");
       }
     }
   };
 
   const handleExecuteSubtask = async (subtaskText: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (isStreaming || !task) return;
+    if (isStreamingRef.current || !task) return;
 
     const prompt = `Please work on this subtask:\n"${subtaskText}"`;
     const userMsg: ChatMsg = { role: "user", content: prompt };
     const newHistory = [...chatMessages, userMsg];
     setChatMessages(newHistory);
+    isStreamingRef.current = true;
     setIsStreaming(true);
     setStreamingReply("");
 
@@ -492,6 +497,7 @@ export function TaskChat() {
 
     setChatMessages(prev => [...prev, { role: "assistant", content: fullReply }]);
     setStreamingReply("");
+    isStreamingRef.current = false;
     setIsStreaming(false);
 
     // Doer Agent: auto-tick completed subtask
@@ -745,7 +751,7 @@ export function TaskChat() {
         />
       )}
 
-      {reviewerVerdict && reviewerVerdict !== "approved" && (
+      {reviewerVerdict && (
         <ReviewerVerdictDialog
           verdict={reviewerVerdict}
           onConfirm={(target) => {
@@ -886,8 +892,10 @@ export function TaskChat() {
               );
             })}
 
-            {/* Streaming reply */}
-            {isStreaming && (
+            {/* Streaming reply — only shown when the last message is NOT yet an assistant reply.
+                This prevents a duplicate render where both the completed assistant message
+                in chatMessages AND the streaming bubble appear simultaneously (race condition). */}
+            {isStreaming && chatMessages[chatMessages.length - 1]?.role !== "assistant" && (
               <div className="flex gap-4 max-w-[92%] animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <div className="w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center bg-[#0a192f] text-white rotate-[-2deg] shadow-lg">
                   {streamingReply ? <AgentIcon className="w-5 h-5" /> : <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />}
@@ -1066,7 +1074,7 @@ export function TaskChat() {
             <section>
               <h2 className="text-[10px] font-black tracking-[0.3em] text-gray-400 mb-8 flex items-center gap-3 uppercase">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
-                {task.status === "review" ? "Validation Checklist" : "Execution Plan"}
+                {task.status === "review" ? "Validation Checklist" : "Subtasks"}
                 {/* View Changes toggle — only in TODO and if history exists */}
                 {task.status === "todo" && (task.subtaskHistory?.length ?? 0) > 0 && (
                   <button
@@ -1090,14 +1098,30 @@ export function TaskChat() {
                       {task.status === "review" ? "QA Review" : "Subtasks"}
                     </h3>
                     <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                      {task.status === "review" ? "Check quality vs criteria" : "Step-by-step progression"}
+                      {task.status === "review"
+                        ? "Check quality vs criteria"
+                        : task.status === "todo" && isStreaming && totalSubtasks === 0
+                        ? "AI is analyzing..."
+                        : "Step-by-step progression"}
                     </p>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-4xl font-black text-[#0a192f] leading-none">{completedSubtasks}/{totalSubtasks}</span>
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-2">
-                      {totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0}% Complete
-                    </span>
+                    {task.status === "todo" && totalSubtasks > 0 ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                          <Sparkles className="w-3 h-3" />
+                          {totalSubtasks} subtasks
+                        </span>
+                        <span className="text-[9px] text-gray-400 font-medium">Edit manually or via chat</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-black text-[#0a192f] leading-none">{completedSubtasks}/{totalSubtasks}</span>
+                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-2">
+                          {totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0}% Complete
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1138,82 +1162,254 @@ export function TaskChat() {
                   {task.subtasks.map(s => (
                     <div
                       key={s.id}
-                      onClick={() => !editingSubtaskId && toggleSubtask(project.id, task.id, s.id)}
-                      className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all cursor-pointer group ${
+                      onClick={() => !editingSubtaskId && task.status !== "todo" && toggleSubtask(project.id, task.id, s.id)}
+                      className={`flex flex-col p-5 rounded-2xl border-2 transition-all group ${
                         s.completed
-                          ? "bg-gray-50/50 text-gray-300 border-gray-50 line-through grayscale"
-                          : "bg-white text-[#0a192f] border-gray-100 shadow-sm hover:border-[#0a192f] hover:shadow-lg"
+                          ? "bg-gray-50/50 text-gray-300 border-gray-50 grayscale"
+                          : task.status === "todo"
+                          ? "bg-white text-[#0a192f] border-blue-100 shadow-sm hover:border-blue-300 hover:shadow-lg cursor-default"
+                          : "bg-white text-[#0a192f] border-gray-100 shadow-sm hover:border-[#0a192f] hover:shadow-lg cursor-pointer"
                       }`}
                     >
-                      <div className="flex-1 flex items-center gap-4 text-sm font-black pr-2">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all shrink-0 ${
-                          s.completed ? "bg-green-50 text-green-500" : "bg-gray-50 text-gray-200 group-hover:border-[#0a192f] border"
-                        }`}>
-                          {s.completed ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
-                        </div>
-                        
-                        {editingSubtaskId === s.id ? (
-                          <input
-                            autoFocus
-                            className="flex-1 bg-blue-50 border-none outline-none text-[#0a192f] py-1 px-2 rounded"
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            onBlur={() => handleSaveEdit(s.id, {} as any)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(s.id, e)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                        <div className="flex-1">
-                          <span className="block">{s.text}</span>
-                          {s.description && (
-                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out">
-                              <p className="overflow-hidden text-[10px] text-gray-400 font-medium italic mt-0 group-hover:mt-1 opacity-0 group-hover:opacity-100 transition-all">
-                                {s.description}
-                              </p>
-                            </div>
+                      {/* Top row: checkbox + title + action buttons */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4 flex-1 text-sm font-black pr-2">
+                          <div
+                            onClick={(e) => { e.stopPropagation(); toggleSubtask(project.id, task.id, s.id); }}
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all shrink-0 mt-0.5 cursor-pointer ${
+                              s.completed ? "bg-green-50 text-green-500" : "bg-gray-50 text-gray-200 hover:border-[#0a192f] border"
+                            }`}
+                          >
+                            {s.completed ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
+                          </div>
+
+                          {editingSubtaskId === s.id ? (
+                            <input
+                              autoFocus
+                              className="flex-1 bg-blue-50 border-none outline-none text-[#0a192f] py-1 px-2 rounded"
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              onBlur={() => handleSaveEdit(s.id, {} as any)}
+                              onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(s.id, e)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className={`block leading-snug ${s.completed ? "line-through" : ""}`}>{s.text}</span>
                           )}
                         </div>
-                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!s.completed && task.status !== "todo" && (
+                            <button
+                              onClick={(e) => handleExecuteSubtask(s.text, e)}
+                              disabled={isStreaming}
+                              className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 shrink-0 flex items-center justify-center"
+                              title="Execute with AI"
+                            >
+                              <Activity className="w-4 h-4" />
+                            </button>
+                          )}
+                          {!s.completed && (task.status === "todo" || task.status === "planning") && (
+                            <>
+                              <button
+                                onClick={(e) => handleStartEdit(s.id, s.text, e)}
+                                className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all opacity-0 group-hover:opacity-100 shrink-0 flex items-center justify-center"
+                                title="Edit"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDeleteSubtask(s.id, e)}
+                                className="w-8 h-8 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 flex items-center justify-center"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        {!s.completed && (
-                          <button
-                            onClick={(e) => handleExecuteSubtask(s.text, e)}
-                            disabled={isStreaming}
-                            className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 shrink-0 flex items-center justify-center"
-                            title="Execute with AI"
-                          >
-                            <Activity className="w-4 h-4" />
-                          </button>
-                        )}
-                        {!s.completed && (task.status === "todo" || task.status === "planning") && (
-                          <>
-                            <button
-                              onClick={(e) => handleStartEdit(s.id, s.text, e)}
-                              className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all opacity-0 group-hover:opacity-100 shrink-0 flex items-center justify-center"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={(e) => handleDeleteSubtask(s.id, e)}
-                              className="w-8 h-8 rounded-full bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shrink-0 flex items-center justify-center"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {/* Description — always visible in TODO phase, hover-only elsewhere */}
+                      {s.description && !s.completed && (
+                        task.status === "todo" || task.status === "planning" ? (
+                          <div className="mt-3 ml-10 space-y-1">
+                            {s.description.split(/(?=WHAT:|HOW:|OUTPUT:|Dependencies:)/g).map((part, pi) => {
+                              const labelMatch = part.match(/^(WHAT:|HOW:|OUTPUT:|Dependencies:)\s*/);
+                              if (!labelMatch) return part.trim() ? (
+                                <p key={pi} className="text-[11px] text-gray-500 font-medium leading-relaxed">{part.trim()}</p>
+                              ) : null;
+                              const label = labelMatch[1];
+                              const content = part.slice(labelMatch[0].length).trim();
+                              const labelColors: Record<string, string> = {
+                                "WHAT:": "text-blue-600",
+                                "HOW:": "text-violet-600",
+                                "OUTPUT:": "text-green-600",
+                                "Dependencies:": "text-amber-600",
+                              };
+                              return content ? (
+                                <div key={pi} className="flex gap-2 items-start">
+                                  <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 mt-0.5 ${labelColors[label] ?? "text-gray-400"}`}>{label.replace(":", "")}</span>
+                                  <p className="text-[11px] text-gray-600 font-medium leading-relaxed">{content}</p>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        ) : (
+                          <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-300 ease-in-out ml-10 mt-0">
+                            <p className="overflow-hidden text-[10px] text-gray-400 font-medium italic mt-0 group-hover:mt-1 opacity-0 group-hover:opacity-100 transition-all leading-relaxed">
+                              {s.description}
+                            </p>
+                          </div>
+                        )
+                      )}
                     </div>
                   ))}
 
                   {task.subtasks.length === 0 && (
-                    <div className="py-8 text-center text-gray-300 text-xs font-bold uppercase tracking-widest">
-                      No subtasks defined. Ask the agent to create some.
+                    <div className="py-8 text-center flex flex-col items-center gap-4">
+                      {isStreaming ? (
+                        <>
+                          <div className="flex gap-1.5 items-center">
+                            <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                            <span className="w-2 h-2 bg-blue-300 rounded-full animate-bounce [animation-delay:150ms]" />
+                            <span className="w-2 h-2 bg-blue-200 rounded-full animate-bounce [animation-delay:300ms]" />
+                          </div>
+                          <p className="text-xs font-black text-blue-400 uppercase tracking-widest">AI is creating your plan...</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-gray-300 text-xs font-bold uppercase tracking-widest">
+                            {task.status === "todo" ? "Waiting for AI to propose subtasks..." : "No subtasks defined. Ask the agent to create some."}
+                          </p>
+                          {/* Fallback: if kickoffDone but no subtasks were generated, offer re-kickoff */}
+                          {task.status === "todo" && task.kickoffDone && !isStreaming && (
+                            <button
+                              onClick={() => {
+                                // Reset kickoffDone so fireKickoff runs again
+                                setChatMessages([]);
+                                // Directly fire kickoff by temporarily resetting store flag
+                                // We'll use a workaround: send the kickoff message manually
+                                const kickoffMsg: ChatMsg = { role: "user", content: buildKickoffUserMessage(task, project) };
+                                const systemPrompt = getAgentSystemPrompt(task.status);
+                                setChatMessages([kickoffMsg]);
+                                isStreamingRef.current = true;
+                                setIsStreaming(true);
+                                setStreamingReply("");
+                                let fullReply = "";
+                                chatWithAgent(task.agentType, [kickoffMsg], (delta) => { fullReply += delta; setStreamingReply(fullReply); }, systemPrompt)
+                                  .catch(() => { fullReply = `Ready to plan: **${task.title}**`; })
+                                  .finally(() => {
+                                    setChatMessages([kickoffMsg, { role: "assistant", content: fullReply }]);
+                                    setStreamingReply("");
+                                    isStreamingRef.current = false;
+                                    setIsStreaming(false);
+                                    const aiSubtasks = detectSubtaskCommand(fullReply);
+                                    if (aiSubtasks && project) setSubtasks(project.id, task.id, aiSubtasks, "ai");
+                                  });
+                              }}
+                              disabled={isStreaming}
+                              className="flex items-center gap-2 px-5 py-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Regenerate Plan
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
+
+                  {/* TODO phase: Accept Plan / Continue Discussion buttons */}
+                  {task.status === "todo" && task.subtasks.length > 0 && !suggestMove && !isStreaming && (() => {
+                    // Context sufficiency check: every subtask should have HOW and OUTPUT in description
+                    const subtasksWithHowOutput = task.subtasks.filter(
+                      s => s.description && s.description.includes("HOW:") && s.description.includes("OUTPUT:")
+                    );
+                    const isContextSufficient = subtasksWithHowOutput.length === task.subtasks.length;
+                    const insufficientCount = task.subtasks.length - subtasksWithHowOutput.length;
+
+                    return (
+                      <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-3">
+                        {/* Context sufficiency indicator */}
+                        {isContextSufficient ? (
+                          <div className="flex items-center gap-2 justify-center">
+                            <span className="w-2 h-2 rounded-full bg-green-400" />
+                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">
+                              Context sufficient — Ready for Doer Agent
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                              {insufficientCount} subtask{insufficientCount > 1 ? "s" : ""} missing HOW/OUTPUT detail — ask AI to elaborate
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={async () => {
+                              // Send explicit confirmation with context check instruction
+                              const confirmMsg = isContextSufficient
+                                ? "The plan looks good. All subtasks have sufficient HOW and OUTPUT detail. Please confirm context is sufficient and proceed to the Doer Agent."
+                                : "Please elaborate on the subtasks that are missing HOW steps and OUTPUT details so the Doer Agent has everything it needs to execute.";
+                              const userMsg = { role: "user" as const, content: confirmMsg };
+                              const newHistory = [...chatMessages, userMsg];
+                              setChatMessages(newHistory);
+                              setInputText("");
+                              isStreamingRef.current = true;
+                              setIsStreaming(true);
+                              setStreamingReply("");
+                              let fullReply = "";
+                              try {
+                                await chatWithAgent(
+                                  task.agentType,
+                                  newHistory,
+                                  (delta: string) => { fullReply += delta; setStreamingReply(fullReply); },
+                                  getAgentSystemPrompt(task.status)
+                                );
+                              } catch {
+                                fullReply = isContextSufficient
+                                  ? "Plan confirmed! All subtasks have clear HOW and OUTPUT. Ready to start execution."
+                                  : "I'll elaborate on the missing details.";
+                              }
+                              setChatMessages(prev => [...prev, { role: "assistant", content: fullReply }]);
+                              setStreamingReply("");
+                              isStreamingRef.current = false;
+                              setIsStreaming(false);
+                              // Auto-detect new subtask updates (in case AI re-emits SET_SUBTASKS)
+                              const aiSubtasks = detectSubtaskCommand(fullReply);
+                              if (aiSubtasks && project && task) {
+                                setSubtasks(project.id, task.id, aiSubtasks, "ai");
+                              }
+                              const move = detectSuggestMove(fullReply);
+                              if (move) setSuggestMove(move);
+                            }}
+                            className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 ${
+                              isContextSufficient
+                                ? "bg-[#0a192f] text-white hover:bg-blue-900"
+                                : "bg-amber-500 text-white hover:bg-amber-600"
+                            }`}
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-green-400" />
+                            {isContextSufficient ? "Accept Plan" : "Elaborate Details"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const input = document.querySelector('input[placeholder*="Message"]') as HTMLInputElement;
+                              if (input) input.focus();
+                            }}
+                            className="flex-1 py-3 rounded-2xl border-2 border-gray-100 text-[#0a192f] text-xs font-black uppercase tracking-widest hover:border-[#0a192f] transition-all flex items-center justify-center gap-2"
+                          >
+                            Modify Plan
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {task.status === "review" && (
                     <div className="mt-8 p-6 bg-orange-50/50 rounded-3xl border border-orange-100 flex items-start gap-4">

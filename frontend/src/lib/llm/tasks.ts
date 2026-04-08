@@ -2,7 +2,7 @@
 // TASKS LLM — AI elaboration of task titles into detailed task objects
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { DetailedTask, DetailedTasksResponse } from "@/types/domain";
+import type { DetailedTasksResponse } from "@/types/domain";
 import { postChat } from "./client";
 
 function buildElaborationPrompt(projectReport: string, taskTitles: string[]): string {
@@ -45,25 +45,5 @@ export async function generateDetailedTasks(
     messages: [{ role: "user", content: buildElaborationPrompt(projectReport, taskTitles) }],
   });
 
-  try {
-    const parsed = JSON.parse(raw.trim());
-    const tasks: DetailedTask[] = (parsed.tasks ?? []).map((t: Partial<DetailedTask>) => ({
-      title: t.title ?? "",
-      description: t.description ?? "",
-      why: t.why ?? "",
-      agent_hint: t.agent_hint ?? "Planner Agent",
-    }));
-    return { summary: parsed.summary ?? "", tasks };
-  } catch {
-    // Fallback — bare task list without AI elaboration
-    return {
-      summary: "",
-      tasks: taskTitles.map((title) => ({
-        title,
-        description: "",
-        why: "",
-        agent_hint: "Planner Agent" as const,
-      })),
-    };
-  }
+  return JSON.parse(raw.trim()) as DetailedTasksResponse;
 }

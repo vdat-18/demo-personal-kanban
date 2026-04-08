@@ -5,8 +5,6 @@
 import type {
   ChatMessage,
   AgenticResponse,
-  SuggestedAction,
-  UserIntent,
 } from "@/types/domain";
 import { postChat } from "./client";
 
@@ -14,7 +12,7 @@ import { postChat } from "./client";
 // generateProjectReport
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REPORT_SYSTEM_PROMPT = `You are an expert project strategist.
+const REPORT_SYSTEM_PROMPT_NEW = `You are an expert project strategist.
 Based on the brainstorming conversation below, generate a comprehensive project report in Markdown.
 
 The report must include:
@@ -25,6 +23,19 @@ The report must include:
 5. Suggested high-level task titles (as a numbered list)
 
 IMPORTANT: Write ONLY the Markdown report. Do NOT include any JSON, code blocks, or extra text outside the Markdown.`;
+
+const REPORT_SYSTEM_PROMPT_UPDATE = `You are an expert project strategist.
+You are given an EXISTING project report and a USER INSTRUCTION describing what changes to make.
+
+Your job:
+- Apply ONLY the specific changes requested by the user.
+- Preserve all sections that are not affected by the request.
+- Do NOT regenerate the entire report from scratch — keep the existing structure and content, then apply the edit.
+- If the user asks to "add X", add it to the appropriate section.
+- If the user asks to "change X to Y", update only that part.
+- If the user asks to "remove X", delete only that part.
+
+IMPORTANT: Write ONLY the updated Markdown report. Do NOT include any JSON, code blocks, or extra explanation outside the Markdown.`;
 
 const STRUCTURED_EXTRACT_PROMPT = `Based on the project report below, extract the key information as a JSON object.
 Return ONLY a valid JSON object with no markdown, no code fences, and no extra text:
@@ -45,42 +56,46 @@ export interface ProjectReportResult {
 
 export async function generateProjectReport(
   projectName: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  currentReport?: string,
+  userInstruction?: string
 ): Promise<ProjectReportResult> {
-  // ── Call 1: Generate the full Markdown report ──────────────────────────────
-  const reportMessages: ChatMessage[] = [
-    { role: "user", content: REPORT_SYSTEM_PROMPT },
-    ...history,
-    {
-      role: "user",
-      content: `Now generate the complete Markdown project report for: "${projectName}". Write ONLY Markdown, no JSON.`,
-    },
-  ];
+  // ── Call 1: Generate (new) or Update (existing) the Markdown report ────────
+  let reportMessages: ChatMessage[];
+
+  if (currentReport && userInstruction) {
+    // UPDATE MODE: apply only the user's requested changes to the existing report
+    reportMessages = [
+      { role: "user", content: REPORT_SYSTEM_PROMPT_UPDATE },
+      {
+        role: "user",
+        content: `EXISTING REPORT:\n${currentReport}\n\nUSER INSTRUCTION: ${userInstruction}\n\nApply the instruction and return the updated Markdown report. Write ONLY Markdown, no JSON.`,
+      },
+    ];
+  } else {
+    // NEW REPORT MODE: generate from brainstorming conversation
+    reportMessages = [
+      { role: "user", content: REPORT_SYSTEM_PROMPT_NEW },
+      ...history,
+      {
+        role: "user",
+        content: `Now generate the complete Markdown project report for: "${projectName}". Write ONLY Markdown, no JSON.`,
+      },
+    ];
+  }
 
   const rawReport = await postChat({ projectName, messages: reportMessages });
 
-  // Strip any accidentally included code blocks or JSON residue
-  const cleanReport = rawReport
-    .replace(/`{3}(?:json)?[\s\S]*?`{3}/g, "")
-    .trim();
+  const cleanReport = rawReport.trim();
 
-  // ── Call 2: Extract structured JSON from the report ───────────────────────
-  let structured: ProjectReportResult["structured"] = null;
-  try {
-    const extractMessages: ChatMessage[] = [
-      { role: "user", content: STRUCTURED_EXTRACT_PROMPT },
-      { role: "assistant", content: cleanReport },
-      { role: "user", content: "Extract the JSON now. Return ONLY the JSON object, nothing else." },
-    ];
-    const rawJson = await postChat({ projectName, messages: extractMessages });
-    
-    const parsed = JSON.parse(rawJson.trim());
-    if (parsed && parsed.suggested_tasks && Array.isArray(parsed.suggested_tasks)) {
-      structured = parsed;
-    }
-  } catch {
-    // structured stays null — report still shows, just no task suggestions
-  }
+  const extractMessages: ChatMessage[] = [
+    { role: "user", content: STRUCTURED_EXTRACT_PROMPT },
+    { role: "assistant", content: cleanReport },
+    { role: "user", content: "Extract the JSON now. Return ONLY the JSON object, nothing else." },
+  ];
+  const rawJson = await postChat({ projectName, messages: extractMessages });
+  
+  const structured = JSON.parse(rawJson.trim());
 
   return { report: cleanReport, structured };
 }
@@ -124,28 +139,28 @@ Response format — you MUST return valid JSON (no markdown fences, just raw JSO
 }
 
 CRITICAL RULES about "userIntent":
-- "confirm" ONLY when user explicitly says yes/ok/confirm/proceed/go ahead to confirm a SPECIFIC pending action (generate_report or suggest_tasks).
-- "neutral" when user is providing new information, asking questions, OR requesting changes to the report/plan.
-- "explore" when user wants to discuss or explore options further.
-- "reject" when user declines a suggestion.
+- "confirm": Use this when the user explicitly says yes/ok/go ahead OR when the user gives a DIRECT COMMAND to update, revise, or change the report/tasks (e.g. "Update the report", "Add section X", "Sửa lại report..."). This triggers immediate execution.
+- "neutral": Use when user is providing new information, asking general questions, or still in the brainstorming flow.
+- "explore": Use when user wants to discuss or explore options further.
+- "reject": Use when user declines a suggestion.
 
-CRITICAL RULES about report updates:
-- If the user asks to UPDATE or REVISE the report (e.g. "update to 1000 users", "add section X", "revise report"):
-  → Set userIntent = "neutral" (NOT "confirm")
+EXECUTION LOGIC:
+- If the user asks to UPDATE or REVISE the report:
+  → Set userIntent = "confirm"
   → Set suggestedAction.type = "generate_report"
-  → In reply: acknowledge the change and say you will regenerate the report
-  → This triggers a fresh report generation with the new context, NOT task elaboration.
+  → In reply: acknowledge the change and say you are regenerating the report now.
 
-- "confirm" leading to suggest_tasks ONLY happens when user explicitly says "yes" after seeing the message "Would you like me to elaborate the tasks?".
+- If the user asks for more info or adjustments that require a new report version:
+  → Set userIntent = "confirm"
+  → Set suggestedAction.type = "generate_report"
 
 Other rules:
 - Speak professionally in English.
-- Do not use technical UI jargon like 'Click' or 'Press'. Use natural conversational language.
-- If report exists and user asks for more info/adjustments, set suggestedAction.type = "generate_report" to create a new version.
+- Do not use technical UI jargon.
 - IF USER REQUESTS TO EDIT A SPECIFIC TASK (e.g. 'edit task 1 to...'):
   1. Respond with confirmation in 'reply'.
   2. Must include 'taskUpdate' with 'index' (0-based) and the new content.
-  3. NO need to set 'suggestedAction' for individual task edits.`;
+  3. No need to set 'suggestedAction' for individual task edits.`;
 }
 
 export async function chatWithAgenticAI(
@@ -160,18 +175,6 @@ export async function chatWithAgenticAI(
 
   const raw = await postChat({ messages });
 
-  // Since we assume LLM outputs perfect JSON 100% of the time
-  try {
-    const parsed = JSON.parse(raw.trim());
-    return {
-      reply: parsed.reply ?? raw,
-      userIntent: (parsed.userIntent ?? "neutral") as UserIntent,
-      suggestedAction: (parsed.suggestedAction ?? null) as SuggestedAction | null,
-      report: parsed.report,
-      taskUpdate: parsed.taskUpdate,
-    };
-  } catch {
-    // Basic network or blank response fallback
-    return { reply: raw, userIntent: "neutral", suggestedAction: null };
-  }
+  // Since we assume LLM outputs perfect JSON 100% of the time, we can parse and return directly.
+  return JSON.parse(raw.trim()) as AgenticResponse;
 }

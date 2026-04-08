@@ -174,7 +174,19 @@ export function PlanningScreen() {
         content: m.text,
       }));
 
-      const data = await generateProjectReport(projectName, history);
+      // If a report already exists, pass it as the current report + last user message as the instruction
+      // This enables UPDATE MODE in generateProjectReport() — only applies requested changes
+      const isUpdate = !!reportContent;
+      const lastUserInstruction = chat.messages
+        .filter((m) => m.sender === "user")
+        .at(-1)?.text;
+
+      const data = await generateProjectReport(
+        projectName,
+        history,
+        isUpdate ? reportContent : undefined,
+        isUpdate ? lastUserInstruction : undefined
+      );
       setReportContent(data.report);
       setStructuredReport(data.structured);
       updateProjectPlanningReport(currentProjectId, data.report, "ai");
@@ -1160,7 +1172,7 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
         className="flex items-center justify-between p-7 cursor-pointer group"
         onClick={() => !isEditing && onToggle()}
         onDoubleClick={() => setIsEditing(true)}
-        title="Double-click to edit"
+        title={!isEditing ? (task.description || "Double-click to edit") : undefined}
       >
         <div className="flex items-center gap-5 flex-1 mr-4">
           <div className="w-12 h-12 rounded-2xl bg-slate-50 border-2 border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:text-blue-500 transition-all font-black text-lg flex-shrink-0">
@@ -1204,10 +1216,6 @@ function TaskCard({ projectId, task, index, isExpanded, onToggle }: TaskCardProp
       {(isExpanded || isEditing) && (
         <div className="px-7 pb-7 pt-0 border-t border-slate-50 animate-in slide-in-from-top-2 duration-200">
           <div className="mt-5">
-            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between items-center">
-              What this involves
-            </h5>
-            
             {isEditing ? (
               <textarea 
                 value={editDesc}
