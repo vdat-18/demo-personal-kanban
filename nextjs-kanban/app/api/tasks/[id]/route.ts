@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTask, updateTask, deleteTask } from '@/lib/db/tasks'
+import { InvalidTransitionError } from '@/lib/status-lifecycle'
 import { z } from 'zod'
 
 const taskStatusEnum = z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED'])
@@ -43,10 +44,27 @@ export async function PUT(
     const body = await request.json()
     const validatedData = updateTaskSchema.parse(body)
 
-    const task = await updateTask(id, validatedData)
+    // When status is being changed, fetch current status for transition validation
+    let currentStatus: string | undefined
+    if (validatedData.status) {
+      const existing = await getTask(id)
+      if (!existing) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      }
+      currentStatus = existing.status
+    }
+
+    const task = await updateTask(id, validatedData, currentStatus as any)
 
     return NextResponse.json(task)
   } catch (error) {
+    if (error instanceof InvalidTransitionError) {
+      return NextResponse.json(
+        { error: error.message, allowed: error.allowed },
+        { status: 422 }
+      )
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation failed', details: error.issues },

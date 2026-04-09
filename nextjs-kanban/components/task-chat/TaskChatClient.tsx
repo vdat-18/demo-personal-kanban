@@ -187,44 +187,25 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
     onProgress: (ev) => {
       setProgressEvents((prev) => [...prev.slice(-4), ev]) // keep last 5 events
     },
-    onComplete: async (result, tokenUsage) => {
+    onComplete: async (result, _tokenUsage, conversation) => {
       setMessages((prev) => [...prev, { role: 'assistant', content: result }])
       setProgressEvents([])
 
-      // Persist conversation to DB
-      try {
-        const savedConv = await fetch('/api/conversations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            taskId: task.id,
-            messages: [
-              ...messages,
-              { role: 'user', content: messages[messages.length - 1]?.content ?? '' },
-              { role: 'assistant', content: result },
-            ].filter((m) => m.content),
-            result,
-            ...(tokenUsage ? { tokenUsage } : {}),
-          }),
-        })
-        if (savedConv.ok) {
-          const conv = await savedConv.json()
-          setTask((prev) => ({
-            ...prev,
-            conversations: [
-              ...prev.conversations,
-              {
-                id: conv.id,
-                messages: conv.messages,
-                result: typeof conv.result === 'string' ? conv.result : conv.result ? JSON.stringify(conv.result) : null,
-                tokenUsage: conv.tokenUsage ?? null,
-                createdAt: conv.createdAt,
-              },
-            ],
-          }))
-        }
-      } catch {
-        // non-critical — don't surface to user
+      // Conversation was already persisted by the /api/agents/stream backend
+      if (conversation) {
+        setTask((prev) => ({
+          ...prev,
+          conversations: [
+            ...prev.conversations,
+            {
+              id: conversation.id,
+              messages: conversation.messages,
+              result: typeof conversation.result === 'string' ? conversation.result : conversation.result ? JSON.stringify(conversation.result) : null,
+              tokenUsage: conversation.tokenUsage as { input: number; output: number } | null,
+              createdAt: conversation.createdAt,
+            },
+          ],
+        }))
       }
     },
     onError: (msg) => {
@@ -250,8 +231,9 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
     setInput('')
     setProgressEvents([])
 
-    await startStream(activeOption.role, userContent, task.id)
-  }, [input, isStreaming, task.id, activeOption.role, startStream])
+    // Pass existing messages so the BE can persist the full conversation history
+    await startStream(activeOption.role, userContent, task.id, messages)
+  }, [input, isStreaming, task.id, activeOption.role, startStream, messages])
 
   const updateTaskStatus = useCallback(async (status: TaskStatus) => {
     try {

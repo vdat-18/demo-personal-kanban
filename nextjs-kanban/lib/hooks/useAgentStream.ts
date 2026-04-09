@@ -5,7 +5,7 @@ import type { AgentRole } from '@/lib/agents/configs'
 export interface StreamStartedEvent  { type: 'started'; role: string }
 export interface StreamTokenEvent    { type: 'token'; delta: string }
 export interface StreamProgressEvent { type: 'progress'; [key: string]: unknown }
-export interface StreamCompleteEvent { type: 'complete'; tokenUsage?: { input: number; output: number } | null }
+export interface StreamCompleteEvent { type: 'complete'; tokenUsage?: { input: number; output: number } | null; conversation?: { id: string; messages: Array<{ role: string; content: string }>; result: string | null; tokenUsage: unknown; createdAt: string } | null }
 export interface StreamErrorEvent    { type: 'error'; error: string }
 export type StreamEvent =
   | StreamStartedEvent
@@ -16,13 +16,13 @@ export type StreamEvent =
 
 // ─── Hook options and return ──────────────────────────────────────────────────
 interface UseAgentStreamOptions {
-  onComplete?: (result: string, tokenUsage?: { input: number; output: number } | null) => void
+  onComplete?: (result: string, tokenUsage?: { input: number; output: number } | null, conversation?: StreamCompleteEvent['conversation']) => void
   onError?: (error: string) => void
   onProgress?: (event: StreamProgressEvent) => void
 }
 
 interface UseAgentStreamReturn {
-  startStream: (role: AgentRole | string, userMessage: string, taskId: string) => Promise<void>
+  startStream: (role: AgentRole | string, userMessage: string, taskId: string, messages?: Array<{ role: string; content: string }>) => Promise<void>
   abort: () => void
   isStreaming: boolean
   /** Accumulates token deltas live — use this to render the in-progress message */
@@ -48,6 +48,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
     role: AgentRole | string,
     userMessage: string,
     taskId: string,
+    messages?: Array<{ role: string; content: string }>,
   ) => {
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -66,7 +67,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
       const response = await fetch('/api/agents/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, userMessage, taskId }),
+        body: JSON.stringify({ role, userMessage, taskId, ...(messages?.length ? { messages } : {}) }),
         signal: controller.signal,
       })
 
@@ -100,7 +101,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
                 accumulated.text += data.delta
                 setStreamingContent(accumulated.text)
               } else if (data.type === 'complete') {
-                optionsRef.current.onComplete?.(accumulated.text, data.tokenUsage)
+                optionsRef.current.onComplete?.(accumulated.text, data.tokenUsage, data.conversation)
                 setStreamingContent('')
                 setIsStreaming(false)
               } else if (data.type === 'error') {

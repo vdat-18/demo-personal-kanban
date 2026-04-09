@@ -9,13 +9,20 @@ import { buildChatPrompt } from '@/lib/agents/prompts'
 import { agentConfigs } from '@/lib/agents/configs'
 import type { AgentRole } from '@/lib/agents/configs'
 import { allTools } from '@/lib/agents/tools'
+import { createConversation } from '@/lib/db/conversations'
 import { z } from 'zod'
 import { agentRoleSchema, uuidSchema } from '@/lib/validations/schemas'
+
+const messageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+})
 
 const chatStreamSchema = z.object({
   role: agentRoleSchema,
   userMessage: z.string().min(1).max(10000),
   taskId: uuidSchema,
+  messages: z.array(messageSchema).optional(),
 })
 
 function buildRegistry(): ToolRegistry {
@@ -28,7 +35,7 @@ function buildRegistry(): ToolRegistry {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { role, userMessage, taskId } = chatStreamSchema.parse(body)
+    const { role, userMessage, taskId, messages: existingMessages } = chatStreamSchema.parse(body)
 
     const encoder = new TextEncoder()
 
@@ -51,9 +58,13 @@ export async function POST(request: NextRequest) {
           const executor = new ToolExecutor(registry)
           const agent = new Agent(agentConfigs[role as AgentRole], registry, executor)
 
+          // Accumulate the full response text so we can persist on completion
+          let accumulatedText = ''
+
           // Stream token-by-token from the SDK
           for await (const event of agent.stream(prompt)) {
             if (event.type === 'text') {
+              accumulatedText += event.data as string
               emit({ type: 'token', delta: event.data as string })
             } else if (event.type === 'tool_use') {
               emit({ type: 'progress', message: `Using tool: ${(event.data as any)?.name ?? '…'}` })
@@ -62,7 +73,35 @@ export async function POST(request: NextRequest) {
               const tokenUsage = llmResponse?.usage
                 ? { input: llmResponse.usage.input_tokens, output: llmResponse.usage.output_tokens }
                 : null
-              emit({ type: 'complete', ...(tokenUsage ? { tokenUsage } : {}) })
+
+              // Build the full message history and persist to DB
+              const now = new Date()
+              const allMessages = [
+                ...(existingMessages ?? []).map((m) => ({
+                  ...m,
+                  timestamp: now,
+                })),
+                { role: 'user' as const, content: userMessage, timestamp: now },
+                { role: 'assistant' as const, content: accumulatedText, timestamp: now },
+              ].filter((m) => m.content)
+
+              let savedConversation = null
+              try {
+                savedConversation = await createConversation({
+                  taskId,
+                  messages: allMessages,
+                  result: accumulatedText,
+                  ...(tokenUsage ? { tokenUsage } : {}),
+                })
+              } catch (dbError) {
+                console.error('Failed to persist conversation:', dbError)
+              }
+
+              emit({
+                type: 'complete',
+                ...(tokenUsage ? { tokenUsage } : {}),
+                ...(savedConversation ? { conversation: savedConversation } : {}),
+              })
             } else if (event.type === 'error') {
               throw event.data instanceof Error ? event.data : new Error(String(event.data))
             }

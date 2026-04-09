@@ -1,5 +1,7 @@
 import prisma from './client'
 import { Task, TaskStatus, TaskPriority } from '../generated/prisma'
+import { validateTransition, InvalidTransitionError } from '../status-lifecycle'
+import type { TaskStatusValue } from '../status-lifecycle'
 
 export async function getTasks(status?: TaskStatus, projectId?: string) {
   const where: any = {}
@@ -44,8 +46,24 @@ export async function updateTask(
     status?: TaskStatus
     priority?: TaskPriority
     projectId?: string | null
-  }>
+  }>,
+  currentStatus?: TaskStatus,
 ) {
+  // Validate status transition when both current and new status are provided
+  if (data.status && currentStatus && data.status !== currentStatus) {
+    const result = validateTransition(
+      currentStatus as TaskStatusValue,
+      data.status as TaskStatusValue,
+    )
+    if (!result.valid) {
+      throw new InvalidTransitionError(
+        currentStatus as TaskStatusValue,
+        data.status as TaskStatusValue,
+        result.allowed,
+      )
+    }
+  }
+
   return prisma.task.update({
     where: { id },
     data

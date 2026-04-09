@@ -13,6 +13,8 @@ import {
   RotateCcw,
   AlertTriangle,
 } from 'lucide-react'
+import { getAllowedTransitions } from '@/lib/status-lifecycle'
+import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
@@ -50,11 +52,17 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   BLOCKED: 'bg-red-50 text-red-400 border-red-200',
 }
 
-const STATUS_ORDER: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']
-
 function getNextStatus(current: TaskStatus): TaskStatus | null {
-  const idx = STATUS_ORDER.indexOf(current)
-  return idx >= 0 && idx < STATUS_ORDER.length - 1 ? STATUS_ORDER[idx + 1] : null
+  // Use lifecycle-aware transitions: pick the first non-BLOCKED allowed status
+  const allowed = getAllowedTransitions(current as TaskStatusValue)
+  const nonBlocked = allowed.filter((s) => s !== 'BLOCKED')
+  return nonBlocked.length > 0 ? (nonBlocked[0] as TaskStatus) : null
+}
+
+function isValidDropTarget(fromStatus: TaskStatus, toStatus: TaskStatus): boolean {
+  if (fromStatus === toStatus) return true // same column is always fine (no-op)
+  const allowed = getAllowedTransitions(fromStatus as TaskStatusValue)
+  return allowed.includes(toStatus as TaskStatusValue)
 }
 
 export function MissionControlClient({ project: initialProject }: { project: Project }) {
@@ -62,6 +70,7 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
   const [project, setProject] = useState(initialProject)
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
+  const [draggingTaskStatus, setDraggingTaskStatus] = useState<TaskStatus | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Task | null>(null)
   const [cancelReason, setCancelReason] = useState('')
 
@@ -87,16 +96,22 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
     }
   }, [])
 
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+  const handleDragStart = (e: React.DragEvent, taskId: string, taskStatus: TaskStatus) => {
     e.dataTransfer.setData('taskId', taskId)
+    e.dataTransfer.setData('taskStatus', taskStatus)
     setDraggingTaskId(taskId)
+    setDraggingTaskStatus(taskStatus)
   }
 
   const handleDrop = (e: React.DragEvent, status: TaskStatus) => {
     const taskId = e.dataTransfer.getData('taskId')
-    if (taskId) updateTaskStatus(taskId, status)
+    const fromStatus = e.dataTransfer.getData('taskStatus') as TaskStatus
+    if (taskId && isValidDropTarget(fromStatus, status)) {
+      updateTaskStatus(taskId, status)
+    }
     setDragOverColumn(null)
     setDraggingTaskId(null)
+    setDraggingTaskStatus(null)
   }
 
   const handleCancelConfirm = async () => {
@@ -144,17 +159,31 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
       {/* Kanban Board */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-6">
         <div className="flex gap-6 h-full" style={{ minWidth: `${KANBAN_COLUMNS.length * 320 + 100}px` }}>
-          {KANBAN_COLUMNS.map((column) => (
+          {KANBAN_COLUMNS.map((column) => {
+            const isValid = draggingTaskStatus
+              ? isValidDropTarget(draggingTaskStatus, column.id)
+              : true
+            const isDragging = draggingTaskId !== null
+            const isHovering = dragOverColumn === column.id
+
+            return (
             <div
               key={column.id}
               className={`w-80 flex flex-col rounded-[2.5rem] border transition-all duration-200 shrink-0 ${
-                dragOverColumn === column.id
+                isHovering && isValid
                   ? 'border-blue-300 bg-blue-50/50'
+                  : isDragging && !isValid
+                  ? 'border-gray-200 bg-gray-50/30 opacity-50 cursor-not-allowed'
                   : 'border-gray-100 bg-white/80'
               }`}
-              onDragOver={(e) => { e.preventDefault(); setDragOverColumn(column.id) }}
+              onDragOver={(e) => {
+                if (isValid) {
+                  e.preventDefault()
+                  setDragOverColumn(column.id)
+                }
+              }}
               onDragLeave={() => setDragOverColumn(null)}
-              onDrop={(e) => handleDrop(e, column.id)}
+              onDrop={(e) => { if (isValid) handleDrop(e, column.id) }}
             >
               {/* Column Header */}
               <div className="px-6 pt-6 pb-4 flex items-center justify-between shrink-0">
@@ -174,7 +203,7 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                   <div
                     key={task.id}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragStart={(e) => handleDragStart(e, task.id, task.status)}
                     onClick={() => task.status !== 'BLOCKED' && router.push(`/chat/${task.id}`)}
                     className={`bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-b-4 transition-all group relative select-none ${
                       task.status === 'BLOCKED'
@@ -194,7 +223,7 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
 
                       {/* Hover actions */}
                       <div className="absolute top-4 right-4 flex items-center gap-1.5 translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
-                        {task.status === 'BLOCKED' && (
+                        {task.status === 'BLOCKED' && getAllowedTransitions(task.status as TaskStatusValue).includes('TODO') && (
                           <button
                             onClick={(e) => { e.stopPropagation(); updateTaskStatus(task.id, 'TODO') }}
                             className="w-8 h-8 rounded-full bg-green-50 hover:bg-green-600 text-green-500 hover:text-white flex items-center justify-center transition-all shadow-md"
@@ -203,7 +232,7 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                             <RotateCcw className="w-4 h-4" />
                           </button>
                         )}
-                        {task.status !== 'DONE' && task.status !== 'BLOCKED' && (
+                        {getAllowedTransitions(task.status as TaskStatusValue).includes('BLOCKED') && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setCancelTarget(task) }}
                             className="w-8 h-8 rounded-full bg-red-50 hover:bg-red-500 text-red-300 hover:text-white flex items-center justify-center transition-all shadow-md"
@@ -212,7 +241,7 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                             <XCircle className="w-4 h-4" />
                           </button>
                         )}
-                        {task.status !== 'DONE' && task.status !== 'BLOCKED' && (
+                        {getNextStatus(task.status) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -238,17 +267,18 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
 
                 {getTasksByStatus(column.id).length === 0 && (
                   <div className={`flex-1 flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-[2.5rem] bg-white/30 ${
-                    dragOverColumn === column.id ? 'border-blue-300' : column.id === 'BLOCKED' ? 'border-red-100' : 'border-gray-100'
+                    isHovering && isValid ? 'border-blue-300' : column.id === 'BLOCKED' ? 'border-red-100' : 'border-gray-100'
                   }`}>
                     <Archive className={`w-12 h-12 mb-4 ${column.id === 'BLOCKED' ? 'text-red-100' : 'text-gray-100'}`} />
                     <span className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">
-                      {dragOverColumn === column.id ? 'Drop here' : 'Empty'}
+                      {isHovering && isValid ? 'Drop here' : 'Empty'}
                     </span>
                   </div>
                 )}
               </div>
             </div>
-          ))}
+            )
+          })}
 
           {/* Add Column Ghost */}
           <div className="w-80 h-full border-2 border-dashed border-gray-100 rounded-[2.5rem] flex items-center justify-center hover:bg-white hover:border-[#0a192f]/20 transition-all cursor-pointer group shrink-0">

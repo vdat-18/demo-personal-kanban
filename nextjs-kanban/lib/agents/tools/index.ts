@@ -3,6 +3,8 @@ import type { ToolUseContext } from '@jackchen_me/open-multi-agent'
 import { z } from 'zod'
 import prisma from '../../db/client'
 import { TaskStatus, TaskPriority } from '../../generated/prisma'
+import { validateTransition } from '../../status-lifecycle'
+import type { TaskStatusValue } from '../../status-lifecycle'
 
 export const dbQueryTool = defineTool({
   name: 'db_query',
@@ -116,6 +118,31 @@ export const taskUpdateTool = defineTool({
     if (projectId !== undefined) updates.projectId = projectId
 
     try {
+      // Validate status transition before updating
+      if (status) {
+        const existing = await prisma.task.findUnique({ where: { id } })
+        if (!existing) {
+          return {
+            data: JSON.stringify({ success: false, error: `Task with id "${id}" not found` }),
+            isError: true,
+          }
+        }
+        const result = validateTransition(
+          existing.status as TaskStatusValue,
+          status as TaskStatusValue,
+        )
+        if (!result.valid) {
+          return {
+            data: JSON.stringify({
+              success: false,
+              error: result.message,
+              allowed: result.allowed,
+            }),
+            isError: true,
+          }
+        }
+      }
+
       const task = await prisma.task.update({
         where: { id },
         data: updates,
