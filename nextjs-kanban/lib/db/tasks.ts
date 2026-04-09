@@ -57,3 +57,24 @@ export async function deleteTask(id: string) {
     where: { id }
   })
 }
+
+export async function createTasksBatch(
+  tasks: Array<{ title: string; description?: string }>,
+  projectId: string
+) {
+  if (tasks.length === 0) return []
+
+  return prisma.$transaction(
+    tasks.map((task) =>
+      prisma.task.create({
+        data: {
+          title: task.title,
+          description: task.description,
+          status: TaskStatus.TODO,
+          priority: TaskPriority.MEDIUM,
+          projectId,
+        },
+      })
+    )
+  )
+}

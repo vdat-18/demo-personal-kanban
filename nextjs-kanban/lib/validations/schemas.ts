@@ -116,6 +116,22 @@ export const taskPipelineSchema = z.object({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Generate-tasks schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const generateTasksMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1).max(50000),
+})
+
+export const generateTasksSchema = z.object({
+  projectId: uuidSchema,
+  messages: z
+    .array(generateTasksMessageSchema)
+    .min(1, 'At least one message is required'),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Environment validation (called on startup)
 // ─────────────────────────────────────────────────────────────────────────────
 

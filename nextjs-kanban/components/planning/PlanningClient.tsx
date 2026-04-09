@@ -37,6 +37,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   ])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
   const [report, setReport] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -95,6 +97,39 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       console.error(err)
     }
   }, [project.id])
+
+  const generateTasks = useCallback(async () => {
+    if (isGenerating) return
+    setIsGenerating(true)
+    setGenerateError(null)
+
+    try {
+      const res = await fetch('/api/agents/generate-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, messages }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setGenerateError(data.error ?? 'Failed to generate tasks. Please try again.')
+        return
+      }
+
+      if (data.tasks && Array.isArray(data.tasks)) {
+        setProject((prev) => ({ ...prev, tasks: [...prev.tasks, ...data.tasks] }))
+      }
+    } catch {
+      setGenerateError('Failed to generate tasks. Please check your connection.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [isGenerating, project.id, messages])
+
+  // A user has sent at least one message when messages.length > 1
+  // (the initial assistant welcome counts as index 0)
+  const hasUserMessages = messages.some((m) => m.role === 'user')
 
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
@@ -187,6 +222,22 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={generateTasks}
+                disabled={isGenerating || !hasUserMessages}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" /> Generate Tasks
+                  </>
+                )}
+              </button>
+              <button
                 onClick={() => {
                   const title = window.prompt('Task title:')
                   if (title?.trim()) createTask(title)
@@ -197,6 +248,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               </button>
             </div>
           </div>
+
+          {generateError && (
+            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-600">
+              {generateError}
+            </div>
+          )}
 
           {project.tasks.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center border-4 border-dashed border-slate-100 rounded-[40px] bg-white/50">
