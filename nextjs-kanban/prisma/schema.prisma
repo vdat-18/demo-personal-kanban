@@ -23,12 +23,13 @@ enum TaskPriority {
 }
 
 model Project {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tasks       Task[]
+  id              String           @id @default(uuid())
+  name            String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  tasks           Task[]
+  planningThreads PlanningThread[]
 
   @@index([createdAt()])
 }
@@ -61,5 +62,37 @@ model Conversation {
   task       Task?    @relation(fields: [taskId], references: [id])
 
   @@index([taskId()])
+  @@index([createdAt()])
+}
+
+enum PlanningMessageRole {
+  user
+  assistant
+  system
+}
+
+model PlanningThread {
+  id        String            @id @default(uuid())
+  projectId String
+  title     String            @default("New Thread")
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages  PlanningMessage[]
+
+  @@index([projectId()])
+  @@index([updatedAt()])
+}
+
+model PlanningMessage {
+  id         String              @id @default(uuid())
+  threadId   String
+  role       PlanningMessageRole
+  content    String
+  tokenUsage Json?
+  createdAt  DateTime            @default(now())
+  thread     PlanningThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId()])
   @@index([createdAt()])
 }

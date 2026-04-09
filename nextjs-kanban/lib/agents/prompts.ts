@@ -35,25 +35,82 @@ export async function buildChatPrompt(
 
 // ── Planning prompt ───────────────────────────────────────────────────────────
 
+interface PlanConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export async function buildPlanPrompt(
   userMessage: string,
-  projectId: string
+  projectId: string,
+  conversationHistory?: PlanConversationMessage[],
 ): Promise<string> {
   const project = await getProject(projectId)
   if (!project) throw new Error(`Project ${projectId} not found`)
 
-  const taskSummary =
-    project.tasks.length > 0
-      ? `\nExisting tasks (${project.tasks.length}):\n` +
-        project.tasks.map((t) => `- [${t.status}] ${t.title}`).join('\n')
-      : '\nNo tasks yet.'
+  // Task context: include up to 50 most recent tasks with details
+  const tasks = project.tasks ?? []
+  const maxTasks = 50
+  const sortedTasks = [...tasks]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, maxTasks)
+
+  let taskContext: string
+  if (sortedTasks.length === 0) {
+    taskContext = '\nNo tasks yet.'
+  } else {
+    const taskLines = sortedTasks.map(
+      (t) =>
+        `- [${t.status}] [${t.priority}] "${t.title}" (id: ${t.id})${t.description ? ` — ${t.description.slice(0, 100)}` : ''}`,
+    )
+    taskContext =
+      `\nCurrent tasks (${sortedTasks.length}${tasks.length > maxTasks ? ` of ${tasks.length} total, showing most recently updated` : ''}):\n` +
+      taskLines.join('\n')
+  }
+
+  // Conversation history for continuity
+  let historyBlock = ''
+  if (conversationHistory && conversationHistory.length > 0) {
+    const recentHistory = conversationHistory.slice(-20)
+    historyBlock =
+      '\n\nConversation so far:\n' +
+      recentHistory
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+        .join('\n\n')
+  }
+
+  // Task mutation instruction
+  const mutationInstruction = `
+
+IMPORTANT: You can see all existing tasks above. Use this awareness to:
+- Avoid suggesting tasks that already exist
+- Suggest updates to existing tasks when relevant (e.g., changing status or priority)
+- Suggest deleting tasks that are no longer needed
+- Suggest new tasks that are missing
+
+When you want to propose task changes, include a fenced code block tagged "task-mutations" in your response with a JSON array. Each entry should have:
+- For adding: { "action": "add", "title": "...", "description": "..." }
+- For updating: { "action": "update", "id": "<task-uuid>", "fields": { "status": "DONE" } }
+- For deleting: { "action": "delete", "id": "<task-uuid>", "reason": "..." }
+
+Example:
+\`\`\`task-mutations
+[
+  { "action": "add", "title": "Set up CI pipeline", "description": "Configure GitHub Actions" },
+  { "action": "update", "id": "abc-123", "fields": { "status": "IN_PROGRESS" } }
+]
+\`\`\`
+
+Only include the task-mutations block when you are specifically proposing changes. For general discussion, just respond normally.`
 
   return [
     `You are a planning agent for project "${project.name}".`,
     project.description ? `Project description: ${project.description}` : '',
-    taskSummary,
+    taskContext,
+    mutationInstruction,
+    historyBlock,
     '',
-    `Help the user plan their project.`,
+    `Help the user plan their project. Be aware of the existing tasks and their statuses.`,
     '',
     `User: ${userMessage}`,
   ]

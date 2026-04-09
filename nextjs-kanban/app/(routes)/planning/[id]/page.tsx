@@ -1,4 +1,5 @@
 import { getProject } from '@/lib/db/projects'
+import { getThreadsByProject } from '@/lib/db/planning-threads'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { PlanningClient } from '@/components/planning/PlanningClient'

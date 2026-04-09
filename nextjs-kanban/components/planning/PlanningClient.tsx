@@ -1,10 +1,24 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Sparkles, CheckCircle2, ListTodo, Plus } from 'lucide-react'
+import { ArrowLeft, Send } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useQueryClient } from '@tanstack/react-query'
+
+import { ThreadListSidebar } from './ThreadListSidebar'
+import { TaskPanel } from './TaskPanel'
+import { TaskMutationCard } from './TaskMutationCard'
+import { parseTaskMutations } from '@/lib/utils/parseTaskMutations'
+import type { TaskMutation } from '@/lib/utils/parseTaskMutations'
+import {
+  usePlanningThreads,
+  useCreatePlanningThread,
+  useDeletePlanningThread,
+} from '@/lib/hooks/usePlanningThreads'
+import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
+import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
 
 interface Task {
   id: string
@@ -21,174 +35,267 @@ interface Project {
   tasks: Task[]
 }
 
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
 export function PlanningClient({ project: initialProject }: { project: Project }) {
   const router = useRouter()
-  const [project, setProject] = useState(initialProject)
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: `Welcome! I'm your AI Planning Agent for **${initialProject.name}**.\n\nTell me about your project goals and I'll help you break them down into actionable tasks. What would you like to accomplish?`,
-    },
-  ])
+  const qc = useQueryClient()
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [input, setInput] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generateError, setGenerateError] = useState<string | null>(null)
-  const [report, setReport] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // ─── Thread hooks ──────────────────────────────────────────────────────
+  const { data: threads = [], isLoading: threadsLoading } = usePlanningThreads(initialProject.id)
+  const createThread = useCreatePlanningThread()
+  const deleteThread = useDeletePlanningThread()
 
-  const sendMessage = useCallback(async () => {
-    if (!input.trim() || isStreaming) return
-    const userMessage: ChatMessage = { role: 'user', content: input.trim() }
-    setMessages((prev) => [...prev, userMessage])
+  // ─── Message hooks ─────────────────────────────────────────────────────
+  const { data: messages = [], isLoading: messagesLoading } = usePlanningMessages(activeThreadId)
+  const sendMessage = useSendPlanningMessage()
+
+  // ─── Auto-select or auto-create first thread ──────────────────────────
+  useEffect(() => {
+    if (threadsLoading) return
+
+    if (threads.length > 0 && !activeThreadId) {
+      // Select the most recently updated thread
+      setActiveThreadId(threads[0].id)
+    } else if (threads.length === 0 && !createThread.isPending) {
+      // No threads — create one automatically
+      createThread.mutate(
+        { projectId: initialProject.id },
+        {
+          onSuccess: (thread) => setActiveThreadId(thread.id),
+        },
+      )
+    }
+  }, [threads, threadsLoading, activeThreadId, initialProject.id, createThread])
+
+  // ─── Scroll to bottom on new messages ─────────────────────────────────
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // ─── Handlers ──────────────────────────────────────────────────────────
+  const handleSendMessage = useCallback(async () => {
+    if (!input.trim() || !activeThreadId || sendMessage.isPending) return
+
+    sendMessage.mutate(
+      { threadId: activeThreadId, content: input.trim() },
+      {
+        onSuccess: () => {
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        },
+      },
+    )
     setInput('')
-    setIsStreaming(true)
+  }, [input, activeThreadId, sendMessage])
 
-    try {
-      const res = await fetch('/api/agents/plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: project.id,
-          userMessage: userMessage.content,
-        }),
-      })
+  const handleNewThread = useCallback(() => {
+    createThread.mutate(
+      { projectId: initialProject.id },
+      {
+        onSuccess: (thread) => setActiveThreadId(thread.id),
+      },
+    )
+  }, [createThread, initialProject.id])
 
-      const data = await res.json()
-      const assistantContent = data.result || data.message || 'I received your message. Let me help you plan this out.'
+  const handleDeleteThread = useCallback(
+    (id: string) => {
+      deleteThread.mutate(
+        { id, projectId: initialProject.id },
+        {
+          onSuccess: () => {
+            if (activeThreadId === id) {
+              // Switch to the next available thread
+              const remaining = threads.filter((t) => t.id !== id)
+              setActiveThreadId(remaining[0]?.id ?? null)
+            }
+          },
+        },
+      )
+    },
+    [deleteThread, initialProject.id, activeThreadId, threads],
+  )
 
-      // Check for task suggestions in the response
-      const taskMatches = assistantContent.match(/\d+\.\s+\*\*([^*]+)\*\*/g)
-      if (taskMatches && taskMatches.length > 0) {
-        setReport(assistantContent)
+  const handleApproveMutation = useCallback(
+    async (mutation: TaskMutation) => {
+      if (mutation.action === 'add') {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: mutation.title,
+            description: mutation.description,
+            priority: mutation.priority || 'MEDIUM',
+            projectId: initialProject.id,
+          }),
+        })
+        if (!res.ok) throw new Error('Failed to create task')
+      } else if (mutation.action === 'update') {
+        const res = await fetch(`/api/tasks/${mutation.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mutation.fields),
+        })
+        if (!res.ok) throw new Error('Failed to update task')
+      } else if (mutation.action === 'delete') {
+        const res = await fetch(`/api/tasks/${mutation.id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error('Failed to delete task')
       }
+      // Refresh the tasks panel
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    [initialProject.id, qc],
+  )
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantContent }])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: "I'm having trouble connecting to the AI service. Please check your API configuration." },
-      ])
-    } finally {
-      setIsStreaming(false)
-      setTimeout(scrollToBottom, 100)
-    }
-  }, [input, isStreaming, project.id])
+  // Build conversation messages for generate-tasks API
+  const chatMessages = messages
+    .filter((m: PlanningMessage) => m.role === 'user' || m.role === 'assistant')
+    .map((m: PlanningMessage) => ({ role: m.role, content: m.content }))
 
-  const createTask = useCallback(async (title: string, description?: string) => {
-    try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, projectId: project.id }),
-      })
-      if (res.ok) {
-        const task = await res.json()
-        setProject((prev) => ({ ...prev, tasks: [...prev.tasks, task] }))
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }, [project.id])
-
-  const generateTasks = useCallback(async () => {
-    if (isGenerating) return
-    setIsGenerating(true)
-    setGenerateError(null)
-
-    try {
-      const res = await fetch('/api/agents/generate-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id, messages }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setGenerateError(data.error ?? 'Failed to generate tasks. Please try again.')
-        return
-      }
-
-      if (data.tasks && Array.isArray(data.tasks)) {
-        setProject((prev) => ({ ...prev, tasks: [...prev.tasks, ...data.tasks] }))
-      }
-    } catch {
-      setGenerateError('Failed to generate tasks. Please check your connection.')
-    } finally {
-      setIsGenerating(false)
-    }
-  }, [isGenerating, project.id, messages])
-
-  // A user has sent at least one message when messages.length > 1
-  // (the initial assistant welcome counts as index 0)
-  const hasUserMessages = messages.some((m) => m.role === 'user')
+  // Welcome message shown when a thread has no messages
+  const showWelcome = !messagesLoading && messages.length === 0
 
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
-      {/* Left: Chat Panel */}
-      <div className="flex flex-col w-1/2 border-r border-gray-100 bg-white">
+      {/* Left: Thread Sidebar */}
+      <div className="w-64 shrink-0">
+        <ThreadListSidebar
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onSelectThread={setActiveThreadId}
+          onNewThread={handleNewThread}
+          onDeleteThread={handleDeleteThread}
+          isCreating={createThread.isPending}
+          isLoading={threadsLoading}
+        />
+      </div>
+
+      {/* Center: Chat Panel */}
+      <div className="flex flex-col flex-1 min-w-0 border-r border-gray-100 bg-white">
         {/* Header */}
         <header className="h-16 px-6 border-b border-gray-100 flex items-center gap-4 shrink-0">
-          <button onClick={() => router.push('/')} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
+          <button
+            onClick={() => router.push('/')}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+          >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="font-bold text-sm text-[#0a192f]">{project.name}</h1>
+            <h1 className="font-bold text-sm text-[#0a192f]">{initialProject.name}</h1>
             <p className="text-xs text-gray-400">AI Planning Session</p>
           </div>
         </header>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
-                  AI
+          {messagesLoading ? (
+            <div className="flex justify-center py-12">
+              <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {showWelcome && (
+                <div className="flex justify-start">
+                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
+                    AI
+                  </div>
+                  <div className="max-w-[80%] rounded-3xl rounded-bl-lg px-5 py-4 text-sm leading-relaxed bg-gray-50 text-[#0a192f]">
+                    <div className="prose prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {`Welcome! I'm your AI Planning Agent for **${initialProject.name}**.\n\nI can see all your project tasks and help you manage them. I can suggest adding new tasks, updating existing ones, or removing completed ones.\n\nWhat would you like to plan?`}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
                 </div>
               )}
-              <div
-                className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-[#0a192f] text-white rounded-br-lg'
-                    : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
-                }`}
-              >
-                {msg.role === 'assistant' ? (
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+
+              {messages.map((msg: PlanningMessage) => {
+                const parsed =
+                  msg.role === 'assistant' ? parseTaskMutations(msg.content) : null
+                const displayContent = parsed?.cleanContent ?? msg.content
+                const mutations = parsed?.mutations ?? []
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {msg.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
+                        AI
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-[#0a192f] text-white rounded-br-lg'
+                          : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
+                      }`}
+                    >
+                      {msg.role === 'assistant' ? (
+                        <>
+                          <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {displayContent}
+                            </ReactMarkdown>
+                          </div>
+                          {mutations.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {mutations.map((mutation, idx) => (
+                                <TaskMutationCard
+                                  key={idx}
+                                  mutation={mutation}
+                                  onApprove={handleApproveMutation}
+                                  onDismiss={() => {}}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))}
-          {isStreaming && (
-            <div className="flex justify-start">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0">AI</div>
-              <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                )
+              })}
+
+              {sendMessage.isPending && (
+                <div className="flex justify-start">
+                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0">
+                    AI
+                  </div>
+                  <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4">
+                    <div className="flex gap-1">
+                      <span
+                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <span
+                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
         <div className="p-4 border-t border-gray-100">
+          {sendMessage.isError && (
+            <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
+              Failed to send message. Please try again.
+            </div>
+          )}
           <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
             <textarea
               className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
@@ -197,12 +304,16 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendMessage()
+                }
               }}
+              disabled={!activeThreadId}
             />
             <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isStreaming}
+              onClick={handleSendMessage}
+              disabled={!input.trim() || sendMessage.isPending || !activeThreadId}
               className="w-9 h-9 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
             >
               <Send className="w-4 h-4" />
@@ -212,84 +323,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       </div>
 
       {/* Right: Tasks Panel */}
-      <div className="flex flex-col w-1/2 overflow-y-auto">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <ListTodo className="w-5 h-5 text-blue-600" />
-              <h2 className="font-black text-[#0a192f] text-lg">Tasks</h2>
-              <span className="text-xs font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{project.tasks.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={generateTasks}
-                disabled={isGenerating || !hasUserMessages}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isGenerating ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" /> Generate Tasks
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  const title = window.prompt('Task title:')
-                  if (title?.trim()) createTask(title)
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#0a192f] text-white rounded-xl text-sm font-semibold hover:bg-blue-900 transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add Task
-              </button>
-            </div>
-          </div>
-
-          {generateError && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-600">
-              {generateError}
-            </div>
-          )}
-
-          {project.tasks.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center border-4 border-dashed border-slate-100 rounded-[40px] bg-white/50">
-              <Sparkles className="w-10 h-10 text-slate-200 mb-4" />
-              <p className="text-sm font-black text-slate-300 uppercase tracking-widest text-center">
-                Chat with the AI to generate tasks
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {project.tasks.map((task, idx) => (
-                <div key={task.id} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-[#0a192f] mb-1">{task.title}</p>
-                    {task.description && <p className="text-xs text-gray-500">{task.description}</p>}
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-gray-200 shrink-0" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {project.tasks.length > 0 && (
-            <div className="mt-8">
-              <button
-                onClick={() => router.push(`/mission-control/${project.id}`)}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-3xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-opacity shadow-xl shadow-blue-500/20"
-              >
-                Start Execution →
-              </button>
-            </div>
-          )}
-        </div>
+      <div className="w-[420px] shrink-0">
+        <TaskPanel
+          projectId={initialProject.id}
+          projectName={initialProject.name}
+          messages={chatMessages}
+        />
       </div>
     </div>
   )

@@ -132,6 +132,25 @@ export const generateTasksSchema = z.object({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Planning Thread / Message schemas
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const planningMessageRoleSchema = z.enum(['user', 'assistant', 'system'])
+
+export const createPlanningThreadSchema = z.object({
+  projectId: uuidSchema,
+  title: z.string().max(200, 'Title too long').optional(),
+})
+
+export const planningThreadQuerySchema = z.object({
+  projectId: uuidSchema,
+})
+
+export const sendPlanningMessageSchema = z.object({
+  content: z.string().min(1, 'Message is required').max(10000, 'Message too long'),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Environment validation (called on startup)
 // ─────────────────────────────────────────────────────────────────────────────
 
