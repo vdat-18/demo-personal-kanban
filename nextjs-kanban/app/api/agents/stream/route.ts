@@ -1,57 +1,73 @@
 import { NextRequest } from 'next/server'
-import { runAgent } from '@/lib/agents/orchestrator'
+import {
+  Agent,
+  ToolRegistry,
+  ToolExecutor,
+  registerBuiltInTools,
+} from '@jackchen_me/open-multi-agent'
+import { buildChatPrompt } from '@/lib/agents/prompts'
+import { agentConfigs } from '@/lib/agents/configs'
 import type { AgentRole } from '@/lib/agents/configs'
-import { getAvailableAgents } from '@/lib/agents/configs'
+import { allTools } from '@/lib/agents/tools'
 import { z } from 'zod'
+import { agentRoleSchema, uuidSchema } from '@/lib/validations/schemas'
 
-const streamAgentSchema = z.object({
-  // Use z.enum with runtime values from getAvailableAgents()
-  role: z.string().refine(
-    (v): v is AgentRole => (getAvailableAgents() as string[]).includes(v),
-    { message: 'Invalid agent role' }
-  ),
-  prompt: z.string().min(1, 'Prompt is required'),
-  // Optional task context to include in progress events
-  taskId: z.string().optional(),
+const chatStreamSchema = z.object({
+  role: agentRoleSchema,
+  userMessage: z.string().min(1).max(10000),
+  taskId: uuidSchema,
 })
+
+function buildRegistry(): ToolRegistry {
+  const registry = new ToolRegistry()
+  registerBuiltInTools(registry)
+  for (const tool of allTools) registry.register(tool)
+  return registry
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validatedData = streamAgentSchema.parse(body)
+    const { role, userMessage, taskId } = chatStreamSchema.parse(body)
 
     const encoder = new TextEncoder()
 
     const stream = new ReadableStream({
       async start(controller) {
-        // Emit a progress event as SSE
         const emit = (payload: Record<string, unknown>) => {
           try {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`))
           } catch {
-            // controller may already be closed if client disconnected
+            // client disconnected
           }
         }
 
-        const onProgress = (event: unknown) => {
-          emit({ type: 'progress', ...(event as Record<string, unknown>) })
-        }
-
         try {
-          // Send an initial "started" event so the client knows the stream is live
-          emit({ type: 'started', role: validatedData.role })
+          emit({ type: 'started', role })
 
-          const agentResult = await runAgent(
-            validatedData.role as AgentRole,
-            validatedData.prompt,
-            onProgress
-          )
+          const prompt = await buildChatPrompt(role as AgentRole, userMessage, taskId)
 
-          // Extract result and tokenUsage from agent response
-          const result = (agentResult as any)?.output ?? agentResult
-          const tokenUsage = (agentResult as any)?.tokenUsage ?? null
+          const registry = buildRegistry()
+          const executor = new ToolExecutor(registry)
+          const agent = new Agent(agentConfigs[role as AgentRole], registry, executor)
 
-          emit({ type: 'complete', result, ...(tokenUsage ? { tokenUsage } : {}) })
+          // Stream token-by-token from the SDK
+          for await (const event of agent.stream(prompt)) {
+            if (event.type === 'text') {
+              emit({ type: 'token', delta: event.data as string })
+            } else if (event.type === 'tool_use') {
+              emit({ type: 'progress', message: `Using tool: ${(event.data as any)?.name ?? '…'}` })
+            } else if (event.type === 'done') {
+              const llmResponse = event.data as any
+              const tokenUsage = llmResponse?.usage
+                ? { input: llmResponse.usage.input_tokens, output: llmResponse.usage.output_tokens }
+                : null
+              emit({ type: 'complete', ...(tokenUsage ? { tokenUsage } : {}) })
+            } else if (event.type === 'error') {
+              throw event.data instanceof Error ? event.data : new Error(String(event.data))
+            }
+          }
+
           controller.close()
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -66,7 +82,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
-        'X-Accel-Buffering': 'no', // Disable Nginx buffering
+        'X-Accel-Buffering': 'no',
       },
     })
   } catch (error) {

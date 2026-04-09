@@ -183,20 +183,15 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
 
   // ── streaming hook (cleanup on unmount handled inside the hook — 9.9) ───────
-  const { startStream, abort, isStreaming, error: streamError } = useAgentStream({
+  const { startStream, abort, isStreaming, streamingContent, error: streamError } = useAgentStream({
     onProgress: (ev) => {
       setProgressEvents((prev) => [...prev.slice(-4), ev]) // keep last 5 events
     },
     onComplete: async (result, tokenUsage) => {
-      const assistantContent =
-        typeof result === 'string'
-          ? result
-          : (result as { output?: string })?.output ?? JSON.stringify(result)
-
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantContent }])
+      setMessages((prev) => [...prev, { role: 'assistant', content: result }])
       setProgressEvents([])
 
-      // Persist conversation to DB (10.1, 10.5)
+      // Persist conversation to DB
       try {
         const savedConv = await fetch('/api/conversations', {
           method: 'POST',
@@ -206,9 +201,9 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
             messages: [
               ...messages,
               { role: 'user', content: messages[messages.length - 1]?.content ?? '' },
-              { role: 'assistant', content: assistantContent },
+              { role: 'assistant', content: result },
             ].filter((m) => m.content),
-            result: assistantContent,
+            result,
             ...(tokenUsage ? { tokenUsage } : {}),
           }),
         })
@@ -255,18 +250,8 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
     setInput('')
     setProgressEvents([])
 
-    const fullPrompt = [
-      `You are a ${activeOption.label} working on task: "${task.title}".`,
-      `Task status: ${task.status}`,
-      task.description ? `Task description: ${task.description}` : '',
-      '',
-      `User message: ${userContent}`,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    await startStream(activeOption.role, fullPrompt, task.id)
-  }, [input, isStreaming, task, activeOption, startStream])
+    await startStream(activeOption.role, userContent, task.id)
+  }, [input, isStreaming, task.id, activeOption.role, startStream])
 
   const updateTaskStatus = useCallback(async (status: TaskStatus) => {
     try {
@@ -376,24 +361,30 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
             </div>
           ))}
 
-          {/* Real-time streaming indicator (9.6) */}
+          {/* Live streaming bubble — shows token deltas as they arrive */}
           {isStreaming && (
             <div className="flex justify-start">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-black mr-3 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-black mr-3 shrink-0 mt-1">
                 AI
               </div>
-              <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-xs">
-                {/* Typing dots */}
-                <div className="flex gap-1">
-                  {[0, 150, 300].map((delay) => (
-                    <span
-                      key={delay}
-                      className="w-2 h-2 bg-blue-300 rounded-full animate-bounce"
-                      style={{ animationDelay: `${delay}ms` }}
-                    />
-                  ))}
-                </div>
-                {/* Progress event breadcrumbs */}
+              <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-[80%]">
+                {streamingContent ? (
+                  <div className="prose prose-sm max-w-none text-[#0a192f]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
+                  </div>
+                ) : (
+                  /* Typing dots shown before first token arrives */
+                  <div className="flex gap-1">
+                    {[0, 150, 300].map((delay) => (
+                      <span
+                        key={delay}
+                        className="w-2 h-2 bg-blue-300 rounded-full animate-bounce"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {/* Progress event breadcrumbs (tool calls etc.) */}
                 {progressEvents.length > 0 && (
                   <div className="flex flex-col gap-1 mt-1">
                     {progressEvents.map((ev, i) => (

@@ -5,8 +5,9 @@ export type AgentRole = 'architect' | 'developer' | 'reviewer'
 export const agentConfigs: Record<AgentRole, AgentConfig> = {
   architect: {
     name: 'Architect',
-    model: 'claude-sonnet-4-6',
-    provider: 'anthropic',
+    model: 'gpt-4o-mini',
+    provider: 'openai',
+    tools: ['db_query', 'project_create'],
     systemPrompt: `You are an expert software architect responsible for designing system architecture and breaking down complex tasks into manageable subtasks.
 
 Your responsibilities:
@@ -32,8 +33,9 @@ Always provide clear, structured output with:
 
   developer: {
     name: 'Developer',
-    model: 'claude-sonnet-4-6',
-    provider: 'anthropic',
+    model: 'gpt-4o-mini',
+    provider: 'openai',
+    tools: ['db_query', 'task_create', 'task_update', 'task_delete', 'project_create'],
     systemPrompt: `You are an expert software developer focused on implementing high-quality code and solving technical problems.
 
 Your responsibilities:
@@ -67,8 +69,9 @@ Always provide:
 
   reviewer: {
     name: 'Reviewer',
-    model: 'claude-sonnet-4-6',
-    provider: 'anthropic',
+    model: 'gpt-4o-mini',
+    provider: 'openai',
+    tools: ['db_query'],
     systemPrompt: `You are an expert code reviewer focused on ensuring code quality, correctness, and best practices.
 
 Your responsibilities:

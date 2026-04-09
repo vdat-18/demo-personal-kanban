@@ -50,13 +50,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     setIsStreaming(true)
 
     try {
-      const res = await fetch('/api/agents/run', {
+      const res = await fetch('/api/agents/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `You are a planning agent for project "${project.name}". Help the user plan their project.\n\nUser: ${userMessage.content}`,
-          provider: 'anthropic',
-          model: 'claude-3-haiku-20240307',
+          projectId: project.id,
+          userMessage: userMessage.content,
         }),
       })
 
@@ -79,7 +78,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       setIsStreaming(false)
       setTimeout(scrollToBottom, 100)
     }
-  }, [input, isStreaming, project.name])
+  }, [input, isStreaming, project.id])
 
   const createTask = useCallback(async (title: string, description?: string) => {
     try {

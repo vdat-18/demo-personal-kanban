@@ -1,6 +1,59 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Getting Started with Docker (Recommended)
+
+Docker is the easiest way to run the full stack (Next.js app + PostgreSQL) with a single command.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Docker Compose v2)
+
+### 1. Configure environment variables
+
+```bash
+cp .env.example .env.docker
+# Edit .env.docker and fill in your API keys:
+# - ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
+# The DATABASE_URL is pre-configured to connect to the Docker Postgres service.
+```
+
+### 2. Start the stack
+
+```bash
+docker compose up
+```
+
+This starts:
+- **PostgreSQL 16** on an internal network (not exposed to host)
+- **Next.js app** at [http://localhost:3000](http://localhost:3000), with automatic database migrations on startup
+
+> **Hot-reload in development**: `docker compose up` automatically uses `docker-compose.override.yml`, which runs `next dev` with Turbopack and live file watching via bind-mounts. Edit any source file and the browser will update instantly.
+
+### 3. Seed the database (optional)
+
+```bash
+docker compose exec app npm run db:seed
+```
+
+### Useful commands
+
+```bash
+# View logs
+docker compose logs -f app
+
+# Stop all services
+docker compose down
+
+# Rebuild after dependency changes
+docker compose build
+
+# Run production build (no hot-reload)
+docker compose -f docker-compose.yml up
+```
+
+---
+
+## Getting Started (Local Development without Docker)
 
 First, run the development server:
 

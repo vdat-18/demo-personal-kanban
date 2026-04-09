@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runAgent } from '@/lib/agents/orchestrator'
 import type { AgentRole } from '@/lib/agents/configs'
 import { z } from 'zod'
-
-const agentRoleEnum = z.enum(['architect', 'developer', 'reviewer'])
-
-const runAgentSchema = z.object({
-  role: agentRoleEnum,
-  prompt: z.string().min(1, 'Prompt is required'),
-})
+import { runAgentSchema } from '@/lib/validations/schemas'
 
 export async function POST(request: NextRequest) {
   try {
