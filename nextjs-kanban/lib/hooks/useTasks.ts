@@ -7,6 +7,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
+// ─── Transition error (422 from status-lifecycle validation) ─────────────────
+
+export class TransitionError extends Error {
+  public readonly from: string
+  public readonly to: string
+  public readonly allowed: string[]
+
+  constructor(body: { error: string; from: string; to: string; allowed: string[] }) {
+    super(body.error)
+    this.name = 'TransitionError'
+    this.from = body.from
+    this.to = body.to
+    this.allowed = body.allowed
+  }
+}
+
 export interface Task {
   id: string
   title: string
@@ -80,7 +96,16 @@ export function useUpdateTask() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Failed to update task')
+      if (!res.ok) {
+        // Parse 422 transition errors into a structured TransitionError
+        if (res.status === 422) {
+          const body = await res.json().catch(() => ({}))
+          if (body.from && body.to && body.allowed) {
+            throw new TransitionError(body)
+          }
+        }
+        throw new Error('Failed to update task')
+      }
       return res.json() as Promise<Task>
     },
     onMutate: async ({ id, ...data }) => {

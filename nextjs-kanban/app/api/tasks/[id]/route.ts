@@ -60,7 +60,7 @@ export async function PUT(
   } catch (error) {
     if (error instanceof InvalidTransitionError) {
       return NextResponse.json(
-        { error: error.message, allowed: error.allowed },
+        { error: error.message, from: error.from, to: error.to, allowed: error.allowed },
         { status: 422 }
       )
     }

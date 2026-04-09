@@ -85,7 +85,13 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        if (res.status === 422) {
+          const body = await res.json().catch(() => ({}))
+          console.warn(`Invalid transition: ${body.from} → ${body.to}. Allowed: ${body.allowed?.join(', ')}`)
+        }
+        return
+      }
       const updated = await res.json()
       setProject((prev) => ({
         ...prev,

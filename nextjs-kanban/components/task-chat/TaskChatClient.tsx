@@ -16,6 +16,8 @@ import remarkGfm from 'remark-gfm'
 import { AgentBadge } from '@/components/shared/AgentBadge'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
 import type { StreamEvent } from '@/lib/hooks/useAgentStream'
+import { getAllowedTransitions } from '@/lib/status-lifecycle'
+import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 
@@ -245,6 +247,9 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
       if (res.ok) {
         const updated = await res.json()
         setTask((prev) => ({ ...prev, ...updated }))
+      } else if (res.status === 422) {
+        const body = await res.json().catch(() => ({}))
+        console.warn(`Invalid transition: ${body.from} → ${body.to}. Allowed: ${body.allowed?.join(', ')}`)
       }
     } catch (err) {
       console.error(err)
@@ -441,25 +446,34 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
 
       {/* ── Right: Task info panel ────────────────────────────────────────────── */}
       <div className="w-80 overflow-y-auto p-6 flex flex-col gap-6 shrink-0">
-        {/* Status Controls */}
+        {/* Status Controls — lifecycle-aware: only show valid transitions */}
         <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
             Update Status
           </h3>
-          <div className="grid grid-cols-2 gap-2">
-            {(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as TaskStatus[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => updateTaskStatus(s)}
-                className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
-                  task.status === s
-                    ? 'bg-[#0a192f] text-white'
-                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2">
+            {/* Current status indicator */}
+            <div className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider text-center bg-[#0a192f] text-white`}>
+              {task.status}
+            </div>
+            {/* Valid transition buttons */}
+            {getAllowedTransitions(task.status as TaskStatusValue).length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {getAllowedTransitions(task.status as TaskStatusValue).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => updateTaskStatus(s as TaskStatus)}
+                    className="py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors bg-gray-50 text-gray-500 hover:bg-gray-100"
+                  >
+                    {s === 'BLOCKED' ? '⛔ BLOCK' : s === 'TODO' ? '↩ RESTORE' : `→ ${s}`}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400 text-center font-medium py-1">
+                No transitions available (terminal state)
+              </p>
+            )}
           </div>
         </div>
 
