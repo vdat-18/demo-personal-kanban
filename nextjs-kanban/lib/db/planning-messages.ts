@@ -5,6 +5,11 @@ export async function getMessagesByThread(threadId: string) {
   return prisma.planningMessage.findMany({
     where: { threadId },
     orderBy: { createdAt: 'asc' },
+    include: {
+      mutationActions: {
+        select: { mutationIndex: true, action: true },
+      },
+    },
   })
 }
 
@@ -35,6 +40,11 @@ export async function getRecentMessages(threadId: string, limit: number = 20) {
     where: { threadId },
     orderBy: { createdAt: 'desc' },
     take: limit,
+    include: {
+      mutationActions: {
+        select: { mutationIndex: true, action: true },
+      },
+    },
   })
   // Return in chronological order
   return messages.reverse()

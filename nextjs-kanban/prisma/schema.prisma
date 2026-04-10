@@ -85,14 +85,32 @@ model PlanningThread {
 }
 
 model PlanningMessage {
-  id         String              @id @default(uuid())
-  threadId   String
-  role       PlanningMessageRole
-  content    String
-  tokenUsage Json?
-  createdAt  DateTime            @default(now())
-  thread     PlanningThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  id              String              @id @default(uuid())
+  threadId        String
+  role            PlanningMessageRole
+  content         String
+  tokenUsage      Json?
+  createdAt       DateTime            @default(now())
+  thread          PlanningThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  mutationActions MutationAction[]
 
   @@index([threadId()])
   @@index([createdAt()])
+}
+
+enum MutationActionType {
+  approved
+  dismissed
+}
+
+model MutationAction {
+  id            String             @id @default(uuid())
+  messageId     String
+  mutationIndex Int
+  action        MutationActionType
+  createdAt     DateTime           @default(now())
+  message       PlanningMessage    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, mutationIndex])
+  @@index([messageId()])
 }

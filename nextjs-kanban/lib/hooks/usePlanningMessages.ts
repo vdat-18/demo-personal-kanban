@@ -3,6 +3,11 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+export interface MutationActionState {
+  mutationIndex: number
+  action: 'approved' | 'dismissed'
+}
+
 export interface PlanningMessage {
   id: string
   threadId: string
@@ -10,6 +15,7 @@ export interface PlanningMessage {
   content: string
   tokenUsage: { input: number; output: number } | null
   createdAt: string
+  mutationActions?: MutationActionState[]
 }
 
 async function fetchMessages(threadId: string): Promise<PlanningMessage[]> {
@@ -56,6 +62,7 @@ export function useSendPlanningMessage() {
             content,
             tokenUsage: null,
             createdAt: new Date().toISOString(),
+            mutationActions: [],
           },
         ])
       }

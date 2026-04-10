@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ThreadListSidebar } from './ThreadListSidebar'
 import { TaskPanel } from './TaskPanel'
 import { TaskMutationCard } from './TaskMutationCard'
+import type { MutationCardStatus } from './TaskMutationCard'
 import { parseTaskMutations } from '@/lib/utils/parseTaskMutations'
 import type { TaskMutation } from '@/lib/utils/parseTaskMutations'
 import {
@@ -241,14 +242,35 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                           </div>
                           {mutations.length > 0 && (
                             <div className="mt-3 space-y-2">
-                              {mutations.map((mutation, idx) => (
-                                <TaskMutationCard
-                                  key={idx}
-                                  mutation={mutation}
-                                  onApprove={handleApproveMutation}
-                                  onDismiss={() => {}}
-                                />
-                              ))}
+                              {mutations.map((mutation, idx) => {
+                                // Look up persisted status from DB
+                                const savedAction = msg.mutationActions?.find(
+                                  (a) => a.mutationIndex === idx,
+                                )
+                                const initialStatus: MutationCardStatus = savedAction
+                                  ? (savedAction.action as MutationCardStatus)
+                                  : 'pending'
+
+                                return (
+                                  <TaskMutationCard
+                                    key={idx}
+                                    mutation={mutation}
+                                    initialStatus={initialStatus}
+                                    onApprove={handleApproveMutation}
+                                    onDismiss={() => {}}
+                                    onPersistAction={async (action) => {
+                                      await fetch(
+                                        `/api/planning-threads/${msg.threadId}/messages/${msg.id}/mutations`,
+                                        {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ mutationIndex: idx, action }),
+                                        },
+                                      )
+                                    }}
+                                  />
+                                )
+                              })}
                             </div>
                           )}
                         </>

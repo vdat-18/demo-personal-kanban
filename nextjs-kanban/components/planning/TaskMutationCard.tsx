@@ -4,16 +4,28 @@ import { useState } from 'react'
 import { Check, X, Plus, Pencil, Trash2 } from 'lucide-react'
 import type { TaskMutation } from '@/lib/utils/parseTaskMutations'
 
+export type MutationCardStatus = 'pending' | 'approved' | 'dismissed'
+
 interface TaskMutationCardProps {
   mutation: TaskMutation
+  /** Pre-loaded status from DB. Defaults to 'pending'. */
+  initialStatus?: MutationCardStatus
   onApprove: (mutation: TaskMutation) => Promise<void>
   onDismiss: () => void
+  /** Called after approve/dismiss to persist the action to DB */
+  onPersistAction?: (action: 'approved' | 'dismissed') => Promise<void>
 }
 
-export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutationCardProps) {
+export function TaskMutationCard({
+  mutation,
+  initialStatus = 'pending',
+  onApprove,
+  onDismiss,
+  onPersistAction,
+}: TaskMutationCardProps) {
   const [isApproving, setIsApproving] = useState(false)
-  const [isApplied, setIsApplied] = useState(false)
-  const [isDismissed, setIsDismissed] = useState(false)
+  const [isApplied, setIsApplied] = useState(initialStatus === 'approved')
+  const [isDismissed, setIsDismissed] = useState(initialStatus === 'dismissed')
   const [error, setError] = useState<string | null>(null)
 
   if (isDismissed) return null
@@ -24,6 +36,8 @@ export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutatio
     try {
       await onApprove(mutation)
       setIsApplied(true)
+      // Persist action to DB (fire-and-forget — UI already updated)
+      onPersistAction?.('approved').catch(console.error)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to apply')
     } finally {
@@ -34,6 +48,8 @@ export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutatio
   const handleDismiss = () => {
     setIsDismissed(true)
     onDismiss()
+    // Persist action to DB (fire-and-forget — UI already updated)
+    onPersistAction?.('dismissed').catch(console.error)
   }
 
   const icon =
