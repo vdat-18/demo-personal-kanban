@@ -1,38 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withErrorHandler } from '@/lib/api/error-handler'
 import { runTeam } from '@/lib/agents/orchestrator'
-import type { AgentRole } from '@/lib/agents/configs'
-import { z } from 'zod'
+import { teamAgentSchema } from '@/lib/validations/schemas'
 
-const agentRoleEnum = z.enum(['architect', 'developer', 'reviewer'])
-
-const runTeamSchema = z.object({
-  goal: z.string().min(1, 'Goal is required'),
-  agents: z.array(agentRoleEnum).min(1, 'At least one agent is required'),
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const data = teamAgentSchema.parse(body)
+  const result = await runTeam(data.goal, data.agents)
+  return NextResponse.json(result)
 })
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const validatedData = runTeamSchema.parse(body)
-
-    const result = await runTeam(
-      validatedData.goal,
-      validatedData.agents
-    )
-
-    return NextResponse.json(result)
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error running team:', error)
-    return NextResponse.json(
-      { error: 'Failed to run team' },
-      { status: 500 }
-    )
-  }
-}

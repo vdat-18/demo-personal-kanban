@@ -1,42 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getProjects, createProject } from '@/lib/db/projects'
+import { withErrorHandler } from '@/lib/api/error-handler'
+import { ProjectService } from '@/lib/services/project.service'
 import { createProjectSchema } from '@/lib/validations/schemas'
-import { z } from 'zod'
 
-export async function GET(request: NextRequest) {
-  try {
-    const projects = await getProjects()
+export const GET = withErrorHandler(async () => {
+  const projects = await ProjectService.list()
+  return NextResponse.json(projects)
+})
 
-    return NextResponse.json(projects)
-  } catch (error) {
-    console.error('Error fetching projects:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch projects' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const validatedData = createProjectSchema.parse(body)
-
-    const project = await createProject(validatedData)
-
-    return NextResponse.json(project, { status: 201 })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error creating project:', error)
-    return NextResponse.json(
-      { error: 'Failed to create project' },
-      { status: 500 }
-    )
-  }
-}
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const data = createProjectSchema.parse(body)
+  const project = await ProjectService.create(data)
+  return NextResponse.json(project, { status: 201 })
+})

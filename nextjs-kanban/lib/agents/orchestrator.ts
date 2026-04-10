@@ -8,6 +8,7 @@ import {
 import type { OrchestratorEvent } from '@jackchen_me/open-multi-agent'
 import { agentConfigs, AgentRole } from './configs'
 import { allTools } from './tools'
+import { getAgentModel } from '@/lib/validations/schemas'
 
 // ── Shared tool registry (built-ins + custom DB tools) ───────────────────────
 // Built once per process. All custom tools are registered here so agents can
@@ -42,7 +43,7 @@ export async function runTeam(
   onProgress?: (event: OrchestratorEvent) => void
 ) {
   const orchestrator = new OpenMultiAgent({
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: getAgentModel(),
     defaultProvider: 'openai',
     ...(onProgress ? { onProgress } : {}),
   })
@@ -59,7 +60,7 @@ export async function runTasks(
   onProgress?: (event: OrchestratorEvent) => void
 ) {
   const orchestrator = new OpenMultiAgent({
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: getAgentModel(),
     defaultProvider: 'openai',
     ...(onProgress ? { onProgress } : {}),
   })

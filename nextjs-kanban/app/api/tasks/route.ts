@@ -1,61 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTasks, createTask } from '@/lib/db/tasks'
-import { z } from 'zod'
+import { withErrorHandler } from '@/lib/api/error-handler'
+import { TaskService } from '@/lib/services/task.service'
+import { createTaskSchema, taskStatusSchema } from '@/lib/validations/schemas'
 
-const taskStatusEnum = z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED'])
-const taskPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url)
+  const status = searchParams.get('status') ?? undefined
+  const projectId = searchParams.get('projectId') ?? undefined
 
-type TaskStatus = z.infer<typeof taskStatusEnum>
+  if (status) taskStatusSchema.parse(status)
 
-const createTaskSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  status: taskStatusEnum.optional(),
-  priority: taskPriorityEnum.optional(),
-  projectId: z.string().uuid().optional(),
+  const tasks = await TaskService.list(status, projectId)
+  return NextResponse.json(tasks)
 })
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') as TaskStatus | null
-    const projectId = searchParams.get('projectId')
-
-    const tasks = await getTasks(
-      status || undefined,
-      projectId || undefined
-    )
-
-    return NextResponse.json(tasks)
-  } catch (error) {
-    console.error('Error fetching tasks:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch tasks' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const validatedData = createTaskSchema.parse(body)
-
-    const task = await createTask(validatedData)
-
-    return NextResponse.json(task, { status: 201 })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error creating task:', error)
-    return NextResponse.json(
-      { error: 'Failed to create task' },
-      { status: 500 }
-    )
-  }
-}
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const data = createTaskSchema.parse(body)
+  const task = await TaskService.create(data)
+  return NextResponse.json(task, { status: 201 })
+})
