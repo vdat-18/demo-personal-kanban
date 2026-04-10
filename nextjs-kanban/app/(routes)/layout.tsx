@@ -1,4 +1,4 @@
-import { Navigation } from '@/components/layout/Navigation'
+import { Navigation } from '@/components/organisms/NavigationBar'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (

@@ -4,8 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Download, Sparkles, BookOpen, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-
-type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
+import type { UITaskStatus } from '@/types/domain'
 
 interface Conversation {
   id: string
@@ -19,13 +18,17 @@ interface Task {
   id: string
   title: string
   description: string | null
-  status: TaskStatus
+  status: UITaskStatus
   priority: string
   projectId: string | null
   conversations: Conversation[]
 }
 
-export function TaskSummaryClient({ task }: { task: Task }) {
+export interface SummaryTemplateProps {
+  task: Task
+}
+
+export function SummaryTemplate({ task }: SummaryTemplateProps) {
   const router = useRouter()
 
   const totalMessages = task.conversations.reduce((sum, c) => sum + (c.messages?.length || 0), 0)
@@ -45,7 +48,7 @@ export function TaskSummaryClient({ task }: { task: Task }) {
           </button>
           <div>
             <h1 className="font-extrabold text-2xl text-[#0a192f] tracking-tight">Task Summary Report</h1>
-            <div className="text-sm font-semibold text-gray-500 mt-1">"{task.title}"</div>
+            <div className="text-sm font-semibold text-gray-500 mt-1">&ldquo;{task.title}&rdquo;</div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -56,7 +59,6 @@ export function TaskSummaryClient({ task }: { task: Task }) {
       </header>
 
       <main className="max-w-4xl mx-auto w-full p-10 py-12 flex flex-col gap-10">
-
         {/* Execution Summary */}
         <section className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-5">
