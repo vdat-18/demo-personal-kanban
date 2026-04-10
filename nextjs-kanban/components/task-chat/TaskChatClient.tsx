@@ -181,6 +181,16 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   // Latest progress events shown beneath the typing indicator (9.6)
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [input])
 
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
 
@@ -406,7 +416,8 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
         <div className="p-4 border-t border-gray-100 shrink-0">
           <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
             <textarea
-              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
+              ref={textareaRef}
+              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
               placeholder={`Ask ${activeOption.label}…`}
               rows={1}
               value={input}

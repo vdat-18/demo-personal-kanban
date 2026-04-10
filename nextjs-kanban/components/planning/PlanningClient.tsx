@@ -42,6 +42,16 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [input])
 
   // ─── Thread hooks ──────────────────────────────────────────────────────
   const { data: threads = [], isLoading: threadsLoading } = usePlanningThreads(initialProject.id)
@@ -320,7 +330,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           )}
           <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
             <textarea
-              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
+              ref={textareaRef}
+              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
               placeholder="Describe your project goals..."
               rows={1}
               value={input}

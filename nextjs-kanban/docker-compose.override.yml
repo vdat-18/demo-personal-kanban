@@ -7,7 +7,7 @@ services:
   app:
     build:
       target: deps  # Stop at deps stage — no full production build needed for dev
-    command: sh -c "npx prisma migrate deploy && npm run dev"
+    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
     environment:
       NODE_ENV: development
     volumes:
