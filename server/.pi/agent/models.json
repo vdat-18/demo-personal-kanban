@@ -1,0 +1,21 @@
+{
+  "providers": [
+    {
+      "id": "chiasegpu",
+      "name": "ChiaseGPU Custom OpenAI",
+      "api": "openai",
+      "baseUrl": "http://e1.chiasegpu.vn:27318/v1",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "models": [
+        {
+          "id": "gemini-unlimited",
+          "name": "Gemini Unlimited",
+          "contextWindow": 100000,
+          "maxTokens": 4096,
+          "reasoning": false,
+          "tools": true
+        }
+      ]
+    }
+  ]
+}

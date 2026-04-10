@@ -37,23 +37,44 @@ When users open the web, they see **2 big choices**:
 
 ### Flow after enough context (same for both):
 
+> **AI-first principle:** The agent drives the entire flow. User only needs to respond in natural language — no buttons required. Every transition is initiated by the agent via a conversational suggestion.
+
 ```
 Step 1: Context exchange
     ↓  User and agent talk freely
-    ↓  Agent asks, user answers (and vice versa)
-    ↓  No limit — until user feels it's enough
+    ↓  Agent asks clarifying questions, user answers
+    ↓  No limit — agent decides when context is rich enough (3–5 exchanges)
 
-Step 2: User asks for Report
-    ↓  User says "Write the report" or clicks button
-    ↓  Agent reads all context → writes Report
-    ↓  User reads report, edits if needed
+Step 2: Agent proactively suggests → Report
+    ↓  Agent detects sufficient context → suggests "Shall I write the report?"
+    ↓  UI shows a hint: 💡 "Say Yes or Go ahead to generate report"
+    ↓  User confirms in natural language ("yes" / "go ahead" / "đồng ý")
+    ↓  Agent generates Report (LLM call #1) and saves structured task titles
+    ↓  Report appears in right panel
+    ↓  Agent confirms in chat: "Report ready!"
+    ↓  User can edit report if needed (right panel has edit mode)
 
-Step 3: User asks for Tasks from Report
-    ↓  User says "Create tasks" or clicks button
-    ↓  Agent uses report → creates task list
-    ↓  Each task has a description (what to do, what problem it solves)
+Step 3: Agent proactively suggests → Tasks
+    ↓  Immediately after report, agent posts in chat:
+       "✅ Found N key tasks. Want me to elaborate each one with description,
+        why it matters, and concrete subtasks?"
+    ↓  UI shows hint: 💡 "Say Yes to let AI elaborate all tasks in detail"
+    ↓  User confirms in natural language
+    ↓  Agent elaborates each task (LLM call #2): description, why, subtasks, agent_hint
+    ↓  Agent posts task list summary IN CHAT:
+       "✨ Done! Here are your N tasks:
+        1. [Task title] — [description one-liner] (Doer Agent)
+        2. [Task title] — [description one-liner] (Planner Agent)
+        ..."
+    ↓  Full task detail appears in right panel (expandable cards)
     ↓  User reviews, edits if needed → clicks "Start execution"
 ```
+
+**Key AI-first behaviors:**
+- Agent never waits for a button click — always proactively suggests next step via chat
+- `userIntent` detection: AI classifies each user reply as `confirm | explore | reject | neutral`
+- `pendingAction` queue: agent remembers what it suggested (`generate_report` → `suggest_tasks`) and dispatches the right action when user confirms
+- Fallback: if AI elaboration fails, tasks are still created from bare titles (no data loss)
 
 ## 3. Kanban Dashboard — Each Column Is an AI Agent
 
@@ -131,87 +152,95 @@ The product has **7 main screens**, split into 3 groups:
 
 ---
 
-### Screen 2 — Chat → Report → Create Tasks
+### Screen 2 — Chat → Report → Create Tasks (AI-first)
 
-**Purpose:** Split-panel screen — chat on the left, report/tasks panel on the right.
+**Purpose:** Split-panel screen — **chat is the primary driver**. Right panel is secondary viewer that updates reactively based on what the agent does in chat.
 
-**Phase 1 — Conversation** *(right panel is empty, waiting)*
+**Phase 1 — Brainstorming** *(agent drives, right panel is idle)*
 ```
 ┌──────────────────────────────────────┬─────────────────────────────────────────┐
 │  LEFT: CHAT                          │  RIGHT: OUTPUT PANEL                    │
-│  ← Back  |  New Project              │  Phase: ① Chat  ② Report  ③ Tasks       │
+│  ← Back  |  New Project              │  Phase: ① Brainstorming  ② Report  ③ Tasks│
 ├──────────────────────────────────────┼─────────────────────────────────────────┤
 │                                      │                                         │
-│  🤖 "What do you want to do?         │  ⏳ Waiting for conversation...          │
-│   Tell me about it."                 │                                         │
+│  ✨ "Hi! What do you want to do?     │  ⏳ Waiting for conversation...          │
+│   Tell me about your project."       │                                         │
 │                                      │  Chat with the agent on the left.       │
-│  [User]: "Research competitors       │  When you're ready, click              │
-│   of Veclam24h"                      │  "Write the report" to continue.        │
+│  [User]: "Research competitors       │  The agent will guide you through       │
+│   of Veclam24h"                      │  each step automatically.               │
 │                                      │                                         │
-│  🤖 "What's the goal?"               │                                         │
+│  ✨ "What's the goal of this         │                                         │
+│   research?"                         │                                         │
 │                                      │                                         │
 │  [User]: "Propose a new marketing    │                                         │
 │   strategy to my boss"               │                                         │
 │                                      │                                         │
-│  🤖 "What aspects to compare?"       │                                         │
+│  ✨ "What aspects to compare?"       │                                         │
 │                                      │                                         │
 │  [User]: "Online marketing & UX"     │                                         │
 │                                      │                                         │
-│  ...keep chatting if needed...       │                                         │
+│  ✨ "I have a good picture now.      │                                         │
+│   Shall I write the project report?" │                                         │
+│   💡 Say "Yes" or "Go ahead"         │                                         │
 │                                      │                                         │
-│  [📝 Write the report!]              │                                         │
-│  [💬 I want to say more]             │                                         │
+│  [User types here...]                │                                         │
 │                                      │                                         │
 └──────────────────────────────────────┴─────────────────────────────────────────┘
 ```
+> **AI-first note:** The agent proactively suggests "generate report" after 3–5 exchanges. No button click needed — user just replies naturally.
 
-**Phase 2 — Report** *(right panel shows the report)*
+**Phase 2 — Report** *(agent confirms in chat, report renders on right)*
 ```
 ┌──────────────────────────────────────┬─────────────────────────────────────────┐
 │  LEFT: CHAT                          │  RIGHT: 📄 REPORT                       │
 ├──────────────────────────────────────┼─────────────────────────────────────────┤
 │                                      │                                         │
-│  🤖 "Here's the report based on      │  GOAL: Understand marketing strategy    │
-│   our conversation. Review it        │  & UX of 5 main competitors of         │
-│   on the right."                     │  Veclam24h.                             │
+│  [User]: "Yes, go ahead"             │  GOAL: Understand marketing strategy    │
+│                                      │  & UX of 5 main competitors of         │
+│  ✨ Generating project report...     │  Veclam24h.                             │
+│   [● ● ●]                            │                                         │
+│                                      │  BACKGROUND: Veclam24h needs a new     │
+│  ✨ "✅ Report ready! I found         │  marketing strategy...                  │
+│   5 key tasks. Want me to            │                                         │
+│   elaborate each one with detail,    │  SCOPE: Online marketing + website UX  │
+│   subtasks, and agent hints?"        │                                         │
+│   💡 Say "Yes" to elaborate tasks    │  TARGET AUDIENCE: Marketing Director    │
 │                                      │                                         │
-│  [User]: "Looks good, but add        │  BACKGROUND: Veclam24h needs a new     │
-│   pricing comparison too"            │  marketing strategy...                  │
-│                                      │                                         │
-│  🤖 "Updated. Check again."          │  SCOPE: Online marketing + website UX  │
-│                                      │                                         │
-│                                      │  TARGET AUDIENCE: Marketing Director    │
-│                                      │                                         │
-│                                      │  [✏️ Edit report]                       │
-│                                      │                                         │
-│  [📋 Create tasks from report!]      │  [📋 Create tasks from report!]         │
+│  [User types here...]                │  [✏️ Edit report]                       │
 │                                      │                                         │
 └──────────────────────────────────────┴─────────────────────────────────────────┘
 ```
+> **AI-first note:** After report is saved, agent immediately posts a proactive suggestion in chat — no button needed. The `pendingAction` is set to `suggest_tasks` internally.
 
-**Phase 3 — Tasks** *(right panel shows task list)*
+**Phase 3 — Tasks** *(agent lists tasks in chat, full detail on right)*
 ```
 ┌──────────────────────────────────────┬─────────────────────────────────────────┐
-│  LEFT: CHAT                          │  RIGHT: 📋 TASK LIST                    │
+│  LEFT: CHAT                          │  RIGHT: 📋 TASK DETAIL                  │
 ├──────────────────────────────────────┼─────────────────────────────────────────┤
 │                                      │                                         │
-│  🤖 "Based on the report, here       │  ☐ Identify top 5 competitors           │
-│   are 6 tasks. Review on the         │    └ List and verify 5 direct comps     │
-│   right. Edit anything you           │  ☐ Collect social media data            │
-│   want."                             │    └ Followers, engagement, frequency   │
-│                                      │  ☐ Analyze landing pages & UX           │
-│  [User]: "Remove the last task,      │    └ Compare UI/UX of 5 competitors     │
-│   it's out of scope"                 │  ☐ Analyze content & tone of voice      │
-│                                      │    └ Evaluate content strategy          │
-│  🤖 "Removed. Anything else?"        │  ☐ Compare pricing & packages           │
-│                                      │    └ Pricing comparison table           │
-│                                      │  ~~☐ Compile final report~~  ← removed  │
+│  [User]: "Yes, elaborate them"       │  ▼ Identify top 5 competitors           │
+│                                      │    What: Map direct competitors         │
+│  ✨ Elaborating tasks...             │    Why: Foundation for all analysis     │
+│   [● ● ●]                            │    Subtasks:                            │
+│                                      │    ☐ Search competitor names            │
+│  ✨ "✨ Done! Here are your 5 tasks: │    ☐ Verify they are direct comps       │
+│   1. Identify top 5 competitors      │    ☐ List with URLs                    │
+│      — Map & verify (Planner)        │    Agent: 🗺️ Planner Agent             │
+│   2. Collect social media data       │                                         │
+│      — Followers, engagement (Doer)  │  ▷ Collect social media data           │
+│   3. Analyze landing pages & UX      │  ▷ Analyze landing pages & UX          │
+│      — UI/UX comparison (Doer)       │  ▷ Analyze content & tone              │
+│   4. Analyze content & tone          │  ▷ Compare pricing & packages           │
+│      — Content strategy (Planner)    │                                         │
+│   5. Compare pricing & packages      │  [🚀 Start execution!]                  │
+│      — Pricing table (Doer)          │                                         │
+│   Expand each task on the right →"   │                                         │
 │                                      │                                         │
-│                                      │  [✏️ Edit tasks]                        │
-│                                      │  [🚀 Start execution!]                  │
+│  [User]: "Remove the last task"      │                                         │
 │                                      │                                         │
 └──────────────────────────────────────┴─────────────────────────────────────────┘
 ```
+> **AI-first note:** After elaboration, agent posts the **full task list with one-liner descriptions** directly in chat. User reads it in the conversation, then expands cards on the right for subtask detail. Chat remains the single source of truth for what happened.
 
 ### Screen 3 — Kanban Board *(Main Execution Hub)*
 
@@ -374,3 +403,84 @@ When all tasks are **Done** or **Cancelled**:
    - List of all created files
    - Suggested next steps (agent proposes 2–3 directions)
 3. User reviews, exports (PDF/Word), or starts a new project from a suggestion
+
+---
+
+## 9. Technical Implementation — AI-first Planning Flow
+
+> This section documents the **actual code logic** implemented in the frontend, mapped to the product vision above.
+
+### Architecture Overview
+
+```
+PlanningScreen (container)
+  ├── usePlanningChat        — manages chat state + agentic AI messaging
+  ├── useTaskElaboration     — manages task elaboration lifecycle
+  ├── PlanningPhaseView      — Phase 1 + 2 UI: chat left, report right
+  └── TasksPhaseView         — Phase 3 UI: detailed task cards
+```
+
+### LLM Calls
+
+| Call | Function | When | Output |
+|---|---|---|---|
+| #1 | `generateProjectReport()` | User confirms "generate report" | Markdown report + `{ title, goal, suggested_tasks: string[] }` |
+| #2 | `generateDetailedTasks()` | User confirms "elaborate tasks" | Array of `DetailedTask` with `description`, `why`, `suggested_subtasks`, `agent_hint` |
+| Ongoing | `chatWithAgenticAI()` | Every user message | `{ reply, userIntent, suggestedAction }` |
+
+### Intent Detection — `chatWithAgenticAI`
+
+The agent classifies every user reply into:
+
+| `userIntent` | Triggers when user says |
+|---|---|
+| `confirm` | "yes" / "go ahead" / "ok" / "sure" / "tạo" / "đồng ý" / "được" |
+| `reject` | "no" / "not yet" / "wait" |
+| `explore` | User wants to discuss more |
+| `neutral` | General conversation |
+
+When `userIntent === "confirm"`, the `pendingAction` stored locally is dispatched (not the LLM's suggestion) — this ensures the agent's last suggestion is always honored even if LLM context drifts.
+
+### `pendingAction` State Machine
+
+```
+[initial]
+    │
+    ▼ (3–5 exchanges, LLM suggests)
+{ type: "generate_report" }
+    │
+    ▼ (user confirms → report generated)
+{ type: "suggest_tasks" }     ← set by handleGenerateReport() after LLM call #1
+    │
+    ▼ (user confirms → elaboration starts)
+null                           ← cleared after dispatch
+```
+
+### `DetailedTask` Type
+
+Each AI-elaborated task has:
+
+```typescript
+{
+  title: string,
+  description: string,       // 2–3 sentences: what the task involves
+  why: string,               // 1–2 sentences: why it is critical
+  suggested_subtasks: string[], // 3–5 concrete action items
+  agent_hint: "Starter Agent" | "Planner Agent" | "Doer Agent" | "Reviewer Agent" | "Reporter Agent"
+}
+```
+
+The `agent_hint` maps directly to the Kanban column agent when the task is created on the board.
+
+### Known Gap (to implement)
+
+After `generateDetailedTasks()` completes, the agent should post a **task list summary message** in chat before switching to the Tasks panel:
+
+```
+✨ Done! Here are your 5 tasks:
+1. [title] — [description one-liner] (Doer Agent)
+2. [title] — [description one-liner] (Planner Agent)
+...
+```
+
+This requires adding an `onElaborationComplete(tasks, summary)` callback to `useTaskElaboration`, which `PlanningScreen` uses to call `chat.pushAgentMessage()` before `setPhase("tasks")`.

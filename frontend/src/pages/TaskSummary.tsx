@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Download, Mail, ExternalLink, Zap, BookOpen, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Mail, ExternalLink, Sparkles, BookOpen, AlertCircle } from "lucide-react";
 
 export function TaskSummary() {
   const navigate = useNavigate();
@@ -7,7 +7,7 @@ export function TaskSummary() {
   return (
     <div className="flex flex-col h-full w-full bg-[#f8f9fa] overflow-y-auto">
       {/* Top Header */}
-      <header className="h-20 px-10 border-b border-gray-200 bg-white flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-10">
+      <header className="h-20 px-10 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-10">
         <div className="flex items-center gap-6">
           <button onClick={() => navigate("/mission-control/1")} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-black">
             <ArrowLeft className="w-5 h-5" />
@@ -109,7 +109,7 @@ export function TaskSummary() {
             
             <div className="bg-white p-6 rounded-3xl border border-gray-200 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-900/10 transition-all cursor-pointer group flex flex-col h-full">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Zap className="w-6 h-6" />
+                <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-[#0a192f] mb-3 leading-tight group-hover:text-blue-600 transition-colors">Build a TikTok Strategy</h3>
               <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6 flex-1">
