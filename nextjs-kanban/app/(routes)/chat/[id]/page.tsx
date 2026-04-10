@@ -1,7 +1,7 @@
 import { getTask } from '@/lib/db/tasks'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { TaskChatClient } from '@/components/task-chat/TaskChatClient'
+import { ChatTemplate } from '@/components/templates/ChatTemplate'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -61,5 +61,5 @@ export default async function TaskChatPage({ params }: Props) {
     }),
   }
 
-  return <TaskChatClient task={serialized} />
+  return <ChatTemplate task={serialized} />
 }

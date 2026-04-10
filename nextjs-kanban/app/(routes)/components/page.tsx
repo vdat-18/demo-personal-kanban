@@ -8,8 +8,8 @@
  * browser to inspect each one.
  */
 
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/atoms/button'
+import { Badge } from '@/components/atoms/badge'
 import {
   Card,
   CardHeader,
@@ -17,14 +17,14 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { AgentBadge } from '@/components/shared/AgentBadge'
-import { ChatBubble, TypingIndicator } from '@/components/shared/ChatBubble'
-import { DiffViewer } from '@/components/shared/DiffViewer'
-import { ScrollArea } from '@/components/ui/scroll-area'
+} from '@/components/atoms/card'
+import { Progress } from '@/components/atoms/progress'
+import { Separator } from '@/components/atoms/separator'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/atoms/avatar'
+import { AgentBadge } from '@/components/molecules/AgentBadge'
+import { ChatBubble, TypingIndicator } from '@/components/molecules/ChatBubble'
+import { DiffViewer } from '@/components/molecules/DiffViewer'
+import { ScrollArea } from '@/components/atoms/scroll-area'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Section wrapper

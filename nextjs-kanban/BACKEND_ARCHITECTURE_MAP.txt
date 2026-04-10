@@ -1,0 +1,198 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                    BACKEND ARCHITECTURE QUICK REFERENCE                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📊 CODEBASE METRICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Total Backend LOC:     ~4,187 lines (excluding node_modules & generated)
+  API Routes:            1,241 lines across 19 files
+  Database Layer:        ~300 lines across 5 files  
+  Agent System:          ~900 lines (includes 555 LOC prompts file)
+  Hooks/Client:          ~910 lines across 7 files
+  Validations:           186 lines (centralized, single file)
+
+
+🏗️  ARCHITECTURAL LAYERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PRESENTATION LAYER (API Routes)
+  ├─ /api/tasks → CRUD + status validation
+  ├─ /api/projects → CRUD
+  ├─ /api/conversations → CRUD (messages stored as JSON)
+  ├─ /api/planning-threads → Long-running planning conversations
+  ├─ /api/agents → AI agent orchestration
+  └─ /api/analytics → Token usage tracking
+  
+  ORCHESTRATION LAYER (Agents + Services)
+  ├─ Agent Orchestrator (single agent, team, DAG tasks)
+  ├─ Agent Configs (Architect, Developer, Reviewer)
+  ├─ Agent Prompts (555 LOC, contains domain logic)
+  ├─ Agent Tools (DB query + mutation tools)
+  └─ Auto-Mode Controllers (column automation)
+
+  BUSINESS LOGIC LAYER (Status, Planning)
+  ├─ Status Lifecycle (valid transitions: TODO→IN_PROGRESS→IN_REVIEW→DONE)
+  ├─ Status Mapping (frontend ↔ database conversion)
+  ├─ Planning Service (threads + messages + agent integration)
+  └─ Security Utilities (validation, sanitization)
+
+  DATA ACCESS LAYER (Prisma DB)
+  ├─ tasks.ts (CRUD + batch + transition validation)
+  ├─ projects.ts (CRUD + task count aggregation)
+  ├─ conversations.ts (CRUD + JSON column handling)
+  ├─ planning-threads.ts (CRUD + cascade deletes)
+  └─ planning-messages.ts (CRUD + auto-timestamp updates)
+  
+  CLIENT LAYER (React Query Hooks)
+  ├─ useTasks (query + mutations, optimistic updates)
+  ├─ useProjects (query + mutations)
+  ├─ useConversations (pagination-aware)
+  ├─ usePlanningThreads + usePlanningMessages
+  ├─ useAgentStream (SSE event handling)
+  └─ useColumnAutoMode (complex state machine)
+
+
+🗄️  DATABASE SCHEMA (5 Models)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  Project
+  ├─ id, name, description, domain (enum)
+  ├─ tasks: Task[] (1:N)
+  └─ planningThreads: PlanningThread[] (1:N)
+
+  Task
+  ├─ id, title, description
+  ├─ status: TaskStatus enum (TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED)
+  ├─ priority: TaskPriority enum (LOW, MEDIUM, HIGH, URGENT)
+  ├─ projectId: String? (NULLABLE - no cascade)
+  ├─ project: Project? (N:1)
+  └─ conversations: Conversation[] (1:N)
+
+  Conversation
+  ├─ id, taskId, createdAt
+  ├─ messages: JSON (not validated)
+  ├─ result: JSON (not validated)
+  ├─ tokenUsage: JSON (input/output token counts)
+  └─ task: Task? (N:1)
+
+  PlanningThread
+  ├─ id, projectId, title, createdAt, updatedAt
+  ├─ project: Project (N:1, onDelete: Cascade)
+  └─ messages: PlanningMessage[] (1:N)
+
+  PlanningMessage
+  ├─ id, threadId, role (enum: user|assistant|system)
+  ├─ content, tokenUsage: JSON, createdAt
+  ├─ thread: PlanningThread (N:1, onDelete: Cascade)
+  └─ mutationActions: MutationAction[] (1:N)
+
+  MutationAction
+  ├─ id, messageId, mutationIndex, action (enum: approved|dismissed)
+  └─ message: PlanningMessage (N:1, onDelete: Cascade)
+
+
+🔴 CRITICAL CODE SMELLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  SEVERITY: HIGH (Blocking)
+  ✗ Schema/validation duplicated inline across route files
+    - /api/tasks/route.ts: taskStatusEnum defined
+    - /api/tasks/[id]/route.ts: taskStatusEnum redefined
+    - /api/conversations/route.ts: schema redefined
+    → Should centralize in lib/validations/{domain}.ts
+
+  SEVERITY: MEDIUM (Important)
+  ⚠ JSON columns lack type validation
+    - conversations.messages: any type
+    - conversations.result: any type
+    - planning-messages.tokenUsage: any type
+    → Add Zod validation schemas + TypeScript interfaces
+
+  ⚠ Task.projectId is nullable but no cascade delete
+    - Orphaned tasks possible
+    → Add onDelete: Cascade to schema
+
+  ⚠ Agent registry rebuilt per request (/api/agents/stream)
+    - Should be cached at process level
+    → Singleton pattern with startup initialization
+
+  ⚠ Long route handlers (65+ LOC)
+    - Planning message POST mixes DB + agent calls
+    → Extract into service layer
+
+  ⚠ Type duplication (TaskStatus defined in 2 places)
+    - lib/auto-mode/constants.ts
+    - types/domain.ts
+    → Single source of truth in types/domain.ts
+
+  ⚠ STATUS_COLORS duplicated with different values
+    - constants/status.ts
+    - constants/agents.ts
+    → Consolidate or clear dependency
+
+
+✅ STRENGTHS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  ✓ Centralized Zod validation schema (lib/validations/schemas.ts)
+  ✓ Thin, well-separated DB layer (lib/db/*)
+  ✓ Isolated status lifecycle logic (status-lifecycle.ts - reusable everywhere)
+  ✓ Clear agent orchestration pattern (configs + prompts + tools + registry)
+  ✓ Security utilities (sanitization, validation, limits)
+  ✓ React Query hooks with optimistic updates
+  ✓ Zustand for ephemeral UI state (modal, form, navigation)
+  ✓ Proper cascade deletes in schema for PlanningThread & PlanningMessage
+
+
+🎯 REFACTOR STRATEGY (Atomic Design Approach)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHASE 1: ATOMS (Types, Schemas, Utilities)
+  → Consolidate Zod schemas by domain
+  → Create TypeScript interfaces for JSON columns
+  → Fix type duplication across modules
+  
+  PHASE 2: MOLECULES (Services)
+  → Extract TaskService (CRUD + transitions)
+  → Extract PlanningService (threads + messages + agents)
+  → Extract ConversationService (CRUD + AI)
+  
+  PHASE 3: ORGANISMS (Route Handlers)
+  → Create lib/api/handlers/ with reusable middleware
+  → Implement withValidation(), withErrorHandling()
+  → Simplify routes to 10-15 LOC each
+  
+  PHASE 4: TYPE SAFETY
+  → Add Zod validation for JSON columns
+  → Fix agent registry to singleton pattern
+  → Improve SSE error recovery
+  
+  PHASE 5: OPTIMIZATION
+  → Parameterize agent prompts (reduce 555 LOC)
+  → Add barrel exports (lib/db/index.ts, lib/services/index.ts)
+  → Create middleware for logging, metrics, auth
+
+
+📈 ESTIMATED EFFORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  Priority 1 (Foundation):   1-2 days  [Schema consolidation, fixes]
+  Priority 2 (Core):         1-2 days  [Service extraction]
+  Priority 3 (Enhancement):  1 day     [Optimizations, docs]
+  Priority 4 (Polish):       0-1 days  [OpenAPI, logging]
+  
+  TOTAL: 3-5 days for full refactor
+
+
+KEY FILES TO UNDERSTAND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  ⭐ lib/status-lifecycle.ts         (Core shared logic: 81 LOC)
+  ⭐ lib/db/tasks.ts                 (DB + transition validation: 99 LOC)
+  ⭐ lib/validations/schemas.ts      (Centralized schemas: 186 LOC)
+  ⭐ app/api/planning-threads/[id]/messages/route.ts (Orchestration: 102 LOC)
+  ⭐ lib/agents/orchestrator.ts      (Agent coordination: 81 LOC)
+  ⭐ lib/agents/prompts.ts           (Domain logic: 555 LOC - TOO LARGE)
+  ⭐ lib/hooks/useTasks.ts           (Client queries: 139 LOC)
+  ⭐ prisma/schema.prisma            (Database schema: 125 LOC)
+

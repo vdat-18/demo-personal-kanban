@@ -1,5 +1,5 @@
 import { getProjects } from '@/lib/db/projects'
-import { HomeClient } from '@/components/home/HomeClient'
+import { DashboardTemplate } from '@/components/templates/DashboardTemplate'
 
 export const metadata = {
   title: 'Home | Personal Kanban',
@@ -27,5 +27,5 @@ export default async function HomePage() {
     tasks: (p.tasks ?? []).map((t: TaskRow) => ({ id: t.id, status: t.status })),
   }))
 
-  return <HomeClient initialProjects={serialized} />
+  return <DashboardTemplate initialProjects={serialized} />
 }

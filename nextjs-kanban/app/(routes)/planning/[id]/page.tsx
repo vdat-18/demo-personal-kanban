@@ -2,7 +2,7 @@ import { getProject } from '@/lib/db/projects'
 import { getThreadsByProject } from '@/lib/db/planning-threads'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { PlanningClient } from '@/components/planning/PlanningClient'
+import { PlanningTemplate } from '@/components/templates/PlanningTemplate'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -45,5 +45,5 @@ export default async function PlanningPage({ params }: Props) {
     })),
   }
 
-  return <PlanningClient project={serialized} />
+  return <PlanningTemplate project={serialized} />
 }
