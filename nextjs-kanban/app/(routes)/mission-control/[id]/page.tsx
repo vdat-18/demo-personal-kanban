@@ -1,7 +1,7 @@
 import { getProject } from '@/lib/db/projects'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { MissionControlClient } from '@/components/mission-control/MissionControlClient'
+import { MissionControlTemplate } from '@/components/templates/MissionControlTemplate'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -46,5 +46,5 @@ export default async function MissionControlPage({ params }: Props) {
     })),
   }
 
-  return <MissionControlClient project={serialized} />
+  return <MissionControlTemplate project={serialized} />
 }
