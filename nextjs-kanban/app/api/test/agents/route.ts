@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runAgent } from '@/lib/agents/orchestrator'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+  }
+
   try {
     const body = await request.json()
     const { testType } = body

@@ -6,17 +6,22 @@ import { TaskStatus, TaskPriority } from '../../generated/prisma'
 import { validateTransition } from '../../status-lifecycle'
 import type { TaskStatusValue } from '../../status-lifecycle'
 
+// NOTE: `as unknown as ZodSchema` is required because this project uses Zod v4
+// while @jackchen_me/open-multi-agent's defineTool expects Zod v3's ZodSchema type.
+// The runtime behaviour is correct — both versions produce compatible schema objects.
+
 export const dbQueryTool = defineTool({
   name: 'db_query',
   description: 'Query the database for tasks, projects, or conversations. Use this to fetch data from the database.',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 schema incompatible with library's Zod v3 ZodSchema type
   inputSchema: z.object({
     table: z.enum(['tasks', 'projects', 'conversations']).describe('The table to query'),
     filter: z.record(z.string(), z.unknown()).optional().describe('Filter conditions (e.g., { status: "TODO" })'),
     limit: z.number().optional().describe('Maximum number of results to return'),
   }) as any,
-  execute: async (input: unknown, context: ToolUseContext) => {
+  execute: async (input: { table: 'tasks' | 'projects' | 'conversations'; filter?: Record<string, unknown>; limit?: number }, context: ToolUseContext) => {
     void context
-    const { table, filter, limit } = input as { table: 'tasks' | 'projects' | 'conversations'; filter?: Record<string, unknown>; limit?: number }
+    const { table, filter, limit } = input
     try {
       const where = filter || {}
       const queryOptions = { where, take: limit }
@@ -62,6 +67,7 @@ export const dbQueryTool = defineTool({
 export const taskCreateTool = defineTool({
   name: 'task_create',
   description: 'Create a new task in the database. Use this to add tasks to a project.',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 schema incompatible with library's Zod v3 ZodSchema type
   inputSchema: z.object({
     title: z.string().describe('Task title'),
     description: z.string().optional().describe('Task description'),
@@ -69,9 +75,9 @@ export const taskCreateTool = defineTool({
     priority: z.nativeEnum(TaskPriority).optional().describe('Task priority (LOW, MEDIUM, HIGH, URGENT)'),
     projectId: z.string().optional().describe('Project ID to associate task with'),
   }) as any,
-  execute: async (input: unknown, context: ToolUseContext) => {
+  execute: async (input: { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; projectId?: string }, context: ToolUseContext) => {
     void context
-    const { title, description, status, priority, projectId } = input as { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; projectId?: string }
+    const { title, description, status, priority, projectId } = input
     try {
       const task = await prisma.task.create({
         data: {
@@ -99,6 +105,7 @@ export const taskCreateTool = defineTool({
 export const taskUpdateTool = defineTool({
   name: 'task_update',
   description: 'Update an existing task in the database. Use this to modify task properties.',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 schema incompatible with library's Zod v3 ZodSchema type
   inputSchema: z.object({
     id: z.string().describe('Task ID to update'),
     title: z.string().optional().describe('New task title'),
@@ -107,9 +114,9 @@ export const taskUpdateTool = defineTool({
     priority: z.nativeEnum(TaskPriority).optional().describe('New task priority'),
     projectId: z.string().optional().describe('New project ID'),
   }) as any,
-  execute: async (input: unknown, context: ToolUseContext) => {
+  execute: async (input: { id: string; title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; projectId?: string }, context: ToolUseContext) => {
     void context
-    const { id, title, description, status, priority, projectId } = input as { id: string; title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; projectId?: string }
+    const { id, title, description, status, priority, projectId } = input
     const updates: Record<string, string | TaskStatus | TaskPriority> = {}
     if (title !== undefined) updates.title = title
     if (description !== undefined) updates.description = description
@@ -118,7 +125,6 @@ export const taskUpdateTool = defineTool({
     if (projectId !== undefined) updates.projectId = projectId
 
     try {
-      // Validate status transition before updating
       if (status) {
         const existing = await prisma.task.findUnique({ where: { id } })
         if (!existing) {
@@ -164,12 +170,13 @@ export const taskUpdateTool = defineTool({
 export const taskDeleteTool = defineTool({
   name: 'task_delete',
   description: 'Delete a task from the database. Use this to remove tasks.',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 schema incompatible with library's Zod v3 ZodSchema type
   inputSchema: z.object({
     id: z.string().describe('Task ID to delete'),
   }) as any,
-  execute: async (input: unknown, context: ToolUseContext) => {
+  execute: async (input: { id: string }, context: ToolUseContext) => {
     void context
-    const { id } = input as { id: string }
+    const { id } = input
     try {
       await prisma.task.delete({
         where: { id },
@@ -190,13 +197,14 @@ export const taskDeleteTool = defineTool({
 export const projectCreateTool = defineTool({
   name: 'project_create',
   description: 'Create a new project in the database. Use this to organize tasks.',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 schema incompatible with library's Zod v3 ZodSchema type
   inputSchema: z.object({
     name: z.string().describe('Project name'),
     description: z.string().optional().describe('Project description'),
   }) as any,
-  execute: async (input: unknown, context: ToolUseContext) => {
+  execute: async (input: { name: string; description?: string }, context: ToolUseContext) => {
     void context
-    const { name, description } = input as { name: string; description?: string }
+    const { name, description } = input
     try {
       const project = await prisma.project.create({
         data: {

@@ -1,10 +1,10 @@
 import prisma from './client'
-import { Task, TaskStatus, TaskPriority } from '../generated/prisma'
+import { TaskStatus, TaskPriority, Prisma } from '../generated/prisma'
 import { validateTransition, InvalidTransitionError } from '../status-lifecycle'
 import type { TaskStatusValue } from '../status-lifecycle'
 
 export async function getTasks(status?: TaskStatus, projectId?: string) {
-  const where: any = {}
+  const where: Prisma.TaskWhereInput = {}
   if (status) where.status = status
   if (projectId) where.projectId = projectId
 
