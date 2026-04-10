@@ -12,6 +12,7 @@ interface TaskMutationCardProps {
 
 export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutationCardProps) {
   const [isApproving, setIsApproving] = useState(false)
+  const [isApplied, setIsApplied] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,6 +23,7 @@ export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutatio
     setError(null)
     try {
       await onApprove(mutation)
+      setIsApplied(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to apply')
     } finally {
@@ -66,6 +68,29 @@ export function TaskMutationCard({ mutation, onApprove, onDismiss }: TaskMutatio
     description = mutation.reason || 'Remove task'
   }
 
+  // ─── Applied state ────────────────────────────────────────────────────
+  if (isApplied) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 mt-2">
+        <div className="flex items-start gap-2 opacity-60">
+          <div className="mt-0.5 text-green-500">
+            <Check className="w-3.5 h-3.5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{label}</span>
+            </div>
+            <p className="text-sm text-gray-500 font-medium line-through">{description}</p>
+          </div>
+          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">
+            Applied ✓
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Default state ───────────────────────────────────────────────────
   return (
     <div className={`rounded-xl border p-3 mt-2 ${colorClass}`}>
       <div className="flex items-start gap-2">

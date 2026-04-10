@@ -15,6 +15,10 @@ import {
 } from 'lucide-react'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
+import { useColumnAutoMode } from '@/lib/hooks/useColumnAutoMode'
+import { AUTO_MODE_COLUMNS } from '@/lib/auto-mode/constants'
+import { AutoModeToggle } from '@/components/mission-control/AutoModeToggle'
+import { AutoModeStatusBar } from '@/components/mission-control/AutoModeStatusBar'
 
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
@@ -102,6 +106,14 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
     }
   }, [])
 
+  // ── Auto-mode hook ──────────────────────────────────────────────────────────
+  const {
+    columnStates: autoModeStates,
+    toggle: toggleAutoMode,
+    dismissError: dismissAutoModeError,
+    autoProcessingTaskIds,
+  } = useColumnAutoMode({ tasks, updateTaskStatus })
+
   const handleDragStart = (e: React.DragEvent, taskId: string, taskStatus: TaskStatus) => {
     e.dataTransfer.setData('taskId', taskId)
     e.dataTransfer.setData('taskStatus', taskStatus)
@@ -171,6 +183,8 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
               : true
             const isDragging = draggingTaskId !== null
             const isHovering = dragOverColumn === column.id
+            const isAutoModeColumn = AUTO_MODE_COLUMNS.includes(column.id as any)
+            const colAutoState = autoModeStates[column.id]
 
             return (
             <div
@@ -199,30 +213,82 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                     {getTasksByStatus(column.id).length}
                   </span>
                 </div>
-                <button className="text-gray-300 hover:text-black transition-colors p-2 hover:bg-white rounded-xl shadow-sm">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {isAutoModeColumn && colAutoState && (
+                    <AutoModeToggle
+                      enabled={colAutoState.enabled}
+                      status={colAutoState.status}
+                      onToggle={() => toggleAutoMode(column.id)}
+                    />
+                  )}
+                  <button className="text-gray-300 hover:text-black transition-colors p-2 hover:bg-white rounded-xl shadow-sm">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
+              {/* Auto-mode status bar */}
+              {isAutoModeColumn && colAutoState && colAutoState.enabled && (
+                <AutoModeStatusBar
+                  status={colAutoState.status}
+                  activeTaskTitle={
+                    colAutoState.activeTaskId
+                      ? tasks.find((t) => t.id === colAutoState.activeTaskId)?.title ?? null
+                      : null
+                  }
+                  error={colAutoState.error}
+                  onDismissError={() => dismissAutoModeError(column.id)}
+                />
+              )}
+              {/* Also show error bar when auto mode errored (it disables itself) */}
+              {isAutoModeColumn && colAutoState && colAutoState.status === 'error' && !colAutoState.enabled && (
+                <AutoModeStatusBar
+                  status={colAutoState.status}
+                  activeTaskTitle={null}
+                  error={colAutoState.error}
+                  onDismissError={() => dismissAutoModeError(column.id)}
+                />
+              )}
+
               <div className="p-4 overflow-y-auto flex flex-col gap-4 flex-1">
-                {getTasksByStatus(column.id).map((task) => (
+                {getTasksByStatus(column.id).map((task) => {
+                  const isAutoProcessing = autoProcessingTaskIds.has(task.id)
+
+                  return (
                   <div
                     key={task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id, task.status)}
-                    onClick={() => task.status !== 'BLOCKED' && router.push(`/chat/${task.id}`)}
+                    draggable={!isAutoProcessing}
+                    onDragStart={(e) => {
+                      if (isAutoProcessing) { e.preventDefault(); return }
+                      handleDragStart(e, task.id, task.status)
+                    }}
+                    onClick={() => {
+                      if (isAutoProcessing) return
+                      if (task.status !== 'BLOCKED') router.push(`/chat/${task.id}`)
+                    }}
                     className={`bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-b-4 transition-all group relative select-none ${
-                      task.status === 'BLOCKED'
+                      isAutoProcessing
+                        ? 'ring-2 ring-violet-300 border-violet-200 shadow-lg shadow-violet-100/50 cursor-default'
+                        : task.status === 'BLOCKED'
                         ? 'opacity-60 cursor-default border-red-100'
                         : 'hover:border-blue-400 hover:shadow-xl hover:shadow-blue-900/5 cursor-pointer'
-                    } ${task.status === 'IN_PROGRESS' ? 'ring-2 ring-blue-100 border-blue-200 shadow-lg' : ''}`}
+                    } ${!isAutoProcessing && task.status === 'IN_PROGRESS' ? 'ring-2 ring-blue-100 border-blue-200 shadow-lg' : ''}`}
                   >
                     <div className="flex flex-col gap-3">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.2em] uppercase border w-fit ${STATUS_COLORS[task.status]}`}>
-                        {task.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.2em] uppercase border w-fit ${STATUS_COLORS[task.status]}`}>
+                          {task.status}
+                        </span>
+                        {isAutoProcessing && (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.15em] uppercase bg-violet-50 text-violet-600 border border-violet-200 animate-pulse">
+                            Auto-processing
+                          </span>
+                        )}
+                      </div>
                       <h3 className={`font-bold text-sm leading-snug pr-4 ${
-                        task.status === 'BLOCKED' ? 'text-gray-400 line-through' : 'text-[#0a192f] group-hover:text-blue-600 transition-colors'
+                        isAutoProcessing
+                          ? 'text-violet-700'
+                          : task.status === 'BLOCKED' ? 'text-gray-400 line-through' : 'text-[#0a192f] group-hover:text-blue-600 transition-colors'
                       }`}>
                         {task.title}
                       </h3>
@@ -269,7 +335,8 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                       </p>
                     )}
                   </div>
-                ))}
+                  )
+                })}
 
                 {getTasksByStatus(column.id).length === 0 && (
                   <div className={`flex-1 flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-[2.5rem] bg-white/30 ${
@@ -312,6 +379,17 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
               <span className={`font-bold text-base ${color}`}>{value}</span>
             </div>
           ))}
+          {/* Auto-mode indicator */}
+          {(() => {
+            const enabledCount = AUTO_MODE_COLUMNS.filter((col) => autoModeStates[col]?.enabled).length
+            if (enabledCount === 0) return null
+            return (
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Auto</span>
+                <span className="font-bold text-base text-violet-600">{enabledCount}/{AUTO_MODE_COLUMNS.length}</span>
+              </div>
+            )
+          })()}
         </div>
         <button
           onClick={() => router.push(`/summary/${project.id}`)}
