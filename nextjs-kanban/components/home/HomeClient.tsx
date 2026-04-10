@@ -11,12 +11,34 @@ import {
   Sparkles,
   Layout,
   Trash2,
+  Code2,
+  Megaphone,
+  TrendingUp,
+  Truck,
 } from 'lucide-react'
+
+type ProjectDomain = 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LOGISTICS'
+
+const DOMAIN_OPTIONS: Array<{
+  value: ProjectDomain
+  label: string
+  icon: typeof Code2
+  color: string
+  bgColor: string
+  borderColor: string
+  placeholder: string
+}> = [
+  { value: 'SOFTWARE_ENGINEERING', label: 'Software', icon: Code2, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', placeholder: 'e.g., E-commerce Platform Rebuild' },
+  { value: 'MARKETING', label: 'Marketing', icon: Megaphone, color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', placeholder: 'e.g., Q3 Product Launch Campaign' },
+  { value: 'SALES', label: 'Sales', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200', placeholder: 'e.g., Enterprise Pipeline Expansion' },
+  { value: 'LOGISTICS', label: 'Logistics', icon: Truck, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', placeholder: 'e.g., Warehouse Fulfillment Optimization' },
+]
 
 interface Project {
   id: string
   name: string
   description?: string | null
+  domain?: ProjectDomain
   status: string
   createdAt: string
   tasks: Array<{ id: string; status: string }>
@@ -32,6 +54,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [showModal, setShowModal] = useState(false)
   const [projectName, setProjectName] = useState('')
+  const [selectedDomain, setSelectedDomain] = useState<ProjectDomain>('SOFTWARE_ENGINEERING')
   const [importMode, setImportMode] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -42,7 +65,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: projectName, description: `Drafting project vision for ${projectName}...` }),
+        body: JSON.stringify({ name: projectName, description: `Drafting project vision for ${projectName}...`, domain: selectedDomain }),
       })
       if (!res.ok) throw new Error('Failed to create project')
       const newProject: Project = await res.json()
@@ -55,7 +78,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
     } finally {
       setIsCreating(false)
     }
-  }, [projectName, router])
+  }, [projectName, selectedDomain, router])
 
   const handleDeleteProject = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -239,13 +262,33 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
                 <Plus className="w-10 h-10" />
               </div>
               <h3 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Project Identity</h3>
-              <p className="text-slate-400 font-medium mb-10 text-center text-lg">
-                Give your project a clear name to help our AI agents align with your vision.
+              <p className="text-slate-400 font-medium mb-8 text-center text-lg">
+                Choose a domain and name your project.
               </p>
+
+              {/* Domain Picker */}
+              <div className="w-full grid grid-cols-4 gap-3 mb-8">
+                {DOMAIN_OPTIONS.map(({ value, label, icon: Icon, color, bgColor, borderColor }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSelectedDomain(value)}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 ${
+                      selectedDomain === value
+                        ? `${bgColor} ${borderColor} ${color} scale-[1.02] shadow-md`
+                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Icon className="w-6 h-6" />
+                    <span className="text-[10px] font-black uppercase tracking-wider">{label}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="w-full space-y-6">
                 <input
                   type="text"
-                  placeholder="e.g., Marketing Strategy 2024"
+                  placeholder={DOMAIN_OPTIONS.find((d) => d.value === selectedDomain)?.placeholder}
                   autoFocus
                   className="w-full bg-slate-50 border-4 border-slate-50 rounded-3xl px-8 py-6 text-xl text-slate-800 font-bold placeholder:text-slate-300 focus:border-blue-500/20 focus:bg-white outline-none transition-all shadow-inner"
                   value={projectName}

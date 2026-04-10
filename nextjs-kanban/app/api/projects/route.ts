@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getProjects, createProject } from '@/lib/db/projects'
+import { createProjectSchema } from '@/lib/validations/schemas'
 import { z } from 'zod'
-
-const createProjectSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
-})
 
 export async function GET(request: NextRequest) {
   try {

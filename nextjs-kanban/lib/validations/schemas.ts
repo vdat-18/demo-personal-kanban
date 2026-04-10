@@ -48,9 +48,17 @@ export const taskQuerySchema = z.object({
 // Project schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const projectDomainSchema = z.enum([
+  'SOFTWARE_ENGINEERING',
+  'MARKETING',
+  'SALES',
+  'LOGISTICS',
+])
+
 export const createProjectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Name too long'),
   description: z.string().max(2000, 'Description too long').optional(),
+  domain: projectDomainSchema.default('SOFTWARE_ENGINEERING'),
 })
 
 export const updateProjectSchema = z.object({

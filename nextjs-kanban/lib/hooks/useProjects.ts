@@ -8,6 +8,7 @@ export interface Project {
   id: string
   name: string
   description: string | null
+  domain: 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LOGISTICS'
   status: string | null
   createdAt: string
   updatedAt: string
@@ -48,7 +49,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
+    mutationFn: async (data: { name: string; description?: string; domain?: Project['domain'] }) => {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -7,6 +7,13 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ProjectDomain {
+  SOFTWARE_ENGINEERING
+  MARKETING
+  SALES
+  LOGISTICS
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -26,6 +33,7 @@ model Project {
   id              String           @id @default(uuid())
   name            String
   description     String?
+  domain          ProjectDomain    @default(SOFTWARE_ENGINEERING)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   tasks           Task[]

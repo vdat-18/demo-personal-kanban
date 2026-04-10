@@ -1,5 +1,5 @@
 import prisma from './client'
-import { Project } from '../generated/prisma'
+import { ProjectDomain } from '../generated/prisma'
 
 export async function getProjects() {
   return prisma.project.findMany({
@@ -15,7 +15,7 @@ export async function getProject(id: string) {
   })
 }
 
-export async function createProject(data: { name: string; description?: string }) {
+export async function createProject(data: { name: string; description?: string; domain?: ProjectDomain }) {
   return prisma.project.create({
     data
   })
