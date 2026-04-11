@@ -17,6 +17,7 @@ import {
   usePlanningThreads,
   useCreatePlanningThread,
   useDeletePlanningThread,
+  useUpdatePlanningThread,
 } from '@/lib/hooks/usePlanningThreads'
 import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
@@ -57,6 +58,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const { data: threads = [], isLoading: threadsLoading } = usePlanningThreads(initialProject.id)
   const createThread = useCreatePlanningThread()
   const deleteThread = useDeletePlanningThread()
+  const renameThread = useUpdatePlanningThread()
 
   // ─── Message hooks ─────────────────────────────────────────────────────
   const { data: messages = [], isLoading: messagesLoading } = usePlanningMessages(activeThreadId)
@@ -127,6 +129,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     [deleteThread, initialProject.id, activeThreadId, threads],
   )
 
+  const handleRenameThread = useCallback(
+    (id: string, title: string) => {
+      renameThread.mutate({ id, projectId: initialProject.id, title })
+    },
+    [renameThread, initialProject.id],
+  )
+
   const handleApproveMutation = useCallback(
     async (mutation: TaskMutation) => {
       if (mutation.action === 'add') {
@@ -176,6 +185,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           onSelectThread={setActiveThreadId}
           onNewThread={handleNewThread}
           onDeleteThread={handleDeleteThread}
+          onRenameThread={handleRenameThread}
           isCreating={createThread.isPending}
           isLoading={threadsLoading}
         />

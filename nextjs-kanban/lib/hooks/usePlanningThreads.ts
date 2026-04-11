@@ -58,3 +58,20 @@ export function useDeletePlanningThread() {
     },
   })
 }
+export function useUpdatePlanningThread() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, projectId, title }: { id: string; projectId: string; title: string }) => {
+      const res = await fetch(`/api/planning-threads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      if (!res.ok) throw new Error('Failed to update thread')
+      return res.json() as Promise<PlanningThread>
+    },
+    onSuccess: (thread) => {
+      qc.invalidateQueries({ queryKey: ['planning-threads', thread.projectId] })
+    },
+  })
+}

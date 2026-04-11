@@ -62,3 +62,33 @@ export async function DELETE(
     )
   }
 }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Params },
+) {
+  try {
+    const { id } = await params
+    uuidSchema.parse(id)
+
+    const body = await request.json()
+    const { title } = z.object({ title: z.string().min(1) }).parse(body)
+
+    const { updateThread } = await import('@/lib/db/planning-threads')
+    const thread = await updateThread(id, { title })
+
+    return NextResponse.json(thread)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 },
+      )
+    }
+
+    console.error('Error updating planning thread:', error)
+    return NextResponse.json(
+      { error: 'Failed to update planning thread' },
+      { status: 500 },
+    )
+  }
+}
