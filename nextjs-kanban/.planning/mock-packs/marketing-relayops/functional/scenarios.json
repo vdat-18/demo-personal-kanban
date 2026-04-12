@@ -1,0 +1,118 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "scenarios": [
+    {
+      "scenarioId": "mkt_happy_path_001",
+      "title": "Happy path from planning to completed briefs",
+      "type": "happy_path",
+      "objective": "Prove the core product story: context -> planning -> generated tasks -> mission control -> representative task completion.",
+      "preconditions": [
+        "RelayOps project exists in MARKETING domain.",
+        "All seven context files are available.",
+        "Planning thread starts in discovery."
+      ],
+      "steps": [
+        "Create the RelayOps project.",
+        "Create a planning thread and reference the seven uploaded documents.",
+        "Advance from discovery to blueprint once the KPI target is explicit.",
+        "Advance from blueprint to task_mapping and use Generate Tasks from Chat.",
+        "Move task tsk_mkt_005 through TODO -> IN_PROGRESS -> IN_REVIEW -> DONE with all three briefs attached."
+      ],
+      "expectedOutcomes": [
+        "Seven tasks exist.",
+        "Task generation happens only after task_mapping is reached.",
+        "The brief task ends in DONE with three concrete deliverable files."
+      ],
+      "artifactChecks": [
+        "tutorial/deliverables/content_brief_ops_risk.md",
+        "tutorial/deliverables/content_brief_audit_readiness.md",
+        "tutorial/deliverables/content_brief_compliance_roi.md"
+      ]
+    },
+    {
+      "scenarioId": "mkt_planning_blocker_001",
+      "title": "Missing launch brief blocks task-generation recommendation",
+      "type": "planning_blocker",
+      "objective": "Ensure incomplete business context does not advance the thread to task_mapping.",
+      "preconditions": [
+        "launch_brief_audit_assistant.md is missing or not referenced"
+      ],
+      "steps": [
+        "Start planning with only the brand framework and interview notes.",
+        "Ask the planner for task generation prematurely."
+      ],
+      "expectedOutcomes": [
+        "The planner explicitly asks for the launch brief.",
+        "The thread does not progress to task_mapping.",
+        "Generate Tasks from Chat is not yet appropriate."
+      ],
+      "artifactChecks": [
+        "tutorial/documents/launch_brief_audit_assistant.md"
+      ]
+    },
+    {
+      "scenarioId": "mkt_review_gate_001",
+      "title": "Reviewer rejects incomplete content brief package",
+      "type": "review_gate",
+      "objective": "Prove that a task may reach IN_REVIEW but still fail the scenario acceptance check.",
+      "preconditions": [
+        "Task tsk_mkt_005 is in IN_PROGRESS."
+      ],
+      "steps": [
+        "Move tsk_mkt_005 to IN_REVIEW with only one draft brief present.",
+        "Run the reviewer acceptance check."
+      ],
+      "expectedOutcomes": [
+        "The reviewer rejects the task as incomplete.",
+        "The task returns to IN_PROGRESS.",
+        "The scenario feedback points out the missing two briefs and missing acceptance evidence."
+      ],
+      "artifactChecks": [
+        "tutorial/deliverables/content_brief_ops_risk.md"
+      ]
+    },
+    {
+      "scenarioId": "mkt_blocked_recovery_001",
+      "title": "Blocked KPI tracker is restored and completed",
+      "type": "blocked_recovery",
+      "objective": "Exercise the app's actual blocked-task recovery path.",
+      "preconditions": [
+        "Task tsk_mkt_007 is BLOCKED because source systems are not yet confirmed."
+      ],
+      "steps": [
+        "Confirm that HubSpot campaign attribution and the web analytics launch dashboard are the source systems.",
+        "Restore the task from BLOCKED to TODO.",
+        "Move the task through IN_PROGRESS -> IN_REVIEW -> DONE."
+      ],
+      "expectedOutcomes": [
+        "The restore step uses BLOCKED -> TODO rather than a direct jump to DONE.",
+        "The KPI tracker spec is present before final approval."
+      ],
+      "artifactChecks": [
+        "tutorial/deliverables/kpi_tracker_spec.md"
+      ]
+    },
+    {
+      "scenarioId": "mkt_task_mutation_001",
+      "title": "Planning-side mutation refines KPI task description",
+      "type": "planning_mutation",
+      "objective": "Exercise the planning mutation workflow after tasks already exist.",
+      "preconditions": [
+        "Task generation has already created tsk_mkt_007."
+      ],
+      "steps": [
+        "Ask the planner to tighten the KPI task without changing the title.",
+        "Approve the returned mutation for tsk_mkt_007."
+      ],
+      "expectedOutcomes": [
+        "The mutation updates only the description field.",
+        "The mutation action is saved as approved.",
+        "The new description includes source systems and weekly cadence."
+      ],
+      "artifactChecks": [
+        "tutorial/planner_chat.json",
+        "unit/api_mock_responses.json"
+      ]
+    }
+  ]
+}

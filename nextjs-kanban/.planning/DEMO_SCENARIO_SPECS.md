@@ -16,6 +16,10 @@ The scenarios are not full mock packs yet. They are decision-complete scenario s
 - functional QA scenarios
 - demo scripts
 
+Current implementation status:
+
+- The RelayOps marketing scenario now has a full mock pack at [`mock-packs/marketing-relayops/README.md`](./mock-packs/marketing-relayops/README.md).
+
 ## Shared Pack Contract
 
 Every scenario in this document uses the same shape:
@@ -35,6 +39,7 @@ Every scenario in this document uses the same shape:
 Important constraints for all three:
 
 - Status language matches the current app: `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`, `BLOCKED`
+- Planning readiness is modeled as phase progression and task-generation readiness, not as a separate board-lock API
 - Dependencies described here are logical sequencing rules for the scenario, not app-enforced persistent dependencies
 - Uploaded documents are part of the scenario contract even though the current product does not fully operationalize document ingestion end to end
 
@@ -114,7 +119,7 @@ Expected planner behavior in the blocker path:
 
 - state that context is still incomplete
 - ask for the missing launch brief or KPI target explicitly
-- keep the board locked
+- do not recommend task generation yet or advance the thread into `task_mapping`
 
 ### Generated Task Map
 
@@ -230,7 +235,7 @@ Expected planner behavior in the blocker path:
 
 - explain that the team cannot responsibly promise coverage without capacity and role-serviceability data
 - ask for the missing file explicitly
-- keep the board locked
+- do not recommend task generation yet or advance the thread into `task_mapping`
 
 ### Generated Task Map
 
@@ -347,7 +352,7 @@ Expected planner behavior in the blocker path:
 
 - explain that the site cannot be scheduled for go-live without system and transport readiness
 - request the missing cutover or carrier information explicitly
-- keep the board locked
+- do not recommend task generation yet or advance the thread into `task_mapping`
 
 ### Generated Task Map
 

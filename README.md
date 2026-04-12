@@ -115,5 +115,6 @@ For system understanding rather than setup, start here:
 
 - [`nextjs-kanban/.planning/CURRENT_SYSTEM_SNAPSHOT.md`](./nextjs-kanban/.planning/CURRENT_SYSTEM_SNAPSHOT.md) — product vision, current flow, implemented features, gaps
 - [`nextjs-kanban/.planning/DEMO_SCENARIO_SPECS.md`](./nextjs-kanban/.planning/DEMO_SCENARIO_SPECS.md) — three current-product-first demo/test scenario briefs
+- [`nextjs-kanban/.planning/mock-packs/marketing-relayops/README.md`](./nextjs-kanban/.planning/mock-packs/marketing-relayops/README.md) — full RelayOps marketing mock pack with tutorial, unit, and functional fixtures
 - [`nextjs-kanban/README.md`](./nextjs-kanban/README.md) — maintained app overview
 - [`nextjs-kanban/QUICK_REFERENCE.md`](./nextjs-kanban/QUICK_REFERENCE.md) — file and API navigation

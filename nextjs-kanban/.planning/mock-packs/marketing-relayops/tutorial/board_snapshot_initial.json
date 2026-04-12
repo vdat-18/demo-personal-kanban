@@ -1,0 +1,157 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "snapshotId": "board_marketing_relayops_initial",
+  "capturedAt": "2026-04-10T16:30:00.000Z",
+  "project": {
+    "canonicalId": "proj_marketing_relayops_001",
+    "appId": "11111111-1111-4111-8111-111111111111",
+    "name": "RelayOps Audit Assistant Content Engine",
+    "domain": "MARKETING"
+  },
+  "columnOrder": [
+    "TODO",
+    "IN_PROGRESS",
+    "IN_REVIEW",
+    "DONE",
+    "BLOCKED"
+  ],
+  "counts": {
+    "TODO": 7,
+    "IN_PROGRESS": 0,
+    "IN_REVIEW": 0,
+    "DONE": 0,
+    "BLOCKED": 0
+  },
+  "columns": {
+    "TODO": [
+      {
+        "canonicalId": "tsk_mkt_001",
+        "appId": "44444444-4444-4444-8444-000000000001",
+        "title": "Define target audience and launch success metrics",
+        "description": "Confirm the primary buyer, supporting stakeholders, and the launch KPI target for the eight-week content engine.",
+        "status": "TODO",
+        "priority": "HIGH",
+        "owner": "Priya Nwosu",
+        "dependsOn": [],
+        "requiredDeliverable": "Audience definition and KPI statement",
+        "acceptanceCriteria": [
+          "Primary audience is explicit.",
+          "Secondary stakeholders are named.",
+          "The 45 assisted demo request KPI has a window and owner."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_002",
+        "appId": "44444444-4444-4444-8444-000000000002",
+        "title": "Approve the launch messaging matrix",
+        "description": "Translate the approved positioning into a launch messaging matrix with proof pillars and objection handling.",
+        "status": "TODO",
+        "priority": "URGENT",
+        "owner": "Maya Chen",
+        "dependsOn": [
+          "tsk_mkt_001"
+        ],
+        "requiredDeliverable": "Messaging matrix",
+        "acceptanceCriteria": [
+          "Primary message is final.",
+          "Proof pillars are documented.",
+          "Sales objections are reflected in the matrix."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_003",
+        "appId": "44444444-4444-4444-8444-000000000003",
+        "title": "Select topic clusters and SEO priorities",
+        "description": "Choose the launch topic clusters and search opportunities that support the approved message architecture.",
+        "status": "TODO",
+        "priority": "HIGH",
+        "owner": "Elena Brooks",
+        "dependsOn": [
+          "tsk_mkt_002"
+        ],
+        "requiredDeliverable": "Priority topic-cluster list",
+        "acceptanceCriteria": [
+          "Three clusters are selected.",
+          "Priority keywords are assigned.",
+          "The rationale connects search demand to the launch story."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_004",
+        "appId": "44444444-4444-4444-8444-000000000004",
+        "title": "Build the 8-week editorial calendar",
+        "description": "Turn the approved clusters into an eight-week calendar with one primary asset per week and clear ownership.",
+        "status": "TODO",
+        "priority": "URGENT",
+        "owner": "Elena Brooks",
+        "dependsOn": [
+          "tsk_mkt_003"
+        ],
+        "requiredDeliverable": "Editorial calendar",
+        "acceptanceCriteria": [
+          "Eight weekly entries exist.",
+          "Each entry has an owner, format, channel, and CTA.",
+          "The cadence respects production limits."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_005",
+        "appId": "44444444-4444-4444-8444-000000000005",
+        "title": "Draft 3 priority content briefs",
+        "description": "Produce execution-ready briefs for the operations-risk, audit-readiness, and compliance-ROI assets.",
+        "status": "TODO",
+        "priority": "HIGH",
+        "owner": "Elena Brooks",
+        "dependsOn": [
+          "tsk_mkt_004"
+        ],
+        "requiredDeliverable": "Three approved content briefs",
+        "acceptanceCriteria": [
+          "Three briefs exist.",
+          "Each brief includes audience, angle, target keyword, CTA, and SME needs.",
+          "The briefs address at least one objection or customer pain pattern."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_006",
+        "appId": "44444444-4444-4444-8444-000000000006",
+        "title": "Create the distribution checklist by channel",
+        "description": "Define launch distribution steps for website, email, webinar, social, and sales handoff.",
+        "status": "TODO",
+        "priority": "MEDIUM",
+        "owner": "Samir Patel",
+        "dependsOn": [
+          "tsk_mkt_005"
+        ],
+        "requiredDeliverable": "Distribution checklist",
+        "acceptanceCriteria": [
+          "Each channel has an owner.",
+          "Asset dependencies are explicit.",
+          "Sales handoff is covered."
+        ]
+      },
+      {
+        "canonicalId": "tsk_mkt_007",
+        "appId": "44444444-4444-4444-8444-000000000007",
+        "title": "Define KPI tracker and reporting cadence",
+        "description": "Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine.",
+        "status": "TODO",
+        "priority": "HIGH",
+        "owner": "Maya Chen",
+        "dependsOn": [
+          "tsk_mkt_004"
+        ],
+        "requiredDeliverable": "KPI tracker specification",
+        "acceptanceCriteria": [
+          "Primary and supporting metrics are explicit.",
+          "Source systems are named.",
+          "Owners and cadence are documented."
+        ]
+      }
+    ],
+    "IN_PROGRESS": [],
+    "IN_REVIEW": [],
+    "DONE": [],
+    "BLOCKED": []
+  }
+}

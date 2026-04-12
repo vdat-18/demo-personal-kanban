@@ -1,0 +1,246 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "project": {
+    "canonicalId": "proj_marketing_relayops_001",
+    "appId": "11111111-1111-4111-8111-111111111111",
+    "name": "RelayOps Audit Assistant Content Engine"
+  },
+  "thread": {
+    "canonicalId": "thread_marketing_relayops_001",
+    "appId": "22222222-2222-4222-8222-222222222222",
+    "title": "RelayOps Audit Assistant content launch planning",
+    "initialPhase": "discovery",
+    "finalPhase": "task_mapping"
+  },
+  "plannerRecommendationGate": {
+    "requiredExplicits": [
+      "core audience definition",
+      "primary product message",
+      "content KPI target",
+      "launch scope and time horizon"
+    ],
+    "unlockBehavior": "Advance to task_mapping and recommend Generate Tasks from Chat only after the launch brief and KPI target are explicit."
+  },
+  "phaseTransitions": [
+    {
+      "from": "discovery",
+      "to": "blueprint",
+      "messageId": "33333333-3333-4333-8333-000000000004",
+      "timestamp": "2026-04-08T15:22:00.000Z"
+    },
+    {
+      "from": "blueprint",
+      "to": "task_mapping",
+      "messageId": "33333333-3333-4333-8333-000000000006",
+      "timestamp": "2026-04-10T14:18:00.000Z"
+    }
+  ],
+  "transcript": [
+    {
+      "messageKey": "msg_plan_001",
+      "id": "33333333-3333-4333-8333-000000000001",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "Maya Chen",
+      "actorId": "usr_001",
+      "role": "user",
+      "phase": "discovery",
+      "timestamp": "2026-04-06T09:05:00.000Z",
+      "references": [
+        "launch_brief_audit_assistant.md",
+        "brand_messaging_framework.md",
+        "icp_interview_notes.csv"
+      ],
+      "content": [
+        "We are launching Audit Assistant in early May and need one coherent eight-week content engine instead of scattered asset requests.",
+        "The launch brief, brand messaging framework, and ICP interview notes are uploaded.",
+        "I want this plan to work for marketing execution and for sales follow-up, not just for SEO."
+      ]
+    },
+    {
+      "messageKey": "msg_plan_002",
+      "id": "33333333-3333-4333-8333-000000000002",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "RelayOps Marketing Architect",
+      "actorId": "agt_001",
+      "role": "assistant",
+      "phase": "discovery",
+      "timestamp": "2026-04-06T09:07:00.000Z",
+      "references": [
+        "launch_brief_audit_assistant.md",
+        "brand_messaging_framework.md",
+        "icp_interview_notes.csv"
+      ],
+      "content": [
+        "The launch brief and messaging framework already support a clear operations-led narrative, and the interview notes confirm that scramble and ownership confusion are the main pains.",
+        "Before I can recommend task generation, I still need the KPI target to be explicit and I need confirmation that the content window truly runs across late April through mid June.",
+        "Please confirm the success metric and any channel-performance constraints."
+      ]
+    },
+    {
+      "messageKey": "msg_plan_003",
+      "id": "33333333-3333-4333-8333-000000000003",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "Priya Nwosu",
+      "actorId": "usr_002",
+      "role": "user",
+      "phase": "discovery",
+      "timestamp": "2026-04-08T15:18:00.000Z",
+      "references": [
+        "webinar_and_blog_performance.csv",
+        "common_sales_objections.md",
+        "keyword_gap_analysis.csv",
+        "competitor_content_teardown.md"
+      ],
+      "content": [
+        "Use 45 assisted demo requests as the primary KPI for the eight-week window from 2026-04-20 through 2026-06-12.",
+        "Webinars and operational blog content performed best, and sales wants the plan to address the spreadsheet and ROI objections directly.",
+        "SEO should focus on audit readiness, evidence workflow, and leadership visibility rather than generic compliance checklist content."
+      ]
+    },
+    {
+      "messageKey": "msg_plan_004",
+      "id": "33333333-3333-4333-8333-000000000004",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "RelayOps Marketing Architect",
+      "actorId": "agt_001",
+      "role": "assistant",
+      "phase": "blueprint",
+      "timestamp": "2026-04-08T15:22:00.000Z",
+      "phaseTag": "blueprint",
+      "references": [
+        "launch_brief_audit_assistant.md",
+        "brand_messaging_framework.md",
+        "keyword_gap_analysis.csv",
+        "competitor_content_teardown.md",
+        "common_sales_objections.md"
+      ],
+      "content": [
+        "You now have enough business signal to move into blueprint.",
+        "The primary audience is an operations leader at a mid-market company with recurring audit pressure, and the message should center on moving from scramble-based prep to always-ready operations without adding headcount.",
+        "The best launch spine is messaging matrix -> topic clusters -> editorial calendar -> three flagship briefs -> channel distribution -> KPI tracker."
+      ],
+      "visionUpdate": [
+        "# RelayOps Audit Assistant Launch Blueprint",
+        "",
+        "## Audience",
+        "- Primary buyer: Director or Senior Manager of Operations",
+        "- Secondary influences: Compliance manager, operations systems lead, sales champion",
+        "",
+        "## Message",
+        "- Primary message: move from reactive audit prep to always-ready compliance operations without adding headcount",
+        "- Proof pillars: evidence visibility, readiness accountability, leadership confidence",
+        "",
+        "## Content Strategy",
+        "- Prioritize audit readiness, evidence workflow, and leadership visibility clusters",
+        "- Reuse webinar-friendly content because webinar performance is strong",
+        "- Ensure the content briefs directly address spreadsheet and ROI objections"
+      ]
+    },
+    {
+      "messageKey": "msg_plan_005",
+      "id": "33333333-3333-4333-8333-000000000005",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "Maya Chen",
+      "actorId": "usr_001",
+      "role": "user",
+      "phase": "blueprint",
+      "timestamp": "2026-04-10T14:12:00.000Z",
+      "references": [
+        "webinar_and_blog_performance.csv",
+        "common_sales_objections.md"
+      ],
+      "content": [
+        "The blueprint is right, but keep the production load realistic: one major asset per week plus repurposing.",
+        "I also want the sales objection coverage to show up in the briefs, not just in the messaging matrix.",
+        "If that is reflected, I want to move to task mapping."
+      ]
+    },
+    {
+      "messageKey": "msg_plan_006",
+      "id": "33333333-3333-4333-8333-000000000006",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "RelayOps Marketing Architect",
+      "actorId": "agt_001",
+      "role": "assistant",
+      "phase": "task_mapping",
+      "timestamp": "2026-04-10T14:18:00.000Z",
+      "phaseTag": "task_mapping",
+      "references": [
+        "brand_messaging_framework.md",
+        "launch_brief_audit_assistant.md",
+        "icp_interview_notes.csv",
+        "keyword_gap_analysis.csv",
+        "competitor_content_teardown.md",
+        "webinar_and_blog_performance.csv",
+        "common_sales_objections.md"
+      ],
+      "content": [
+        "The plan is specific enough to enter task mapping.",
+        "Generate Tasks from Chat should now produce seven tasks: define audience and KPI, approve the messaging matrix, select topic clusters, build the editorial calendar, draft three briefs, create the distribution checklist, and define the KPI tracker.",
+        "The representative review gate should sit on the content-brief task, because that is where the scenario proves that planning outputs became execution-ready assets."
+      ],
+      "recommendedGeneratedTasks": [
+        "Define target audience and launch success metrics",
+        "Approve the launch messaging matrix",
+        "Select topic clusters and SEO priorities",
+        "Build the 8-week editorial calendar",
+        "Draft 3 priority content briefs",
+        "Create the distribution checklist by channel",
+        "Define KPI tracker and reporting cadence"
+      ]
+    },
+    {
+      "messageKey": "msg_plan_007",
+      "id": "33333333-3333-4333-8333-000000000007",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "Elena Brooks",
+      "actorId": "usr_003",
+      "role": "user",
+      "phase": "task_mapping",
+      "timestamp": "2026-04-10T16:20:00.000Z",
+      "references": [
+        "webinar_and_blog_performance.csv",
+        "common_sales_objections.md"
+      ],
+      "content": [
+        "The seven tasks are generated.",
+        "Please tighten the KPI task so it explicitly covers source systems and the weekly reporting cadence.",
+        "Leave the title alone; I only want the description refined."
+      ]
+    },
+    {
+      "messageKey": "msg_plan_008",
+      "id": "33333333-3333-4333-8333-000000000008",
+      "threadId": "22222222-2222-4222-8222-222222222222",
+      "actor": "RelayOps Marketing Architect",
+      "actorId": "agt_001",
+      "role": "assistant",
+      "phase": "task_mapping",
+      "timestamp": "2026-04-10T16:23:00.000Z",
+      "content": [
+        "Agreed. The KPI task should stay focused on metric definitions, data sources, ownership, and the Monday reporting rhythm.",
+        "I am proposing one task mutation that updates the existing KPI task description without changing the task title."
+      ],
+      "taskMutations": [
+        {
+          "action": "update",
+          "id": "44444444-4444-4444-8444-000000000007",
+          "fields": {
+            "description": "Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine."
+          }
+        }
+      ],
+      "mutationActions": [
+        {
+          "mutationIndex": 0,
+          "action": "approved"
+        }
+      ]
+    }
+  ],
+  "taskGenerationRecommendation": {
+    "recommendedOnMessageId": "33333333-3333-4333-8333-000000000006",
+    "generateTasksEndpoint": "/api/agents/generate-tasks",
+    "notes": "The planner recommendation is the gate. The scenario does not invent a separate board-lock API."
+  }
+}

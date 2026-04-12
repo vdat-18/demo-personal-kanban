@@ -17,6 +17,7 @@ If you are inheriting the project, start with:
 
 - [.planning/CURRENT_SYSTEM_SNAPSHOT.md](./.planning/CURRENT_SYSTEM_SNAPSHOT.md) for the current product and architecture picture
 - [.planning/DEMO_SCENARIO_SPECS.md](./.planning/DEMO_SCENARIO_SPECS.md) for three domain-specific demo/test scenario specs
+- [.planning/mock-packs/marketing-relayops/README.md](./.planning/mock-packs/marketing-relayops/README.md) for the first full current-app-aligned mock pack
 - [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) for file and API navigation
 - [KANBAN_ARCHITECTURE.md](./KANBAN_ARCHITECTURE.md) for status and mission-control behavior
 

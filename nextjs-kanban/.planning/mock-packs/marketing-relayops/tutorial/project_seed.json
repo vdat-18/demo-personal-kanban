@@ -1,0 +1,300 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "version": "1.0.0",
+  "project": {
+    "canonicalId": "proj_marketing_relayops_001",
+    "appId": "11111111-1111-4111-8111-111111111111",
+    "company": "RelayOps",
+    "name": "RelayOps Audit Assistant Content Engine",
+    "domain": "MARKETING",
+    "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+    "planningWindow": {
+      "startDate": "2026-04-06",
+      "endDate": "2026-04-10"
+    },
+    "contentWindow": {
+      "startDate": "2026-04-20",
+      "endDate": "2026-06-12"
+    },
+    "launchDate": "2026-05-04",
+    "createdAt": "2026-04-06T09:00:00.000Z",
+    "updatedAt": "2026-04-10T16:30:00.000Z"
+  },
+  "planningThread": {
+    "canonicalId": "thread_marketing_relayops_001",
+    "appId": "22222222-2222-4222-8222-222222222222",
+    "title": "RelayOps Audit Assistant content launch planning",
+    "initialPhase": "discovery",
+    "targetPhaseForTaskGeneration": "task_mapping"
+  },
+  "actors": {
+    "humans": [
+      {
+        "canonicalId": "usr_001",
+        "name": "Maya Chen",
+        "role": "Head of Marketing"
+      },
+      {
+        "canonicalId": "usr_002",
+        "name": "Priya Nwosu",
+        "role": "Product Marketing Manager"
+      },
+      {
+        "canonicalId": "usr_003",
+        "name": "Elena Brooks",
+        "role": "Content Lead"
+      },
+      {
+        "canonicalId": "usr_004",
+        "name": "Samir Patel",
+        "role": "Sales Enablement Manager"
+      }
+    ],
+    "agents": [
+      {
+        "canonicalId": "agt_001",
+        "appRole": "architect",
+        "label": "RelayOps Marketing Architect"
+      },
+      {
+        "canonicalId": "agt_002",
+        "appRole": "reviewer",
+        "label": "RelayOps Marketing Reviewer"
+      },
+      {
+        "canonicalId": "agt_003",
+        "appRole": "developer",
+        "label": "RelayOps Execution Helper"
+      }
+    ]
+  },
+  "planningRequirements": {
+    "mustBeExplicitBeforeTaskGeneration": [
+      "core audience definition",
+      "primary product message",
+      "content KPI target",
+      "launch scope and time horizon"
+    ],
+    "plannerRecommendationGate": {
+      "description": "The planner keeps the thread in discovery or blueprint until the required business anchors are explicit enough to justify moving into task_mapping.",
+      "missingContextBehavior": [
+        "call out the missing requirement by name",
+        "ask for the relevant uploaded file or explicit KPI target",
+        "do not recommend task generation yet"
+      ]
+    },
+    "reviewGate": {
+      "description": "Tasks may enter IN_REVIEW, but the reviewer sends them back if the expected artifact is missing or too weak.",
+      "representativeTask": "tsk_mkt_005"
+    },
+    "requiredDocumentReferences": [
+      "brand_messaging_framework.md",
+      "launch_brief_audit_assistant.md",
+      "icp_interview_notes.csv",
+      "keyword_gap_analysis.csv",
+      "competitor_content_teardown.md",
+      "webinar_and_blog_performance.csv",
+      "common_sales_objections.md"
+    ]
+  },
+  "contextManifest": [
+    {
+      "documentId": "doc_mkt_001",
+      "fileName": "brand_messaging_framework.md",
+      "type": "markdown",
+      "requiredForPlanning": true,
+      "purpose": "Ground the messaging matrix and approved terminology."
+    },
+    {
+      "documentId": "doc_mkt_002",
+      "fileName": "launch_brief_audit_assistant.md",
+      "type": "markdown",
+      "requiredForPlanning": true,
+      "purpose": "Anchor scope, audience, launch timing, and KPI target."
+    },
+    {
+      "documentId": "doc_mkt_003",
+      "fileName": "icp_interview_notes.csv",
+      "type": "csv",
+      "requiredForPlanning": true,
+      "purpose": "Ground the pain language and buying triggers in customer evidence."
+    },
+    {
+      "documentId": "doc_mkt_004",
+      "fileName": "keyword_gap_analysis.csv",
+      "type": "csv",
+      "requiredForPlanning": true,
+      "purpose": "Select topic clusters and priority search terms."
+    },
+    {
+      "documentId": "doc_mkt_005",
+      "fileName": "competitor_content_teardown.md",
+      "type": "markdown",
+      "requiredForPlanning": true,
+      "purpose": "Differentiate the launch narrative from competitor content patterns."
+    },
+    {
+      "documentId": "doc_mkt_006",
+      "fileName": "webinar_and_blog_performance.csv",
+      "type": "csv",
+      "requiredForPlanning": true,
+      "purpose": "Choose a realistic cadence and channel mix based on prior performance."
+    },
+    {
+      "documentId": "doc_mkt_007",
+      "fileName": "common_sales_objections.md",
+      "type": "markdown",
+      "requiredForPlanning": true,
+      "purpose": "Ensure the content plan addresses the objections heard in pipeline conversations."
+    }
+  ],
+  "successCriteria": [
+    "The project reaches task_mapping with explicit audience, message, KPI target, and launch window.",
+    "Seven deterministic tasks are generated and begin in TODO.",
+    "The task 'Draft 3 priority content briefs' has enough artifact evidence to survive reviewer scrutiny.",
+    "The KPI tracker task can be blocked and later restored through the app's actual status lifecycle."
+  ],
+  "generatedTasks": [
+    {
+      "canonicalId": "tsk_mkt_001",
+      "appId": "44444444-4444-4444-8444-000000000001",
+      "title": "Define target audience and launch success metrics",
+      "description": "Confirm the primary buyer, supporting stakeholders, and the launch KPI target for the eight-week content engine.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "HIGH",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [],
+      "ownerSuggestion": "Priya Nwosu",
+      "acceptanceCriteria": [
+        "Primary audience is named with company-size and role context.",
+        "Secondary stakeholders are listed.",
+        "The 45 assisted demo request KPI is explicit with a measurement window and owner."
+      ],
+      "requiredDeliverable": "Audience definition and KPI statement"
+    },
+    {
+      "canonicalId": "tsk_mkt_002",
+      "appId": "44444444-4444-4444-8444-000000000002",
+      "title": "Approve the launch messaging matrix",
+      "description": "Translate the approved positioning into a launch messaging matrix with proof pillars and objection handling.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "URGENT",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_001"
+      ],
+      "ownerSuggestion": "Maya Chen",
+      "acceptanceCriteria": [
+        "Primary message is final.",
+        "Three proof pillars are documented.",
+        "At least three major objections are mapped to response themes."
+      ],
+      "requiredDeliverable": "Messaging matrix"
+    },
+    {
+      "canonicalId": "tsk_mkt_003",
+      "appId": "44444444-4444-4444-8444-000000000003",
+      "title": "Select topic clusters and SEO priorities",
+      "description": "Choose the launch topic clusters and search opportunities that support the approved message architecture.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "HIGH",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_002"
+      ],
+      "ownerSuggestion": "Elena Brooks",
+      "acceptanceCriteria": [
+        "Three topic clusters are selected.",
+        "Priority keywords are named for each cluster.",
+        "The rationale ties search demand back to the launch narrative."
+      ],
+      "requiredDeliverable": "Priority topic-cluster list"
+    },
+    {
+      "canonicalId": "tsk_mkt_004",
+      "appId": "44444444-4444-4444-8444-000000000004",
+      "title": "Build the 8-week editorial calendar",
+      "description": "Turn the approved clusters into an eight-week calendar with one primary asset per week and clear ownership.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "URGENT",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_003"
+      ],
+      "ownerSuggestion": "Elena Brooks",
+      "acceptanceCriteria": [
+        "Eight weekly rows are present.",
+        "Each row names an owner, format, channel, and CTA.",
+        "The cadence stays within the launch-team production constraints."
+      ],
+      "requiredDeliverable": "Editorial calendar"
+    },
+    {
+      "canonicalId": "tsk_mkt_005",
+      "appId": "44444444-4444-4444-8444-000000000005",
+      "title": "Draft 3 priority content briefs",
+      "description": "Produce execution-ready briefs for the operations-risk, audit-readiness, and compliance-ROI assets.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "HIGH",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_004"
+      ],
+      "ownerSuggestion": "Elena Brooks",
+      "acceptanceCriteria": [
+        "Three briefs exist.",
+        "Each brief includes audience, angle, target keyword, CTA, and SME needs.",
+        "The briefs explicitly address at least one sales objection or customer pain pattern."
+      ],
+      "requiredDeliverable": "Three approved content briefs"
+    },
+    {
+      "canonicalId": "tsk_mkt_006",
+      "appId": "44444444-4444-4444-8444-000000000006",
+      "title": "Create the distribution checklist by channel",
+      "description": "Define launch distribution steps for website, email, webinar, social, and sales handoff.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "MEDIUM",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_005"
+      ],
+      "ownerSuggestion": "Samir Patel",
+      "acceptanceCriteria": [
+        "Each channel has an owner.",
+        "Each channel has required asset dependencies.",
+        "Sales handoff is explicitly included."
+      ],
+      "requiredDeliverable": "Distribution checklist"
+    },
+    {
+      "canonicalId": "tsk_mkt_007",
+      "appId": "44444444-4444-4444-8444-000000000007",
+      "title": "Define KPI tracker and reporting cadence",
+      "description": "Define the KPI tracker and reporting rhythm for the eight-week content engine.",
+      "initialStatus": "TODO",
+      "scenarioPriority": "HIGH",
+      "appCreateDefaultPriority": "MEDIUM",
+      "dependsOn": [
+        "tsk_mkt_004"
+      ],
+      "ownerSuggestion": "Maya Chen",
+      "acceptanceCriteria": [
+        "Primary KPI target is explicit.",
+        "Supporting metrics are named.",
+        "Owners and reporting cadence are included."
+      ],
+      "requiredDeliverable": "KPI tracker specification"
+    }
+  ],
+  "representativeTaskLifecycle": {
+    "taskId": "tsk_mkt_005",
+    "taskTitle": "Draft 3 priority content briefs",
+    "deliverableFiles": [
+      "tutorial/deliverables/content_brief_ops_risk.md",
+      "tutorial/deliverables/content_brief_audit_readiness.md",
+      "tutorial/deliverables/content_brief_compliance_roi.md"
+    ],
+    "reviewFailureMode": "The reviewer sends the task back from IN_REVIEW to IN_PROGRESS if fewer than three briefs are present or if the briefs do not show audience, angle, CTA, and SME support."
+  }
+}

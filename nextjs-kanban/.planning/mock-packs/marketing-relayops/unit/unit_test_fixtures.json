@@ -1,0 +1,156 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "fixtures": [
+    {
+      "fixtureId": "planner_gate_ready",
+      "category": "planning_gate",
+      "input": {
+        "launchBriefPresent": true,
+        "coreAudienceExplicit": true,
+        "primaryMessageExplicit": true,
+        "primaryKpiTargetExplicit": true,
+        "contentWindowExplicit": true
+      },
+      "expected": {
+        "shouldRecommendTaskGeneration": true,
+        "targetPhase": "task_mapping",
+        "missingRequirements": []
+      }
+    },
+    {
+      "fixtureId": "planner_gate_missing_launch_brief",
+      "category": "planning_gate",
+      "input": {
+        "launchBriefPresent": false,
+        "coreAudienceExplicit": true,
+        "primaryMessageExplicit": true,
+        "primaryKpiTargetExplicit": true,
+        "contentWindowExplicit": true
+      },
+      "expected": {
+        "shouldRecommendTaskGeneration": false,
+        "phaseShouldRemain": "discovery",
+        "missingRequirements": [
+          "launch brief"
+        ],
+        "plannerResponseMustAskFor": [
+          "launch_brief_audit_assistant.md"
+        ]
+      }
+    },
+    {
+      "fixtureId": "generated_tasks_default_status",
+      "category": "task_generation",
+      "input": {
+        "taskIds": [
+          "tsk_mkt_001",
+          "tsk_mkt_002",
+          "tsk_mkt_003",
+          "tsk_mkt_004",
+          "tsk_mkt_005",
+          "tsk_mkt_006",
+          "tsk_mkt_007"
+        ]
+      },
+      "expected": {
+        "allStartInStatus": "TODO",
+        "taskCount": 7
+      }
+    },
+    {
+      "fixtureId": "valid_transition_in_progress_to_in_review",
+      "category": "status_transition",
+      "input": {
+        "taskId": "tsk_mkt_005",
+        "from": "IN_PROGRESS",
+        "to": "IN_REVIEW"
+      },
+      "expected": {
+        "valid": true,
+        "allowed": [
+          "IN_REVIEW",
+          "TODO",
+          "BLOCKED"
+        ]
+      }
+    },
+    {
+      "fixtureId": "invalid_transition_todo_to_done",
+      "category": "status_transition",
+      "input": {
+        "taskId": "tsk_mkt_006",
+        "from": "TODO",
+        "to": "DONE"
+      },
+      "expected": {
+        "valid": false,
+        "allowed": [
+          "IN_PROGRESS",
+          "BLOCKED"
+        ],
+        "statusCode": 422
+      }
+    },
+    {
+      "fixtureId": "reviewer_rejection_missing_briefs",
+      "category": "review_gate",
+      "input": {
+        "taskId": "tsk_mkt_005",
+        "status": "IN_REVIEW",
+        "attachedArtifacts": [
+          "tutorial/deliverables/content_brief_ops_risk.md"
+        ]
+      },
+      "expected": {
+        "reviewOutcome": "rejected",
+        "sendBackToStatus": "IN_PROGRESS",
+        "feedbackMustMention": [
+          "three briefs required",
+          "missing audience/angle/CTA/SME coverage"
+        ]
+      }
+    },
+    {
+      "fixtureId": "blocked_task_restore_flow",
+      "category": "status_transition",
+      "input": {
+        "taskId": "tsk_mkt_007",
+        "path": [
+          "BLOCKED",
+          "TODO",
+          "IN_PROGRESS",
+          "IN_REVIEW",
+          "DONE"
+        ]
+      },
+      "expected": {
+        "restoreFromBlockedMustStartWith": "TODO",
+        "validTransitions": [
+          "BLOCKED->TODO",
+          "TODO->IN_PROGRESS",
+          "IN_PROGRESS->IN_REVIEW",
+          "IN_REVIEW->DONE"
+        ]
+      }
+    },
+    {
+      "fixtureId": "document_manifest_deterministic",
+      "category": "manifest",
+      "input": {
+        "manifestSource": "project_seed.contextManifest"
+      },
+      "expected": {
+        "documentCount": 7,
+        "orderedFileNames": [
+          "brand_messaging_framework.md",
+          "launch_brief_audit_assistant.md",
+          "icp_interview_notes.csv",
+          "keyword_gap_analysis.csv",
+          "competitor_content_teardown.md",
+          "webinar_and_blog_performance.csv",
+          "common_sales_objections.md"
+        ]
+      }
+    }
+  ]
+}
