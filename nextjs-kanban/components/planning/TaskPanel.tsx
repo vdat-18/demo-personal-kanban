@@ -11,9 +11,11 @@ interface TaskPanelProps {
   projectName: string
   /** Conversation messages for the generate-tasks API */
   messages?: { role: string; content: string }[]
+  /** Current planning phase — Generate Tasks only available in task_mapping */
+  phase?: 'discovery' | 'blueprint' | 'task_mapping'
 }
 
-export function TaskPanel({ projectId, projectName, messages }: TaskPanelProps) {
+export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapping' }: TaskPanelProps) {
   const router = useRouter()
   const { data: tasks = [], isLoading, refetch } = useTasks({ projectId })
   const createTask = useCreateTask()
@@ -47,36 +49,43 @@ export function TaskPanel({ projectId, projectName, messages }: TaskPanelProps) 
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <ListTodo className="w-5 h-5 text-blue-600" />
-            <h2 className="font-black text-[#0a192f] text-lg">Tasks</h2>
-            <span className="text-xs font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
-              {tasks.length}
-            </span>
-            <button
-              onClick={() => refetch()}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-300 hover:text-gray-500"
-              title="Refresh tasks"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleGenerateTasks}
-              disabled={!hasMessages}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles className="w-4 h-4" /> Generate Tasks
-            </button>
+      <div className="p-6">
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ListTodo className="w-5 h-5 text-blue-600" />
+              <h2 className="font-black text-[#0a192f] text-lg">Tasks</h2>
+              <span className="text-xs font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+                {tasks.length}
+              </span>
+              <button
+                onClick={() => refetch()}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-300 hover:text-gray-500"
+                title="Refresh tasks"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <button
               onClick={handleAddTask}
-              className="flex items-center gap-2 px-4 py-2 bg-[#0a192f] text-white rounded-xl text-sm font-semibold hover:bg-blue-900 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#0a192f] text-white rounded-xl text-sm font-semibold hover:bg-blue-900 transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" /> Add Task
             </button>
+          </div>
+          <div className="flex flex-col">
+            <button
+              onClick={handleGenerateTasks}
+              disabled={!hasMessages || phase !== 'task_mapping'}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              <Sparkles className="w-4 h-4" /> Generate Tasks from Chat
+            </button>
+            {phase !== 'task_mapping' && (
+              <div className="text-[11px] text-gray-400 text-center mt-1.5">
+                Generation is locked until Task Mapping phase (Phase 3)
+              </div>
+            )}
           </div>
         </div>
 

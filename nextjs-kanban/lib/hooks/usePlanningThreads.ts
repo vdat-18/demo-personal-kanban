@@ -3,10 +3,14 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
+
 export interface PlanningThread {
   id: string
   projectId: string
   title: string
+  phase: PlanningPhase
+  visionDocument: string | null
   createdAt: string
   updatedAt: string
   lastMessage: string | null
@@ -58,14 +62,27 @@ export function useDeletePlanningThread() {
     },
   })
 }
+
 export function useUpdatePlanningThread() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, projectId, title }: { id: string; projectId: string; title: string }) => {
+    mutationFn: async ({
+      id,
+      projectId,
+      title,
+      phase,
+      visionDocument,
+    }: {
+      id: string
+      projectId: string
+      title?: string
+      phase?: PlanningPhase
+      visionDocument?: string
+    }) => {
       const res = await fetch(`/api/planning-threads/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, phase, visionDocument }),
       })
       if (!res.ok) throw new Error('Failed to update thread')
       return res.json() as Promise<PlanningThread>

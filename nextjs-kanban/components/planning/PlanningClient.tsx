@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Send, ChevronDown, ChevronUp, FileText, Lightbulb, Map, CheckSquare } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useQueryClient } from '@tanstack/react-query'
@@ -19,6 +19,7 @@ import {
   useDeletePlanningThread,
   useUpdatePlanningThread,
 } from '@/lib/hooks/usePlanningThreads'
+import type { PlanningPhase } from '@/lib/hooks/usePlanningThreads'
 import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
 
@@ -37,11 +38,123 @@ interface Project {
   tasks: Task[]
 }
 
+// ── Phase UI config ──────────────────────────────────────────────────────────
+
+const PHASE_CONFIG: Record<PlanningPhase, {
+  label: string
+  step: number
+  icon: typeof Lightbulb
+  color: string
+  bg: string
+  border: string
+  description: string
+}> = {
+  discovery: {
+    label: 'Discovery',
+    step: 1,
+    icon: Lightbulb,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    description: 'AI is asking questions to understand your project',
+  },
+  blueprint: {
+    label: 'Blueprint',
+    step: 2,
+    icon: Map,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    description: 'Reviewing the strategic plan before task creation',
+  },
+  task_mapping: {
+    label: 'Task Mapping',
+    step: 3,
+    icon: CheckSquare,
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    border: 'border-green-200',
+    description: 'Creating and approving actionable tasks',
+  },
+}
+
+// ── Vision Document Panel ────────────────────────────────────────────────────
+
+function VisionDocumentPanel({ visionDocument }: { visionDocument: string | null }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!visionDocument) return null
+
+  return (
+    <div className="mx-4 mb-3 rounded-2xl border border-blue-100 bg-blue-50/60 overflow-hidden">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-blue-100/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="w-3.5 h-3.5 text-blue-500" />
+          <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">Vision Document</span>
+        </div>
+        {isExpanded
+          ? <ChevronUp className="w-3.5 h-3.5 text-blue-400" />
+          : <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
+        }
+      </button>
+      {isExpanded && (
+        <div className="px-4 pb-4 text-xs text-blue-900 leading-relaxed prose prose-xs max-w-none prose-headings:text-blue-800 prose-strong:text-blue-900 text-justify border-t border-blue-100 pt-3">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{visionDocument}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Phase Progress Bar ───────────────────────────────────────────────────────
+
+function PhaseProgressBar({ phase }: { phase: PlanningPhase }) {
+  const phases: PlanningPhase[] = ['discovery', 'blueprint', 'task_mapping']
+  const currentStep = PHASE_CONFIG[phase].step
+
+  return (
+    <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50 shrink-0">
+      {phases.map((p, idx) => {
+        const cfg = PHASE_CONFIG[p]
+        const Icon = cfg.icon
+        const isActive = p === phase
+        const isDone = cfg.step < currentStep
+
+        return (
+          <div key={p} className="flex items-center gap-1 flex-1">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+              isActive
+                ? `${cfg.bg} ${cfg.color} border ${cfg.border}`
+                : isDone
+                  ? 'bg-green-50 text-green-600 border border-green-200'
+                  : 'bg-gray-100 text-gray-400'
+            }`}>
+              <Icon className="w-3 h-3" />
+              <span>{cfg.label}</span>
+              {isDone && <span>✓</span>}
+            </div>
+            {idx < phases.length - 1 && (
+              <div className={`flex-1 h-px mx-1 ${isDone ? 'bg-green-300' : 'bg-gray-200'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main PlanningClient ──────────────────────────────────────────────────────
+
 export function PlanningClient({ project: initialProject }: { project: Project }) {
   const router = useRouter()
   const qc = useQueryClient()
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [input, setInput] = useState('')
+  const [currentPhase, setCurrentPhase] = useState<PlanningPhase>('discovery')
+  const [currentVisionDoc, setCurrentVisionDoc] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -54,25 +167,32 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     }
   }, [input])
 
-  // ─── Thread hooks ──────────────────────────────────────────────────────
+  // ─── Thread hooks ──────────────────────────────────────────────────────────
   const { data: threads = [], isLoading: threadsLoading } = usePlanningThreads(initialProject.id)
   const createThread = useCreatePlanningThread()
   const deleteThread = useDeletePlanningThread()
   const renameThread = useUpdatePlanningThread()
 
-  // ─── Message hooks ─────────────────────────────────────────────────────
+  // ─── Message hooks ─────────────────────────────────────────────────────────
   const { data: messages = [], isLoading: messagesLoading } = usePlanningMessages(activeThreadId)
   const sendMessage = useSendPlanningMessage()
 
-  // ─── Auto-select or auto-create first thread ──────────────────────────
+  // ─── Sync local phase state when switching threads ─────────────────────────
+  const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
+  useEffect(() => {
+    if (activeThread) {
+      setCurrentPhase(activeThread.phase ?? 'discovery')
+      setCurrentVisionDoc(activeThread.visionDocument ?? null)
+    }
+  }, [activeThread?.id, activeThread?.phase, activeThread?.visionDocument])
+
+  // ─── Auto-select or auto-create first thread ──────────────────────────────
   useEffect(() => {
     if (threadsLoading) return
 
     if (threads.length > 0 && !activeThreadId) {
-      // Select the most recently updated thread
       setActiveThreadId(threads[0].id)
     } else if (threads.length === 0 && !createThread.isPending) {
-      // No threads — create one automatically
       createThread.mutate(
         { projectId: initialProject.id },
         {
@@ -82,31 +202,40 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     }
   }, [threads, threadsLoading, activeThreadId, initialProject.id, createThread])
 
-  // ─── Scroll to bottom on new messages ─────────────────────────────────
+  // ─── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ─── Handlers ──────────────────────────────────────────────────────────
+  // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async () => {
     if (!input.trim() || !activeThreadId || sendMessage.isPending) return
 
     sendMessage.mutate(
       { threadId: activeThreadId, content: input.trim() },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          // Update local phase and vision doc state from server response
+          if (data.phase) setCurrentPhase(data.phase as PlanningPhase)
+          if (data.visionDocument !== undefined) setCurrentVisionDoc(data.visionDocument)
+          // Refresh threads so sidebar phase badge stays in sync
+          qc.invalidateQueries({ queryKey: ['planning-threads', initialProject.id] })
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
         },
       },
     )
     setInput('')
-  }, [input, activeThreadId, sendMessage])
+  }, [input, activeThreadId, sendMessage, qc, initialProject.id])
 
   const handleNewThread = useCallback(() => {
     createThread.mutate(
       { projectId: initialProject.id },
       {
-        onSuccess: (thread) => setActiveThreadId(thread.id),
+        onSuccess: (thread) => {
+          setActiveThreadId(thread.id)
+          setCurrentPhase('discovery')
+          setCurrentVisionDoc(null)
+        },
       },
     )
   }, [createThread, initialProject.id])
@@ -118,7 +247,6 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         {
           onSuccess: () => {
             if (activeThreadId === id) {
-              // Switch to the next available thread
               const remaining = threads.filter((t) => t.id !== id)
               setActiveThreadId(remaining[0]?.id ?? null)
             }
@@ -161,7 +289,6 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         const res = await fetch(`/api/tasks/${mutation.id}`, { method: 'DELETE' })
         if (!res.ok) throw new Error('Failed to delete task')
       }
-      // Refresh the tasks panel
       qc.invalidateQueries({ queryKey: ['tasks'] })
     },
     [initialProject.id, qc],
@@ -172,8 +299,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     .filter((m: PlanningMessage) => m.role === 'user' || m.role === 'assistant')
     .map((m: PlanningMessage) => ({ role: m.role, content: m.content }))
 
-  // Welcome message shown when a thread has no messages
   const showWelcome = !messagesLoading && messages.length === 0
+  const phaseConfig = PHASE_CONFIG[currentPhase]
+  const PhaseIcon = phaseConfig.icon
+
+  // Welcome message per phase
+  const welcomeText = `Welcome! I'm your AI Planning Agent for **${initialProject.name}**.\n\nI follow a structured 3-phase process:\n1. **Discovery** — I'll ask questions to understand your goals deeply\n2. **Blueprint** — We'll create a strategic plan together\n3. **Task Mapping** — Then we'll break it into actionable tasks\n\nLet's start. Tell me about this project — what are you trying to achieve?`
 
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
@@ -201,11 +332,22 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="font-bold text-sm text-[#0a192f]">{initialProject.name}</h1>
             <p className="text-xs text-gray-400">AI Planning Session</p>
           </div>
+          {/* Phase badge in header */}
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold ${phaseConfig.bg} ${phaseConfig.color} border ${phaseConfig.border}`}>
+            <PhaseIcon className="w-3.5 h-3.5" />
+            <span>{phaseConfig.label}</span>
+          </div>
         </header>
+
+        {/* Phase Progress Bar */}
+        <PhaseProgressBar phase={currentPhase} />
+
+        {/* Vision Document Panel */}
+        <VisionDocumentPanel visionDocument={currentVisionDoc} />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -220,10 +362,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
                     AI
                   </div>
-                  <div className="max-w-[80%] rounded-3xl rounded-bl-lg px-5 py-4 text-sm leading-relaxed bg-gray-50 text-[#0a192f]">
+                  <div className="max-w-[80%] rounded-3xl rounded-bl-lg px-5 py-4 text-sm leading-relaxed bg-gray-50 text-[#0a192f] text-justify">
                     <div className="prose prose-sm max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {`Welcome! I'm your AI Planning Agent for **${initialProject.name}**.\n\nI can see all your project tasks and help you manage them. I can suggest adding new tasks, updating existing ones, or removing completed ones.\n\nWhat would you like to plan?`}
+                        {welcomeText}
                       </ReactMarkdown>
                     </div>
                   </div>
@@ -233,7 +375,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               {messages.map((msg: PlanningMessage) => {
                 const parsed =
                   msg.role === 'assistant' ? parseTaskMutations(msg.content) : null
-                const displayContent = parsed?.cleanContent ?? msg.content
+                let displayContent = parsed?.cleanContent ?? msg.content
+                if (msg.role === 'assistant') {
+                  displayContent = displayContent.replace(/```vision-update[\s\S]*?```/g, '')
+                  displayContent = displayContent.replace(/\[PHASE:[a-zA-Z_]+\]/g, '')
+                  displayContent = displayContent.trim()
+                }
                 const mutations = parsed?.mutations ?? []
 
                 return (
@@ -249,8 +396,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                     <div
                       className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
                         msg.role === 'user'
-                          ? 'bg-[#0a192f] text-white rounded-br-lg'
-                          : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
+                          ? 'bg-[#0a192f] text-white rounded-br-lg whitespace-pre-wrap'
+                          : 'bg-gray-50 text-[#0a192f] rounded-bl-lg text-justify'
                       }`}
                     >
                       {msg.role === 'assistant' ? (
@@ -263,7 +410,6 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                           {mutations.length > 0 && (
                             <div className="mt-3 space-y-2">
                               {mutations.map((mutation, idx) => {
-                                // Look up persisted status from DB
                                 const savedAction = msg.mutationActions?.find(
                                   (a) => a.mutationIndex === idx,
                                 )
@@ -331,8 +477,14 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           )}
         </div>
 
+        {/* Phase hint above input */}
+        <div className={`mx-4 mb-1 px-3 py-1.5 rounded-xl text-[10px] font-medium ${phaseConfig.bg} ${phaseConfig.color} flex items-center gap-1.5`}>
+          <PhaseIcon className="w-3 h-3 shrink-0" />
+          <span>{phaseConfig.description}</span>
+        </div>
+
         {/* Input */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 pt-1 border-t border-gray-100">
           {sendMessage.isError && (
             <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
               Failed to send message. Please try again.
@@ -342,12 +494,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             <textarea
               ref={textareaRef}
               className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
-              placeholder="Describe your project goals..."
+              placeholder={currentPhase === 'discovery' ? 'Tell me about your project...' : currentPhase === 'blueprint' ? 'Review or adjust the blueprint...' : 'Describe your next task or ask a question...'}
               rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault()
                   handleSendMessage()
                 }
@@ -371,6 +523,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           projectId={initialProject.id}
           projectName={initialProject.name}
           messages={chatMessages}
+          phase={currentPhase}
         />
       </div>
     </div>

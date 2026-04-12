@@ -79,14 +79,22 @@ enum PlanningMessageRole {
   system
 }
 
+enum PlanningPhase {
+  discovery
+  blueprint
+  task_mapping
+}
+
 model PlanningThread {
-  id        String            @id @default(uuid())
-  projectId String
-  title     String            @default("New Thread")
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  messages  PlanningMessage[]
+  id             String            @id @default(uuid())
+  projectId      String
+  title          String            @default("New Thread")
+  phase          PlanningPhase     @default(discovery)
+  visionDocument String?           @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages       PlanningMessage[]
 
   @@index([projectId()])
   @@index([updatedAt()])

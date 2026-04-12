@@ -46,6 +46,8 @@ export function useSendPlanningMessage() {
         userMessage: PlanningMessage
         assistantMessage: PlanningMessage
         tokenUsage: { input: number; output: number } | null
+        phase: string
+        visionDocument: string | null
       }>
     },
     onMutate: async ({ threadId, content }) => {

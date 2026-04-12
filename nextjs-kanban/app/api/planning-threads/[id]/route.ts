@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getThread, deleteThread } from '@/lib/db/planning-threads'
+import { getThread, deleteThread, updateThread } from '@/lib/db/planning-threads'
 import { z } from 'zod'
-import { uuidSchema } from '@/lib/validations/schemas'
+import { uuidSchema, updatePlanningThreadSchema } from '@/lib/validations/schemas'
 
 type Params = Promise<{ id: string }>
 
@@ -62,6 +62,7 @@ export async function DELETE(
     )
   }
 }
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Params },
@@ -71,10 +72,9 @@ export async function PATCH(
     uuidSchema.parse(id)
 
     const body = await request.json()
-    const { title } = z.object({ title: z.string().min(1) }).parse(body)
+    const data = updatePlanningThreadSchema.parse(body)
 
-    const { updateThread } = await import('@/lib/db/planning-threads')
-    const thread = await updateThread(id, { title })
+    const thread = await updateThread(id, data)
 
     return NextResponse.json(thread)
   } catch (error) {

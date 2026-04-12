@@ -154,8 +154,16 @@ export const planningThreadQuerySchema = z.object({
   projectId: uuidSchema,
 })
 
+export const planningPhaseSchema = z.enum(['discovery', 'blueprint', 'task_mapping'])
+
 export const sendPlanningMessageSchema = z.object({
   content: z.string().min(1, 'Message is required').max(10000, 'Message too long'),
+})
+
+export const updatePlanningThreadSchema = z.object({
+  title: z.string().max(200).optional(),
+  phase: planningPhaseSchema.optional(),
+  visionDocument: z.string().max(20000).optional(),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
