@@ -1,90 +1,119 @@
-# AgentForEveryone
+# demo-personal-kanban
 
-**AgentForEveryone** là một trợ lý công việc AI cá nhân dựa trên bảng Kanban, được thiết kế cho người dùng không rành về kỹ thuật (non-tech). Thay vì phải tự mình tìm cách thực hiện các tác vụ, AI sẽ đồng hành cùng bạn để khám phá, lập kế hoạch và thực thi từng bước một.
+This repository currently runs from [`nextjs-kanban`](./nextjs-kanban), a Next.js 16 + Prisma + PostgreSQL app for an AI-assisted personal kanban board.
 
----
+The top-level `frontend/`, `server/`, and `pyproject.toml` files are older experiments and are not the main runtime path for this repo.
 
-## 🏗️ Cấu trúc dự án (Architecture)
+## Run
 
-Dự án được xây dựng theo mô hình Monorepo hiện đại:
+Recommended:
+
+```bash
+./run.sh
+```
+
+That starts the maintained app with Docker Compose from `nextjs-kanban/` and will create `nextjs-kanban/.env.docker` if it does not already exist.
+
+App URL:
 
 ```text
-/demo-personal-kanban (Root)
-├── pyproject.toml        # Quản lý môi trường Python (UV) & Linting (Ruff)
-├── app/                  # [PYTHON BACKEND] Lõi AI Orchestrator
-│   ├── main.py           # API Entry Point (FastAPI)
-│   ├── agents/           # Trí thông minh AI (Starter, Planner, Doer, Reviewer...)
-│   │   ├── base.py       # Interface cơ sở cho Agent
-│   │   ├── registry.py   # Quản lý và khởi tạo Agent theo vai trò
-│   │   └── definitions/  # Logic thực thi chi tiết của từng Agent
-│   ├── core/             # Logic điều phối (Orchestrator) hệ thống
-│   └── schemas/          # Định nghĩa dữ liệu Pydantic (Project, Task...)
-├── frontend/             # [REACT FRONTEND] Giao diện người dùng Premium
-│   ├── src/
-│   │   ├── pages/        # Các màn hình: Home, Planning, Mission Control, Directory...
-│   │   ├── store/        # Quản lý trạng thái (Zustand)
-│   │   └── layouts/      # Khung giao diện dùng chung
-│   └── tailwind.config.js # Cấu hình giao diện Tailwind v4
-└── README.md             # (File này)
+http://localhost:3000
 ```
 
----
-
-## 🎨 Luồng công việc (Standard Workflow)
-
-Hệ thống hoạt động dựa trên triết lý **"Mỗi cột Kanban là một AI Agent"**:
-
-1.  **Giai đoạn Lập kế hoạch**: Talk with AI -> Viết báo cáo -> Tự động tạo Task Board.
-2.  **Giai đoạn Thực thi (Mission Control)**:
-    *   `🎯 Starter`: Phân tích và đề xuất bước đầu.
-    *   `🗺️ Planner`: Chia nhỏ Task thành các Subtasks chi tiết.
-    *   `⚡ Doer`: Thực hiện công việc và tạo ra kết quả (Artifacts).
-    *   `🔍 Reviewer`: Kiểm tra chất lượng dựa trên tiêu chí định sẵn.
-    *   `✅ Reporter`: Tổng kết kết quả và gợi ý bước tiếp theo.
-
----
-
-## 🚀 Hướng dẫn khởi chạy
-
-### 1. Backend (Python API)
-
-Yêu cầu: [UV](https://github.com/astral-sh/uv) (Trình quản lý gói Python hiện đại).
+Useful modes:
 
 ```bash
-# Cài đặt môi trường và thư viện (từ thư mục gốc)
-uv sync
-
-# Khởi chạy server API
-uv run uvicorn app.main:app --reload
+./run.sh docker   # same as default
+./run.sh local    # run Next.js locally instead of Docker
+./run.sh check    # run the available verification commands
+./run.sh install  # install npm dependencies for nextjs-kanban
 ```
-*API sẽ chạy tại: `http://localhost:8000`*
 
-### 2. Frontend (React)
+## Local Development
 
-Yêu cầu: Node.js & npm/pnpm.
+If you do not want Docker:
+
+1. Run a PostgreSQL instance yourself.
+2. Point `DATABASE_URL` at it, or let `./run.sh local` create `nextjs-kanban/.env.local` with this default:
+
+```text
+postgresql://kanban:kanban@localhost:5432/kanban
+```
+
+3. Start the app:
 
 ```bash
-cd frontend
+./run.sh local
+```
 
-# Cài đặt thư viện
+`./run.sh local` will install dependencies if needed and run `prisma generate` before `npm run dev`.
+
+AI provider keys are optional for booting the UI, but agent features need the corresponding env vars, for example:
+
+```text
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+```
+
+## Test / Verify
+
+There is no `npm test` script in the maintained app right now. The practical checks currently available are:
+
+```bash
+./run.sh check
+```
+
+That runs:
+
+```bash
+cd nextjs-kanban
+npm run db:generate
+npm run build
+npm run lint
+```
+
+Current verified status in this repo snapshot:
+
+- `npm run db:generate`: passes
+- `npm run build`: passes
+- `npm run lint`: fails with many pre-existing ESLint issues in app code and generated files
+
+So the repo is runnable, but it does not currently have a clean lint baseline or an automated test suite.
+
+## Manual Commands
+
+Docker:
+
+```bash
+cd nextjs-kanban
+docker compose up --build
+```
+
+Local:
+
+```bash
+cd nextjs-kanban
 npm install
-
-# Khởi chạy giao diện
+npm run db:generate
 npm run dev
 ```
-*Giao diện sẽ chạy tại: `http://localhost:5173`*
 
----
+## Notes
 
-## 🛠️ Công nghệ sử dụng
+- Docker development uses [`nextjs-kanban/docker-compose.override.yml`](./nextjs-kanban/docker-compose.override.yml), so `docker compose up` runs the app in hot-reload mode.
+- Production-style Docker startup without the dev override is:
 
-*   **Frontend**: React 19, Vite, Tailwind CSS v4, Zustand.
-*   **Backend**: Python 3.11+, FastAPI, Pydantic v2.
-*   **AI**: LangChain core, OpenAI SDK.
-*   **Tooling**: UV (Package manager), Ruff (Linter & Formatter), Git (Version control).
+```bash
+cd nextjs-kanban
+docker compose -f docker-compose.yml up --build
+```
 
----
+## Docs
 
-## 📖 Tài liệu liên quan
-- Chi tiết sản phẩm: [planning_kanban_v2.md](file:///Users/dat.nguyen1/Desktop/demo-personal-kanban/input_docs/dat_planning/planning_kanban_v2.md)
-- Tham khảo kiến trúc: [cline-kanban-reference](https://github.com/cline/kanban)
+For system understanding rather than setup, start here:
+
+- [`nextjs-kanban/.planning/CURRENT_SYSTEM_SNAPSHOT.md`](./nextjs-kanban/.planning/CURRENT_SYSTEM_SNAPSHOT.md) — product vision, current flow, implemented features, gaps
+- [`nextjs-kanban/.planning/DEMO_SCENARIO_SPECS.md`](./nextjs-kanban/.planning/DEMO_SCENARIO_SPECS.md) — three current-product-first demo/test scenario briefs
+- [`nextjs-kanban/README.md`](./nextjs-kanban/README.md) — maintained app overview
+- [`nextjs-kanban/QUICK_REFERENCE.md`](./nextjs-kanban/QUICK_REFERENCE.md) — file and API navigation
