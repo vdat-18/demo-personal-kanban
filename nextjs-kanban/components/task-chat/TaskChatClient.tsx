@@ -29,6 +29,12 @@ interface Conversation {
   createdAt: string
 }
 
+interface Subtask {
+  id: string
+  title: string
+  completed: boolean
+}
+
 interface Task {
   id: string
   title: string
@@ -36,6 +42,7 @@ interface Task {
   status: TaskStatus
   priority: string
   projectId: string | null
+  subtasks?: Subtask[]
   conversations: Conversation[]
 }
 
@@ -488,7 +495,7 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
           </div>
         </div>
 
-        {/* Task Details */}
+        {/* Task Details & Subtasks */}
         <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
             Task Details
@@ -497,7 +504,60 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
           {task.description && (
             <p className="text-xs text-gray-500 leading-relaxed">{task.description}</p>
           )}
-          <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+
+          {/* Subtasks Section */}
+          {(task.subtasks && task.subtasks.length > 0) ? (
+            <div className="mt-4 pt-4 border-t border-gray-50">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                <span>Subtasks</span>
+                <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                  {task.subtasks.filter(st => st.completed).length} / {task.subtasks.length}
+                </span>
+              </h4>
+              <div className="space-y-2">
+                {task.subtasks.map((st) => (
+                  <div key={st.id} className="flex items-start gap-2.5 group">
+                    <button
+                      onClick={async () => {
+                        const res = await fetch(`/api/tasks/${task.id}/subtasks/${st.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ completed: !st.completed })
+                        })
+                        if (res.ok) {
+                          setTask(prev => ({
+                            ...prev,
+                            subtasks: prev.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s)
+                          }))
+                        }
+                      }}
+                      className={`mt-0.5 shrink-0 w-4 h-4 rounded flex items-center justify-center transition-colors border ${
+                        st.completed 
+                          ? 'bg-blue-500 border-blue-500 text-white' 
+                          : 'border-gray-300 bg-gray-50 group-hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                      }`}
+                    >
+                      {st.completed && (
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className={`text-xs leading-relaxed transition-colors ${st.completed ? 'text-gray-400 line-through' : 'text-[#0a192f] font-medium'}`}>
+                      {st.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col items-center justify-center py-2 text-center text-gray-400">
+              <span className="text-[10px] uppercase font-bold tracking-widest">No Subtasks</span>
+              <span className="text-[10px] mt-1">If this task is in TODO, AI might be breaking it down!</span>
+            </div>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
             <span className="text-xs font-bold text-gray-400">Priority</span>
             <span className="text-xs font-bold text-[#0a192f]">{task.priority}</span>
           </div>

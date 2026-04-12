@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ListTodo, Sparkles, Plus, CheckCircle2, RefreshCw } from 'lucide-react'
+import { ListTodo, Sparkles, Plus, CheckCircle2, RefreshCw, Trash2 } from 'lucide-react'
 import { useTasks, useCreateTask, useDeleteTask, useUpdateTask } from '@/lib/hooks/useTasks'
 import type { Task } from '@/lib/hooks/useTasks'
 
@@ -74,18 +74,9 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
             </button>
           </div>
           <div className="flex flex-col">
-            <button
-              onClick={handleGenerateTasks}
-              disabled={!hasMessages || phase !== 'task_mapping'}
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            >
-              <Sparkles className="w-4 h-4" /> Generate Tasks from Chat
-            </button>
-            {phase !== 'task_mapping' && (
-              <div className="text-[11px] text-gray-400 text-center mt-1.5">
-                Generation is locked until Task Mapping phase (Phase 3)
-              </div>
-            )}
+            <div className="text-[11px] text-gray-400 text-center mt-1.5 bg-gray-50 rounded-lg py-2 border border-dashed border-gray-200">
+              Tasks approved in the chat will appear here.
+            </div>
           </div>
         </div>
 
@@ -106,17 +97,17 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
             {tasks.map((task: Task, idx: number) => (
               <div
                 key={task.id}
-                className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex items-start gap-4"
+                className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm flex items-start gap-4 group transition-shadow hover:shadow-md"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">
                   {idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm text-[#0a192f] mb-1">{task.title}</p>
+                  <p className="font-bold text-sm text-[#0a192f] mb-1 pr-6">{task.title}</p>
                   {task.description && (
-                    <p className="text-xs text-gray-500">{task.description}</p>
+                    <p className="text-xs text-gray-500 pr-2">{task.description}</p>
                   )}
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-3">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       task.status === 'DONE' ? 'bg-green-100 text-green-700' :
                       task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
@@ -135,11 +126,25 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
                     </span>
                   </div>
                 </div>
-                <CheckCircle2
-                  className={`w-5 h-5 shrink-0 ${
-                    task.status === 'DONE' ? 'text-green-500' : 'text-gray-200'
-                  }`}
-                />
+                <div className="flex flex-col items-center gap-2 shrink-0">
+                  <CheckCircle2
+                    className={`w-5 h-5 ${
+                      task.status === 'DONE' ? 'text-green-500' : 'text-gray-200'
+                    }`}
+                  />
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Delete this task?')) {
+                        deleteTask.mutate(task.id)
+                      }
+                    }}
+                    disabled={deleteTask.isPending}
+                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    title="Delete task"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

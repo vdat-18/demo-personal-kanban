@@ -38,6 +38,11 @@ export default async function TaskChatPage({ params }: Props) {
     status: task.status,
     priority: task.priority,
     projectId: task.projectId ?? null,
+    subtasks: (task.subtasks || []).map((st: any) => ({
+      id: st.id,
+      title: st.title,
+      completed: st.completed
+    })),
     conversations: (task.conversations ?? []).map((c: ConvRow) => {
       let tokenUsage: { input: number; output: number } | null = null
       if (c.tokenUsage) {

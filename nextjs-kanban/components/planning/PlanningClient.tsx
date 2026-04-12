@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, ChevronDown, ChevronUp, FileText, Lightbulb, Map, CheckSquare } from 'lucide-react'
+import { ArrowLeft, Send, ChevronDown, ChevronUp, FileText, Lightbulb, Map, CheckSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useQueryClient } from '@tanstack/react-query'
@@ -155,6 +155,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [input, setInput] = useState('')
   const [currentPhase, setCurrentPhase] = useState<PlanningPhase>('discovery')
   const [currentVisionDoc, setCurrentVisionDoc] = useState<string | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -309,7 +310,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
       {/* Left: Thread Sidebar */}
-      <div className="w-64 shrink-0">
+      <div className={`shrink-0 transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
         <ThreadListSidebar
           threads={threads}
           activeThreadId={activeThreadId}
@@ -317,6 +318,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           onNewThread={handleNewThread}
           onDeleteThread={handleDeleteThread}
           onRenameThread={handleRenameThread}
+          onToggleSidebar={() => setIsSidebarOpen(false)}
           isCreating={createThread.isPending}
           isLoading={threadsLoading}
         />
@@ -326,12 +328,24 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       <div className="flex flex-col flex-1 min-w-0 border-r border-gray-100 bg-white">
         {/* Header */}
         <header className="h-16 px-6 border-b border-gray-100 flex items-center gap-4 shrink-0">
-          <button
-            onClick={() => router.push('/')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/')}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+              title="Back to Projects"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                title="Expand Sidebar"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-sm text-[#0a192f]">{initialProject.name}</h1>
             <p className="text-xs text-gray-400">AI Planning Session</p>
