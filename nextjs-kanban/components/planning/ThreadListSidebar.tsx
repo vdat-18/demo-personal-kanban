@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trash2, MessageSquare, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, MessageSquare, Pencil, Check, X, PanelLeftClose } from 'lucide-react'
 import type { PlanningThread } from '@/lib/hooks/usePlanningThreads'
 
 function formatRelativeTime(dateStr: string): string {
@@ -24,6 +24,7 @@ interface ThreadListSidebarProps {
   onNewThread: () => void
   onDeleteThread: (id: string) => void
   onRenameThread: (id: string, title: string) => void
+  onToggleSidebar?: () => void
   isCreating?: boolean
   isLoading?: boolean
 }
@@ -35,6 +36,7 @@ export function ThreadListSidebar({
   onNewThread,
   onDeleteThread,
   onRenameThread,
+  onToggleSidebar,
   isCreating,
   isLoading,
 }: ThreadListSidebarProps) {
@@ -62,18 +64,29 @@ export function ThreadListSidebar({
           <MessageSquare className="w-4 h-4 text-blue-600" />
           <span className="font-bold text-sm text-[#0a192f]">Threads</span>
         </div>
-        <button
-          onClick={onNewThread}
-          disabled={isCreating}
-          className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-blue-600 disabled:opacity-40"
-          title="New Thread"
-        >
-          {isCreating ? (
-            <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin block" />
-          ) : (
-            <Plus className="w-4 h-4" />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onNewThread}
+            disabled={isCreating}
+            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-blue-600 disabled:opacity-40"
+            title="New Thread"
+          >
+            {isCreating ? (
+              <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin block" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+          </button>
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-[#0a192f]"
+              title="Collapse Sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Thread List */}

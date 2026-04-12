@@ -7,7 +7,7 @@ import { generateTasksSchema } from '@/lib/validations/schemas'
 
 // ── JSON extraction helper ────────────────────────────────────────────────────
 
-function extractJsonFromResponse(text: string): Array<{ title: string; description?: string }> {
+function extractJsonFromResponse(text: string): Array<{ title: string; description?: string; subtasks?: string[] }> {
   // Match content inside ```json ... ``` or ``` ... ``` code fences
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const jsonString = fenceMatch ? fenceMatch[1].trim() : text.trim()
@@ -26,6 +26,7 @@ function extractJsonFromResponse(text: string): Array<{ title: string; descripti
     return {
       title: String(task.title),
       description: task.description != null ? String(task.description) : undefined,
+      subtasks: Array.isArray(task.subtasks) ? task.subtasks.map(s => String(s)) : [],
     }
   })
 }
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         : ((agentResult as any)?.output ?? String(agentResult))
 
     // Extract structured tasks from the response
-    let taskData: Array<{ title: string; description?: string }>
+    let taskData: Array<{ title: string; description?: string; subtasks?: string[] }>
     try {
       taskData = extractJsonFromResponse(responseText)
     } catch {

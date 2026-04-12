@@ -10,7 +10,7 @@ export async function getTasks(status?: TaskStatus, projectId?: string) {
 
   return prisma.task.findMany({
     where,
-    include: { project: true },
+    include: { project: true, subtasks: true },
     orderBy: { createdAt: 'desc' }
   })
 }
@@ -18,7 +18,7 @@ export async function getTasks(status?: TaskStatus, projectId?: string) {
 export async function getTask(id: string) {
   return prisma.task.findUnique({
     where: { id },
-    include: { project: true, conversations: true }
+    include: { project: true, conversations: true, subtasks: true }
   })
 }
 
@@ -77,7 +77,7 @@ export async function deleteTask(id: string) {
 }
 
 export async function createTasksBatch(
-  tasks: Array<{ title: string; description?: string }>,
+  tasks: Array<{ title: string; description?: string; subtasks?: string[] }>,
   projectId: string
 ) {
   if (tasks.length === 0) return []
@@ -91,7 +91,17 @@ export async function createTasksBatch(
           status: TaskStatus.TODO,
           priority: TaskPriority.MEDIUM,
           projectId,
+          ...(task.subtasks && task.subtasks.length > 0
+            ? {
+                subtasks: {
+                  create: task.subtasks.map((st) => ({
+                    title: st,
+                  })),
+                },
+              }
+            : {}),
         },
+        include: { subtasks: true },
       })
     )
   )
