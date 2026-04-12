@@ -1,0 +1,7 @@
+interview_id,segment,role,company_size,primary_pain,buying_trigger,quoted_language,preferred_content_format
+ICP-01,regulated services,Director of Operations,420,"Evidence lives in too many places","Upcoming customer audit","We always discover the missing proof three days too late","Checklist article"
+ICP-02,specialty manufacturing,Compliance Manager,860,"No single owner for audit prep","Board pressure after failed internal review","I need to know what is late before leadership asks","Template or framework"
+ICP-03,logistics,VP Operations,1300,"Audit prep steals time from core operations","Peak-season staffing pressure","Every audit becomes a temporary side project","Executive webinar"
+ICP-04,regulated services,Operations Systems Lead,310,"Manual evidence collection across tools","Tool sprawl and duplicate requests","I do not need another dashboard, I need fewer handoffs","Implementation guide"
+ICP-05,specialty manufacturing,Senior Operations Manager,540,"Corrective actions are tracked informally","Repeat findings across quarters","We fix the same issue twice because ownership is fuzzy","Problem-solution blog"
+ICP-06,logistics,Director of Compliance Operations,980,"Leadership wants status but reports take hours","Audit date confirmed by enterprise customer","We cannot keep building status decks by hand","ROI explainer"
