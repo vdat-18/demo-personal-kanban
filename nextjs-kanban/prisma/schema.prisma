@@ -66,6 +66,7 @@ model Subtask {
   title       String
   description String?  @db.Text
   completed   Boolean  @default(false)
+  output      String?  @db.Text
   taskId      String
   task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
