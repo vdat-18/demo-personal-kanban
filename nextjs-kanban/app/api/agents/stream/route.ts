@@ -6,10 +6,12 @@ import {
   registerBuiltInTools,
 } from '@jackchen_me/open-multi-agent'
 import { buildChatPrompt } from '@/lib/agents/prompts'
-import { agentConfigs } from '@/lib/agents/configs'
+import { agentConfigs, getAgentConfigForDomain } from '@/lib/agents/configs'
 import type { AgentRole } from '@/lib/agents/configs'
+import type { ProjectDomain } from '@/lib/agents/prompts'
 import { allTools } from '@/lib/agents/tools'
 import { createConversation } from '@/lib/db/conversations'
+import { getTask } from '@/lib/db/tasks'
 import { z } from 'zod'
 import { agentRoleSchema, uuidSchema } from '@/lib/validations/schemas'
 
@@ -54,9 +56,18 @@ export async function POST(request: NextRequest) {
 
           const prompt = await buildChatPrompt(role as AgentRole, userMessage, taskId)
 
+          // Fetch task domain to use the correct domain-specific agent system prompt
+          const task = await getTask(taskId)
+          const domain = (task?.project?.domain as ProjectDomain) ?? 'SOFTWARE_ENGINEERING'
+          // Merge domain system prompt with the base tools config (tools come from agentConfigs)
+          const agentConfig = {
+            ...agentConfigs[role as AgentRole],
+            systemPrompt: getAgentConfigForDomain(role as AgentRole, domain).systemPrompt,
+          }
+
           const registry = buildRegistry()
           const executor = new ToolExecutor(registry)
-          const agent = new Agent(agentConfigs[role as AgentRole], registry, executor)
+          const agent = new Agent(agentConfig, registry, executor)
 
           // Accumulate the full response text so we can persist on completion
           let accumulatedText = ''
@@ -91,7 +102,7 @@ export async function POST(request: NextRequest) {
                   taskId,
                   messages: allMessages,
                   result: accumulatedText,
-                  ...(tokenUsage ? { tokenUsage } : {}),
+                  tokenUsage: tokenUsage || { input: 0, output: 0 },
                 })
               } catch (dbError) {
                 console.error('Failed to persist conversation:', dbError)

@@ -217,10 +217,81 @@ export const projectCreateTool = defineTool({
   },
 })
 
+export const subtaskUpdateTool = defineTool({
+  name: 'subtask_update',
+  description: 'Mark a subtask as completed. Call this after you finish working on a subtask. Pass the subtask UUID from the "ID:" field in your context. The "completed" field defaults to true — you can omit it.',
+  inputSchema: z.object({
+    id: z.string().describe('The EXACT UUID of the subtask to update, from the "ID:" field in the subtask list. Example: "3f2b1a00-abcd-1234-efgh-000000000000"'),
+    // Accept boolean OR string — LLMs sometimes emit "true"/"false" strings. Default to true so omitting it still works.
+    completed: z.union([z.boolean(), z.literal('true'), z.literal('false')]).optional().default(true).describe('Set to true to mark complete (default). Omit or pass true — do not pass the subtask title here.'),
+    title: z.string().optional().describe('Optionally update the subtask title. Leave out if you just want to mark it complete.'),
+  }) as any,
+  execute: async (input: unknown, context: ToolUseContext) => {
+    void context
+    const { id, completed, title } = input as any
+    // Sanitize ID: keep only valid UUID characters (alphanumeric + hyphens)
+    const rawId = String(id ?? '').trim()
+    const safeId = rawId.replace(/[^a-zA-Z0-9-]/g, '')
+    const isCompleted = completed === true || completed === 'true'
+
+    // Validate that the id looks like a UUID (must be exactly 36 chars with hyphens at correct positions)
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_REGEX.test(safeId)) {
+      return {
+        data: JSON.stringify({
+          success: false,
+          error: `Invalid subtask id "${rawId}" — this does not look like a UUID. You must pass the exact ID value from the "ID:" field in the subtasks list (e.g. "3f2b1a00-..."), NOT the subtask title. Do NOT retry with the same value.`,
+        }),
+        isError: true,
+      }
+    }
+
+    try {
+      // Verify subtask exists before updating
+      const existing = await prisma.subtask.findUnique({ where: { id: safeId } })
+      if (!existing) {
+        return {
+          data: JSON.stringify({
+            success: false,
+            error: `Subtask with id "${safeId}" not found in the database. Do NOT retry — the subtask ID may be wrong. Re-read the subtasks list in your context carefully.`,
+          }),
+          isError: true,
+        }
+      }
+
+      const updateData: Record<string, unknown> = { completed: isCompleted }
+      // Only update title if explicitly provided
+      if (title !== undefined && title !== null) {
+        updateData.title = title
+      }
+
+      const subtask = await prisma.subtask.update({
+        where: { id: safeId },
+        data: updateData,
+      })
+
+      return {
+        data: JSON.stringify({ success: true, message: `Subtask "${subtask.title}" marked as ${isCompleted ? 'completed' : 'pending'} successfully.`, subtask }),
+      }
+    } catch (error) {
+      const errStr = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[subtask_update tool] Prisma error:', errStr)
+      return {
+        data: JSON.stringify({
+          success: false,
+          error: `Database error: ${errStr}. Do NOT retry this tool call. Please inform the user that the subtask status could not be updated due to a technical issue.`,
+        }),
+        isError: true,
+      }
+    }
+  },
+})
+
 export const allTools = [
   dbQueryTool,
   taskCreateTool,
   taskUpdateTool,
   taskDeleteTool,
   projectCreateTool,
+  subtaskUpdateTool,
 ]

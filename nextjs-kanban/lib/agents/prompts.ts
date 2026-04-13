@@ -12,6 +12,64 @@ export type ProjectDomain = 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LO
 
 // ── Domain-specific system prompts ───────────────────────────────────────────
 
+// Shared subtask execution rules injected into all developer prompts
+const SUBTASK_EXECUTION_RULES = `
+## MANDATORY SUBTASK EXECUTION RULES
+You will be given a list of subtasks in the format:
+  - ID: <uuid> | Status: [PENDING or COMPLETED] | Title: <title>
+
+Follow these rules strictly:
+1. OVERRIDING RULE: Execute ONLY ONE subtask per turn. Do NOT execute multiple subtasks in a single response.
+2. SHOW YOUR WORK: For the subtask you are executing, MUST output a detailed, structured mini-report in your chat response containing:
+   - 🔍 **Context & Plan:** What are you doing and how.
+   - 🛠️ **Detailed Execution:** The deep work, research summaries, data, or decisions made. BE EXTREMELY DETAILED (at least 150-300 words).
+   - 🏁 **Result:** The final concrete outcome.
+3. CRITICAL — TOOL CALL REQUIRED: After writing your mini-report, you MUST invoke the 'subtask_update' tool natively (as a real function call, NOT as JSON text in your response). Pass exactly:
+   - "id": the UUID string from the "ID:" field (e.g., "3f2b1a00-abcd-1234-efgh-000000000000")
+   - "completed": true
+   ⚠️ WARNING: Do NOT write the tool call as JSON in your text. Do NOT say "Calling the function...". ACTUALLY INVOKE THE TOOL. The system requires a real native tool invocation to update the database.
+   ⚠️ WARNING: Do NOT write { "recipient_name": "functions.subtask_update", ... } — that is NOT a real tool call. Use the actual tool calling mechanism.
+4. After the tool call succeeds (you see { "success": true } in the tool result), STOP. Wait for the user to prompt you for the next subtask.
+5. Do NOT call 'db_query' to find subtask IDs — they are already provided above.
+6. MASTER REPORT (trigger when ALL subtasks are completed):
+   When all subtasks are done, you will be given the FULL CONVERSATION HISTORY above showing exactly what was researched, written, and delivered for each subtask.
+   Generate a rich, DETAILED Master Synthesis Report that synthesizes the ACTUAL CONTENT produced — not generic summaries. Quote specific data points, names, numbers, or findings from the work done.
+   Use this EXACT Markdown template:
+
+   [[REPORT_START]]
+   ## 🏁 Master Synthesis Report: [Task Title]
+
+   ### 🎯 Objective
+   [2-3 sentences: what this task set out to achieve and why it matters]
+
+   ### 🔗 How the Pieces Connect
+   [Explain the logical thread between subtasks — how each one built on the previous to reach the final goal. Be specific about dependencies.]
+
+   ### 📋 Detailed Work Completed
+   For EACH subtask, provide a substantive summary of the ACTUAL CONTENT produced (not just "this was done"). Include specific outputs, findings, data, or decisions:
+
+   #### [Subtask 1 Title]
+   [3-5 sentences summarizing the specific deliverable, key findings, data points, or content produced. Reference actual details from the conversation.]
+
+   #### [Subtask 2 Title]
+   [3-5 sentences summarizing the specific deliverable...]
+
+   [Continue for every subtask]
+
+   ### 💡 Key Insights & Findings
+   - **[Insight topic]**: [Concrete finding with specific detail — e.g., data point, name, number, or recommendation]
+   - **[Insight topic]**: [Concrete finding...]
+   - **[Insight topic]**: [Concrete finding...]
+   [Add more as needed — aim for 4-6 insights minimum]
+
+   ### ✅ Conclusion & Next Steps
+   [2-3 sentences confirming the task objective has been met. Then list 2-3 concrete next steps the user should take based on the work done.]
+   [[REPORT_END]]
+
+   After writing the report:
+   a) Call 'task_update' with the task's ID and set description to a condensed plain-text version of the report (2-3 paragraphs).
+   b) Suggest the user move the task to 'IN_REVIEW'.`
+
 export const DOMAIN_SYSTEM_PROMPTS: Record<ProjectDomain, Record<AgentRole, string>> = {
   // ─── Software Engineering ──────────────────────────────────────────────
   SOFTWARE_ENGINEERING: {
@@ -65,7 +123,8 @@ Always provide:
 - Working code implementation
 - Brief explanation of approach
 - Any assumptions made
-- Testing recommendations`,
+- Testing recommendations
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert code reviewer focused on ensuring code quality, correctness, and best practices.
 
@@ -152,7 +211,8 @@ Always provide:
 - Ready-to-use deliverables (copy, briefs, outlines)
 - Rationale for messaging choices
 - Audience-specific considerations
-- Suggestions for testing and optimization`,
+- Suggestions for testing and optimization
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert marketing reviewer focused on ensuring campaign quality, brand alignment, and strategic effectiveness.
 
@@ -239,7 +299,8 @@ Always provide:
 - Ready-to-use deliverables (emails, scripts, proposals)
 - Rationale for approach and messaging
 - Account-specific considerations
-- Next-step recommendations`,
+- Next-step recommendations
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert sales reviewer focused on ensuring deal quality, pipeline accuracy, and process adherence.
 
@@ -326,7 +387,8 @@ Always provide:
 - Clear action plans with timelines
 - Resource and capacity requirements
 - Exception handling procedures
-- Status updates and tracking information`,
+- Status updates and tracking information
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert logistics auditor focused on ensuring operational efficiency, compliance, and service quality.
 
@@ -401,10 +463,64 @@ export async function buildChatPrompt(
   const domain = (task.project?.domain as ProjectDomain) ?? 'SOFTWARE_ENGINEERING'
   const roleLabel = DOMAIN_ROLE_LABELS[domain][role]
 
+  const allCompleted = task.subtasks && task.subtasks.length > 0 && task.subtasks.every(st => st.completed)
+  const pendingCount = task.subtasks?.filter(st => !st.completed).length ?? 0
+
+  const subtasksContext = (task.subtasks && task.subtasks.length > 0)
+    ? `\nSubtasks for this task (${task.subtasks.length - pendingCount}/${task.subtasks.length} completed):\n${task.subtasks.map((st: any) => `- ID: ${st.id} | Status: [${st.completed ? 'COMPLETED' : 'PENDING'}] | Title: ${st.title}`).join('\n')}`
+    : '\nNo subtasks defined.';
+
+  // When all subtasks are done, inject conversation history so the agent can
+  // synthesize a detailed report from the ACTUAL CONTENT produced per subtask.
+  let conversationHistory = ''
+  if (allCompleted && task.conversations && task.conversations.length > 0) {
+    const workOutputs: string[] = []
+
+    for (const conv of (task.conversations as any[])) {
+      // Prefer the final 'result' if it exists (clean summary per conversation)
+      // result can be a string or a JSON object (e.g. { reply: "..." })
+      const resultStr = typeof conv.result === 'string'
+        ? conv.result
+        : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
+          ? conv.result.reply
+          : null
+      if (resultStr && resultStr.length > 50) {
+        workOutputs.push(resultStr)
+        continue
+      }
+      // Fallback: extract the last (longest) assistant message from this conversation
+      const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
+      const assistantMsgs = msgs
+        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
+        .map(m => m.content)
+      if (assistantMsgs.length > 0) {
+        // Take the last assistant message — usually the most complete work output
+        workOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+      }
+    }
+
+    if (workOutputs.length > 0) {
+      // Cap at ~10000 chars to avoid token overflow; keep most recent work
+      const fullHistory = workOutputs.join('\n\n---\n\n')
+      const cappedHistory = fullHistory.length > 10000
+        ? '...[earlier work truncated]\n\n' + fullHistory.slice(-10000)
+        : fullHistory
+      conversationHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nFULL WORK HISTORY — ${workOutputs.length} subtask(s) completed\n(Use ALL of this content to write your detailed report. Reference specific data, findings, and deliverables.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${cappedHistory}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    }
+  }
+
+  const executionInstruction = allCompleted
+    ? `ALL SUBTASKS ARE ALREADY COMPLETED. The full work history is provided above — use it to write a DETAILED Master Synthesis Report that quotes specific findings, data points, and deliverables from the actual work. Do NOT call subtask_update again. Wrap the report in [[REPORT_START]] and [[REPORT_END]] tags, then natively call task_update to save it to Task ID: ${task.id}.`
+    : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
+
   return [
-    `You are a ${roleLabel} working on task: "${task.title}".`,
+    `You are a ${roleLabel} working on task: "${task.title}" (Task ID: ${task.id}).`,
     `Task status: ${task.status}`,
     task.description ? `Task description: ${task.description}` : '',
+    subtasksContext,
+    conversationHistory,
+    '',
+    executionInstruction,
     '',
     `User message: ${userMessage}`,
   ]

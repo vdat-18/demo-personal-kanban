@@ -7,7 +7,7 @@ export type AgentRole = 'architect' | 'developer' | 'reviewer'
 export const agentConfigs: Record<AgentRole, AgentConfig> = {
   architect: {
     name: 'Architect',
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     provider: 'openai',
     tools: ['db_query', 'project_create'],
     systemPrompt: SYSTEM_PROMPTS.architect,
@@ -15,15 +15,15 @@ export const agentConfigs: Record<AgentRole, AgentConfig> = {
 
   developer: {
     name: 'Developer',
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     provider: 'openai',
-    tools: ['db_query', 'task_create', 'task_update', 'task_delete', 'project_create'],
+    tools: ['db_query', 'task_create', 'task_update', 'task_delete', 'project_create', 'subtask_update'],
     systemPrompt: SYSTEM_PROMPTS.developer,
   },
 
   reviewer: {
     name: 'Reviewer',
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     provider: 'openai',
     tools: ['db_query'],
     systemPrompt: SYSTEM_PROMPTS.reviewer,
