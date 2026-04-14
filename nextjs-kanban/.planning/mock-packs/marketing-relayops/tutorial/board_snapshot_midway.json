@@ -1,0 +1,122 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "snapshotId": "board_marketing_relayops_midway",
+  "capturedAt": "2026-05-15T11:00:00.000Z",
+  "project": {
+    "canonicalId": "proj_marketing_relayops_001",
+    "appId": "11111111-1111-4111-8111-111111111111",
+    "name": "RelayOps Audit Assistant Content Engine",
+    "domain": "MARKETING"
+  },
+  "columnOrder": [
+    "TODO",
+    "IN_PROGRESS",
+    "IN_REVIEW",
+    "DONE",
+    "BLOCKED"
+  ],
+  "counts": {
+    "TODO": 1,
+    "IN_PROGRESS": 1,
+    "IN_REVIEW": 1,
+    "DONE": 3,
+    "BLOCKED": 1
+  },
+  "columns": {
+    "TODO": [
+      {
+        "canonicalId": "tsk_mkt_006",
+        "appId": "44444444-4444-4444-8444-000000000006",
+        "title": "Create the distribution checklist by channel",
+        "status": "TODO",
+        "priority": "MEDIUM",
+        "owner": "Samir Patel",
+        "dependsOn": [
+          "tsk_mkt_005"
+        ],
+        "waitingFor": "Approved content briefs before channel-by-channel handoff can be finalized."
+      }
+    ],
+    "IN_PROGRESS": [
+      {
+        "canonicalId": "tsk_mkt_005",
+        "appId": "44444444-4444-4444-8444-000000000005",
+        "title": "Draft 3 priority content briefs",
+        "status": "IN_PROGRESS",
+        "priority": "HIGH",
+        "owner": "Elena Brooks",
+        "dependsOn": [
+          "tsk_mkt_004"
+        ],
+        "historyNote": "This task was briefly reviewed with only one draft attached and was returned for completion. It is now back in progress with all three briefs being finalized.",
+        "expectedArtifacts": [
+          "tutorial/deliverables/content_brief_ops_risk.md",
+          "tutorial/deliverables/content_brief_audit_readiness.md",
+          "tutorial/deliverables/content_brief_compliance_roi.md"
+        ]
+      }
+    ],
+    "IN_REVIEW": [
+      {
+        "canonicalId": "tsk_mkt_004",
+        "appId": "44444444-4444-4444-8444-000000000004",
+        "title": "Build the 8-week editorial calendar",
+        "status": "IN_REVIEW",
+        "priority": "URGENT",
+        "owner": "Elena Brooks",
+        "dependsOn": [
+          "tsk_mkt_003"
+        ],
+        "submittedArtifact": "tutorial/deliverables/editorial_calendar.csv",
+        "reviewQuestion": "Does the calendar stay within the one-major-asset-per-week constraint?"
+      }
+    ],
+    "DONE": [
+      {
+        "canonicalId": "tsk_mkt_001",
+        "appId": "44444444-4444-4444-8444-000000000001",
+        "title": "Define target audience and launch success metrics",
+        "status": "DONE",
+        "priority": "HIGH",
+        "owner": "Priya Nwosu",
+        "doneSummary": "Audience, secondary stakeholders, and the 45 assisted demo request KPI were approved during planning.",
+        "artifact": "tutorial/documents/launch_brief_audit_assistant.md"
+      },
+      {
+        "canonicalId": "tsk_mkt_002",
+        "appId": "44444444-4444-4444-8444-000000000002",
+        "title": "Approve the launch messaging matrix",
+        "status": "DONE",
+        "priority": "URGENT",
+        "owner": "Maya Chen",
+        "doneSummary": "The approved messaging matrix aligns the always-ready operations message, proof pillars, and objection handling.",
+        "artifact": "tutorial/deliverables/messaging_matrix.md"
+      },
+      {
+        "canonicalId": "tsk_mkt_003",
+        "appId": "44444444-4444-4444-8444-000000000003",
+        "title": "Select topic clusters and SEO priorities",
+        "status": "DONE",
+        "priority": "HIGH",
+        "owner": "Elena Brooks",
+        "doneSummary": "Audit readiness, evidence workflow, and leadership visibility were selected as the priority clusters.",
+        "artifact": "tutorial/documents/keyword_gap_analysis.csv"
+      }
+    ],
+    "BLOCKED": [
+      {
+        "canonicalId": "tsk_mkt_007",
+        "appId": "44444444-4444-4444-8444-000000000007",
+        "title": "Define KPI tracker and reporting cadence",
+        "status": "BLOCKED",
+        "priority": "HIGH",
+        "owner": "Maya Chen",
+        "dependsOn": [
+          "tsk_mkt_004"
+        ],
+        "blockReason": "Samir has not yet confirmed whether HubSpot campaign attribution or the sales handoff sheet is the source of truth for assisted demo requests.",
+        "recoveryPlan": "Restore the task to TODO after Maya and Samir confirm the source systems, then move it back through IN_PROGRESS and IN_REVIEW."
+      }
+    ]
+  }
+}

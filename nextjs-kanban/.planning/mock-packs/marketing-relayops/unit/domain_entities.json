@@ -1,0 +1,169 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "projectDomain": "MARKETING",
+  "planningPhases": [
+    "discovery",
+    "blueprint",
+    "task_mapping"
+  ],
+  "taskStatuses": [
+    "TODO",
+    "IN_PROGRESS",
+    "IN_REVIEW",
+    "DONE",
+    "BLOCKED"
+  ],
+  "taskPriorities": [
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "URGENT"
+  ],
+  "statusLifecycle": {
+    "TODO": [
+      "IN_PROGRESS",
+      "BLOCKED"
+    ],
+    "IN_PROGRESS": [
+      "IN_REVIEW",
+      "TODO",
+      "BLOCKED"
+    ],
+    "IN_REVIEW": [
+      "DONE",
+      "IN_PROGRESS",
+      "BLOCKED"
+    ],
+    "DONE": [],
+    "BLOCKED": [
+      "TODO"
+    ]
+  },
+  "planningGateRule": {
+    "description": "Task generation should only be recommended once the launch brief, audience, primary message, and KPI target are explicit enough to justify task_mapping.",
+    "requiredFields": [
+      "coreAudience",
+      "primaryMessage",
+      "primaryKpiTarget",
+      "contentWindow"
+    ]
+  },
+  "reviewGateRule": {
+    "description": "A reviewer can reject a task in IN_REVIEW when the expected artifact evidence is missing or incomplete.",
+    "representativeTask": "tsk_mkt_005"
+  },
+  "entities": {
+    "project": {
+      "canonicalId": "proj_marketing_relayops_001",
+      "appId": "11111111-1111-4111-8111-111111111111",
+      "name": "RelayOps Audit Assistant Content Engine"
+    },
+    "planningThread": {
+      "canonicalId": "thread_marketing_relayops_001",
+      "appId": "22222222-2222-4222-8222-222222222222"
+    },
+    "humans": [
+      {
+        "canonicalId": "usr_001",
+        "name": "Maya Chen",
+        "role": "Head of Marketing"
+      },
+      {
+        "canonicalId": "usr_002",
+        "name": "Priya Nwosu",
+        "role": "Product Marketing Manager"
+      },
+      {
+        "canonicalId": "usr_003",
+        "name": "Elena Brooks",
+        "role": "Content Lead"
+      },
+      {
+        "canonicalId": "usr_004",
+        "name": "Samir Patel",
+        "role": "Sales Enablement Manager"
+      }
+    ],
+    "documents": [
+      "brand_messaging_framework.md",
+      "launch_brief_audit_assistant.md",
+      "icp_interview_notes.csv",
+      "keyword_gap_analysis.csv",
+      "competitor_content_teardown.md",
+      "webinar_and_blog_performance.csv",
+      "common_sales_objections.md"
+    ],
+    "deliverables": [
+      "messaging_matrix.md",
+      "editorial_calendar.csv",
+      "content_brief_ops_risk.md",
+      "content_brief_audit_readiness.md",
+      "content_brief_compliance_roi.md",
+      "distribution_checklist.md",
+      "kpi_tracker_spec.md"
+    ],
+    "tasks": [
+      {
+        "canonicalId": "tsk_mkt_001",
+        "appId": "44444444-4444-4444-8444-000000000001",
+        "title": "Define target audience and launch success metrics"
+      },
+      {
+        "canonicalId": "tsk_mkt_002",
+        "appId": "44444444-4444-4444-8444-000000000002",
+        "title": "Approve the launch messaging matrix"
+      },
+      {
+        "canonicalId": "tsk_mkt_003",
+        "appId": "44444444-4444-4444-8444-000000000003",
+        "title": "Select topic clusters and SEO priorities"
+      },
+      {
+        "canonicalId": "tsk_mkt_004",
+        "appId": "44444444-4444-4444-8444-000000000004",
+        "title": "Build the 8-week editorial calendar"
+      },
+      {
+        "canonicalId": "tsk_mkt_005",
+        "appId": "44444444-4444-4444-8444-000000000005",
+        "title": "Draft 3 priority content briefs"
+      },
+      {
+        "canonicalId": "tsk_mkt_006",
+        "appId": "44444444-4444-4444-8444-000000000006",
+        "title": "Create the distribution checklist by channel"
+      },
+      {
+        "canonicalId": "tsk_mkt_007",
+        "appId": "44444444-4444-4444-8444-000000000007",
+        "title": "Define KPI tracker and reporting cadence"
+      }
+    ]
+  },
+  "marketingVocabulary": {
+    "audienceSegments": [
+      "operations leaders",
+      "compliance managers",
+      "operations systems leads"
+    ],
+    "contentFormats": [
+      "blog",
+      "webinar",
+      "guide",
+      "sales asset"
+    ],
+    "contentChannels": [
+      "website",
+      "email",
+      "webinar",
+      "social",
+      "sales enablement"
+    ],
+    "kpiMetrics": [
+      "assisted demo requests",
+      "launch-content visits",
+      "CTA clicks",
+      "sales asset reuse"
+    ]
+  }
+}

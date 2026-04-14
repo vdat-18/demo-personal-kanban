@@ -1,0 +1,7 @@
+asset_id,format,title,published_at,primary_topic,channel,views_or_registrations,cta_clicks,mqls,quality_note
+WB-101,webinar,"How Operations Teams Survive Audit Season Without Spreadsheet Chaos",2026-02-10,audit readiness,webinar,318,54,16,"Best engagement from operations leaders"
+BL-214,blog,"5 Evidence Collection Bottlenecks Slowing Internal Audits",2026-01-22,evidence collection,organic blog,1240,41,9,"Strong SEO entry point but weak conversion CTA"
+BL-233,blog,"What a Compliance Dashboard Should Show Leadership",2026-02-18,leadership visibility,organic blog,760,36,11,"Lower traffic, higher intent readers"
+WB-127,webinar,"Why Corrective Actions Stall After the Audit Ends",2026-03-05,remediation tracking,webinar,204,27,7,"Useful topic but title felt too abstract"
+BL-245,blog,"Audit Checklist Template for Mid-Market Operations Teams",2026-03-12,audit checklist,paid + organic,1810,62,13,"High traffic, mixed lead quality"
+EM-062,email,"March Operations Compliance Roundup",2026-03-19,newsletter,email,442,19,4,"Good for nurture, not primary launch asset"

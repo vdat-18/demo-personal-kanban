@@ -1,0 +1,392 @@
+{
+  "packId": "pack_marketing_relayops_v1",
+  "idRegistry": {
+    "projectId": "11111111-1111-4111-8111-111111111111",
+    "threadId": "22222222-2222-4222-8222-222222222222",
+    "messageIds": {
+      "blueprintAssistant": "33333333-3333-4333-8333-000000000004",
+      "taskMutationAssistant": "33333333-3333-4333-8333-000000000008"
+    },
+    "taskIds": {
+      "tsk_mkt_001": "44444444-4444-4444-8444-000000000001",
+      "tsk_mkt_002": "44444444-4444-4444-8444-000000000002",
+      "tsk_mkt_003": "44444444-4444-4444-8444-000000000003",
+      "tsk_mkt_004": "44444444-4444-4444-8444-000000000004",
+      "tsk_mkt_005": "44444444-4444-4444-8444-000000000005",
+      "tsk_mkt_006": "44444444-4444-4444-8444-000000000006",
+      "tsk_mkt_007": "44444444-4444-4444-8444-000000000007"
+    }
+  },
+  "examples": {
+    "createProject": {
+      "method": "POST",
+      "path": "/api/projects",
+      "requestBody": {
+        "name": "RelayOps Audit Assistant Content Engine",
+        "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+        "domain": "MARKETING"
+      },
+      "responseStatus": 201,
+      "responseBody": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "name": "RelayOps Audit Assistant Content Engine",
+        "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+        "domain": "MARKETING",
+        "createdAt": "2026-04-06T09:00:00.000Z",
+        "updatedAt": "2026-04-06T09:00:00.000Z"
+      }
+    },
+    "getProject": {
+      "method": "GET",
+      "path": "/api/projects/11111111-1111-4111-8111-111111111111",
+      "responseStatus": 200,
+      "responseBody": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "name": "RelayOps Audit Assistant Content Engine",
+        "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+        "domain": "MARKETING",
+        "createdAt": "2026-04-06T09:00:00.000Z",
+        "updatedAt": "2026-05-15T11:00:00.000Z",
+        "tasks": [
+          {
+            "id": "44444444-4444-4444-8444-000000000001",
+            "title": "Define target audience and launch success metrics",
+            "description": "Confirm the primary buyer, supporting stakeholders, and the launch KPI target for the eight-week content engine.",
+            "status": "DONE",
+            "priority": "HIGH",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-11T10:00:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000005",
+            "title": "Draft 3 priority content briefs",
+            "description": "Produce execution-ready briefs for the operations-risk, audit-readiness, and compliance-ROI assets.",
+            "status": "IN_PROGRESS",
+            "priority": "HIGH",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-05-15T10:12:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000007",
+            "title": "Define KPI tracker and reporting cadence",
+            "description": "Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine.",
+            "status": "BLOCKED",
+            "priority": "HIGH",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-05-15T10:45:00.000Z"
+          }
+        ]
+      }
+    },
+    "createPlanningThread": {
+      "method": "POST",
+      "path": "/api/planning-threads",
+      "requestBody": {
+        "projectId": "11111111-1111-4111-8111-111111111111",
+        "title": "RelayOps Audit Assistant content launch planning"
+      },
+      "responseStatus": 201,
+      "responseBody": {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "projectId": "11111111-1111-4111-8111-111111111111",
+        "title": "RelayOps Audit Assistant content launch planning",
+        "phase": "discovery",
+        "visionDocument": null,
+        "createdAt": "2026-04-06T09:03:00.000Z",
+        "updatedAt": "2026-04-06T09:03:00.000Z"
+      }
+    },
+    "listPlanningThreads": {
+      "method": "GET",
+      "path": "/api/planning-threads?projectId=11111111-1111-4111-8111-111111111111",
+      "responseStatus": 200,
+      "responseBody": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "projectId": "11111111-1111-4111-8111-111111111111",
+          "title": "RelayOps Audit Assistant content launch planning",
+          "phase": "task_mapping",
+          "visionDocument": "# RelayOps Audit Assistant Launch Blueprint\n\n## Audience\n- Primary buyer: Director or Senior Manager of Operations\n- Secondary influences: Compliance manager, operations systems lead, sales champion",
+          "createdAt": "2026-04-06T09:03:00.000Z",
+          "updatedAt": "2026-04-10T16:23:00.000Z",
+          "lastMessage": "Agreed. The KPI task should stay focused on metric definitions, data sources, ownership, and the Mon",
+          "lastMessageAt": "2026-04-10T16:23:00.000Z"
+        }
+      ]
+    },
+    "postPlanningMessageBlueprint": {
+      "method": "POST",
+      "path": "/api/planning-threads/22222222-2222-4222-8222-222222222222/messages",
+      "requestBody": {
+        "content": "Use 45 assisted demo requests as the primary KPI and keep the content window from 2026-04-20 through 2026-06-12."
+      },
+      "responseStatus": 200,
+      "responseBody": {
+        "userMessage": {
+          "id": "33333333-3333-4333-8333-000000000003",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "role": "user",
+          "content": "Use 45 assisted demo requests as the primary KPI and keep the content window from 2026-04-20 through 2026-06-12.",
+          "tokenUsage": null,
+          "createdAt": "2026-04-08T15:18:00.000Z"
+        },
+        "assistantMessage": {
+          "id": "33333333-3333-4333-8333-000000000004",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "role": "assistant",
+          "content": "[PHASE:blueprint]\nYou now have enough business signal to move into blueprint.\n\n```vision-update\n# RelayOps Audit Assistant Launch Blueprint\n\n## Audience\n- Primary buyer: Director or Senior Manager of Operations\n- Secondary influences: Compliance manager, operations systems lead, sales champion\n\n## Message\n- Primary message: move from reactive audit prep to always-ready compliance operations without adding headcount\n```\n",
+          "tokenUsage": {
+            "input": 3120,
+            "output": 860
+          },
+          "createdAt": "2026-04-08T15:22:00.000Z"
+        },
+        "tokenUsage": {
+          "input": 3120,
+          "output": 860
+        },
+        "phase": "blueprint",
+        "visionDocument": "# RelayOps Audit Assistant Launch Blueprint\n\n## Audience\n- Primary buyer: Director or Senior Manager of Operations\n- Secondary influences: Compliance manager, operations systems lead, sales champion\n\n## Message\n- Primary message: move from reactive audit prep to always-ready compliance operations without adding headcount"
+      }
+    },
+    "getPlanningMessages": {
+      "method": "GET",
+      "path": "/api/planning-threads/22222222-2222-4222-8222-222222222222/messages",
+      "responseStatus": 200,
+      "responseBody": [
+        {
+          "id": "33333333-3333-4333-8333-000000000006",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "role": "assistant",
+          "content": "[PHASE:task_mapping]\nThe plan is specific enough to enter task mapping. Generate Tasks from Chat should now produce seven tasks for audience, messaging, SEO, editorial, briefs, distribution, and KPI tracking.",
+          "tokenUsage": {
+            "input": 4280,
+            "output": 1024
+          },
+          "createdAt": "2026-04-10T14:18:00.000Z",
+          "mutationActions": []
+        },
+        {
+          "id": "33333333-3333-4333-8333-000000000007",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "role": "user",
+          "content": "Please tighten the KPI task so it explicitly covers source systems and the weekly reporting cadence.",
+          "tokenUsage": null,
+          "createdAt": "2026-04-10T16:20:00.000Z",
+          "mutationActions": []
+        },
+        {
+          "id": "33333333-3333-4333-8333-000000000008",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "role": "assistant",
+          "content": "Agreed. I am proposing one task mutation that updates the KPI task description without changing the title.\n\n```task-mutations\n[\n  { \"action\": \"update\", \"id\": \"44444444-4444-4444-8444-000000000007\", \"fields\": { \"description\": \"Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine.\" } }\n]\n```",
+          "tokenUsage": {
+            "input": 1880,
+            "output": 244
+          },
+          "createdAt": "2026-04-10T16:23:00.000Z",
+          "mutationActions": [
+            {
+              "mutationIndex": 0,
+              "action": "approved"
+            }
+          ]
+        }
+      ]
+    },
+    "approveTaskMutation": {
+      "method": "POST",
+      "path": "/api/planning-threads/22222222-2222-4222-8222-222222222222/messages/33333333-3333-4333-8333-000000000008/mutations",
+      "requestBody": {
+        "mutationIndex": 0,
+        "action": "approved"
+      },
+      "responseStatus": 200,
+      "responseBody": {
+        "id": "66666666-6666-4666-8666-000000000001",
+        "messageId": "33333333-3333-4333-8333-000000000008",
+        "mutationIndex": 0,
+        "action": "approved",
+        "createdAt": "2026-04-10T16:24:00.000Z"
+      }
+    },
+    "generateTasks": {
+      "method": "POST",
+      "path": "/api/agents/generate-tasks",
+      "note": "The current route bulk-creates tasks with default MEDIUM priority. Scenario-level priorities are normalized later by human review or planning-side mutations.",
+      "requestBody": {
+        "projectId": "11111111-1111-4111-8111-111111111111",
+        "messages": [
+          {
+            "role": "user",
+            "content": "We need an eight-week launch content engine for Audit Assistant."
+          },
+          {
+            "role": "assistant",
+            "content": "The plan is specific enough to enter task mapping."
+          },
+          {
+            "role": "user",
+            "content": "Use 45 assisted demo requests as the KPI and keep the cadence realistic."
+          }
+        ]
+      },
+      "responseStatus": 200,
+      "responseBody": {
+        "tasks": [
+          {
+            "id": "44444444-4444-4444-8444-000000000001",
+            "title": "Define target audience and launch success metrics",
+            "description": "Confirm the primary buyer, supporting stakeholders, and the launch KPI target for the eight-week content engine.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000002",
+            "title": "Approve the launch messaging matrix",
+            "description": "Translate the approved positioning into a launch messaging matrix with proof pillars and objection handling.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000003",
+            "title": "Select topic clusters and SEO priorities",
+            "description": "Choose the launch topic clusters and search opportunities that support the approved message architecture.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000004",
+            "title": "Build the 8-week editorial calendar",
+            "description": "Turn the approved clusters into an eight-week calendar with one primary asset per week and clear ownership.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000005",
+            "title": "Draft 3 priority content briefs",
+            "description": "Produce execution-ready briefs for the operations-risk, audit-readiness, and compliance-ROI assets.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000006",
+            "title": "Create the distribution checklist by channel",
+            "description": "Define launch distribution steps for website, email, webinar, social, and sales handoff.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          },
+          {
+            "id": "44444444-4444-4444-8444-000000000007",
+            "title": "Define KPI tracker and reporting cadence",
+            "description": "Define the KPI tracker and reporting rhythm for the eight-week content engine.",
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "projectId": "11111111-1111-4111-8111-111111111111",
+            "createdAt": "2026-04-10T16:15:00.000Z",
+            "updatedAt": "2026-04-10T16:15:00.000Z"
+          }
+        ]
+      }
+    },
+    "listTasksByProject": {
+      "method": "GET",
+      "path": "/api/tasks?projectId=11111111-1111-4111-8111-111111111111",
+      "responseStatus": 200,
+      "responseBody": [
+        {
+          "id": "44444444-4444-4444-8444-000000000005",
+          "title": "Draft 3 priority content briefs",
+          "description": "Produce execution-ready briefs for the operations-risk, audit-readiness, and compliance-ROI assets.",
+          "status": "IN_PROGRESS",
+          "priority": "HIGH",
+          "projectId": "11111111-1111-4111-8111-111111111111",
+          "createdAt": "2026-04-10T16:15:00.000Z",
+          "updatedAt": "2026-05-15T10:12:00.000Z",
+          "project": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "name": "RelayOps Audit Assistant Content Engine",
+            "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+            "domain": "MARKETING",
+            "createdAt": "2026-04-06T09:00:00.000Z",
+            "updatedAt": "2026-05-15T11:00:00.000Z"
+          }
+        },
+        {
+          "id": "44444444-4444-4444-8444-000000000007",
+          "title": "Define KPI tracker and reporting cadence",
+          "description": "Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine.",
+          "status": "BLOCKED",
+          "priority": "HIGH",
+          "projectId": "11111111-1111-4111-8111-111111111111",
+          "createdAt": "2026-04-10T16:15:00.000Z",
+          "updatedAt": "2026-05-15T10:45:00.000Z",
+          "project": {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "name": "RelayOps Audit Assistant Content Engine",
+            "description": "Build an 8-week launch-oriented content engine for the Audit Assistant release.",
+            "domain": "MARKETING",
+            "createdAt": "2026-04-06T09:00:00.000Z",
+            "updatedAt": "2026-05-15T11:00:00.000Z"
+          }
+        }
+      ]
+    },
+    "updateTaskValid": {
+      "method": "PUT",
+      "path": "/api/tasks/44444444-4444-4444-8444-000000000007",
+      "requestBody": {
+        "status": "TODO"
+      },
+      "responseStatus": 200,
+      "responseBody": {
+        "id": "44444444-4444-4444-8444-000000000007",
+        "title": "Define KPI tracker and reporting cadence",
+        "description": "Define the KPI tracker, source systems, owners, and weekly reporting cadence for the eight-week content engine.",
+        "status": "TODO",
+        "priority": "HIGH",
+        "projectId": "11111111-1111-4111-8111-111111111111",
+        "createdAt": "2026-04-10T16:15:00.000Z",
+        "updatedAt": "2026-05-16T09:02:00.000Z"
+      }
+    },
+    "updateTaskInvalidTransition": {
+      "method": "PUT",
+      "path": "/api/tasks/44444444-4444-4444-8444-000000000006",
+      "requestBody": {
+        "status": "DONE"
+      },
+      "responseStatus": 422,
+      "responseBody": {
+        "error": "Invalid transition: TODO → DONE. Allowed transitions from TODO: IN_PROGRESS, BLOCKED.",
+        "from": "TODO",
+        "to": "DONE",
+        "allowed": [
+          "IN_PROGRESS",
+          "BLOCKED"
+        ]
+      }
+    }
+  }
+}

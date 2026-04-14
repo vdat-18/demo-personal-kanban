@@ -1,89 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# nextjs-kanban
 
-## Getting Started with Docker (Recommended)
+This is the maintained application inside the repository: a Next.js + Prisma + PostgreSQL workspace for an AI-assisted personal kanban system.
 
-Docker is the easiest way to run the full stack (Next.js app + PostgreSQL) with a single command.
+At a product level, the app combines:
 
-### Prerequisites
+- project creation
+- AI-guided planning
+- task generation and approval
+- Kanban execution
+- task-level AI chat
+- early-stage workflow automation
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Docker Compose v2)
+## Read This First
 
-### 1. Configure environment variables
+If you are inheriting the project, start with:
+
+- [.planning/CURRENT_SYSTEM_SNAPSHOT.md](./.planning/CURRENT_SYSTEM_SNAPSHOT.md) for the current product and architecture picture
+- [.planning/DEMO_SCENARIO_SPECS.md](./.planning/DEMO_SCENARIO_SPECS.md) for three domain-specific demo/test scenario specs
+- [.planning/mock-packs/marketing-relayops/README.md](./.planning/mock-packs/marketing-relayops/README.md) for the first full current-app-aligned mock pack
+- [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) for file and API navigation
+- [KANBAN_ARCHITECTURE.md](./KANBAN_ARCHITECTURE.md) for status and mission-control behavior
+
+## Product Shape
+
+The intended product is an AI-first work assistant where a user:
+
+1. creates or continues a project
+2. plans through chat
+3. turns that plan into tasks
+4. executes via mission control and task chat
+5. gradually hands more work to autonomous agents
+
+The current implementation already supports that flow in broad strokes, but some pieces are still partial:
+
+- planning is comparatively mature
+- kanban execution works
+- per-task AI chat works
+- column auto mode exists
+- document ingestion, reporter summaries, and deeper autonomy are still incomplete
+
+## Main Routes
+
+- `/` — project home
+- `/planning/[id]` — planning workspace with threads, vision doc, and task panel
+- `/mission-control/[id]` — Kanban board
+- `/chat/[id]` — task-level AI chat
+- `/summary/[id]` — task summary
+- `/directory` — global project/task browser
+- `/components` — internal component showcase
+
+## Run
+
+From the repo root, the recommended command is:
 
 ```bash
-cp .env.example .env.docker
-# Edit .env.docker and fill in your API keys:
-# - ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY
-# The DATABASE_URL is pre-configured to connect to the Docker Postgres service.
+./run.sh
 ```
 
-### 2. Start the stack
+That wrapper starts this app through Docker Compose and creates default env files if needed.
+
+If you want to run only this package directly:
 
 ```bash
 docker compose up
 ```
 
-This starts:
-- **PostgreSQL 16** on an internal network (not exposed to host)
-- **Next.js app** at [http://localhost:3000](http://localhost:3000), with automatic database migrations on startup
-
-> **Hot-reload in development**: `docker compose up` automatically uses `docker-compose.override.yml`, which runs `next dev` with Turbopack and live file watching via bind-mounts. Edit any source file and the browser will update instantly.
-
-### 3. Seed the database (optional)
+or:
 
 ```bash
-docker compose exec app npm run db:seed
-```
-
-### Useful commands
-
-```bash
-# View logs
-docker compose logs -f app
-
-# Stop all services
-docker compose down
-
-# Rebuild after dependency changes
-docker compose build
-
-# Run production build (no hot-reload)
-docker compose -f docker-compose.yml up
-```
-
----
-
-## Getting Started (Local Development without Docker)
-
-First, run the development server:
-
-```bash
+npm install
+npm run db:generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verify
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Practical checks currently available:
 
-## Learn More
+```bash
+npm run db:generate
+npm run build
+npm run lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+Current state of this codebase snapshot:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `db:generate` passes
+- `build` passes
+- `lint` does not pass cleanly yet
+- there is no real automated test suite
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+High-level stack:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Next.js App Router
+- React 19
+- Prisma + PostgreSQL
+- React Query
+- SSE streaming for agent chat
+- `@jackchen_me/open-multi-agent` for agent execution
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app separates:
+
+- planning conversations (`PlanningThread`, `PlanningMessage`)
+- execution conversations (`Conversation`)
+
+That split is intentional and matters when changing product flow.
+
+## Notes
+
+- This package is the real runtime path. The repo root also contains older experimental `frontend/`, `server/`, and Python-era artifacts.
+- Navigation currently includes `/timeline` and `/insights`, but those routes do not exist yet.
+- The “Reporter Agent” appears in design language and specs, but is not fully implemented in the backend today.
