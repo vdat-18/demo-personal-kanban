@@ -15,18 +15,7 @@ export async function GET(request: NextRequest) {
 
     const threads = await getThreadsByProject(projectId)
 
-    // Include a preview of the last message for each thread
-    const threadsWithPreview = threads.map((thread) => ({
-      id: thread.id,
-      projectId: thread.projectId,
-      title: thread.title,
-      createdAt: thread.createdAt,
-      updatedAt: thread.updatedAt,
-      lastMessage: thread.messages[0]?.content?.slice(0, 100) ?? null,
-      lastMessageAt: thread.messages[0]?.createdAt ?? null,
-    }))
-
-    return NextResponse.json(threadsWithPreview)
+    return NextResponse.json(threads)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

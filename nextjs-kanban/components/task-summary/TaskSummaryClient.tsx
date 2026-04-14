@@ -69,7 +69,7 @@ export function TaskSummaryClient({ task }: { task: Task }) {
           <div className="text-[#0a192f] text-lg font-medium leading-relaxed max-w-2xl relative z-10">
             {lastResult ? (
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{lastResult.slice(0, 500)}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{lastResult}</ReactMarkdown>
               </div>
             ) : (
               <p className="text-gray-500">No AI-generated result yet. Complete the task chat to generate a summary.</p>

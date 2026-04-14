@@ -1,5 +1,7 @@
 import prisma from './client'
 
+export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
+
 export async function getThreadsByProject(projectId: string) {
   return prisma.planningThread.findMany({
     where: { projectId },
@@ -11,7 +13,19 @@ export async function getThreadsByProject(projectId: string) {
         select: { content: true, createdAt: true },
       },
     },
-  })
+  }).then((threads) =>
+    threads.map((t) => ({
+      id: t.id,
+      projectId: t.projectId,
+      title: t.title,
+      phase: t.phase,
+      visionDocument: t.visionDocument,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      lastMessage: t.messages[0]?.content?.slice(0, 100) ?? null,
+      lastMessageAt: t.messages[0]?.createdAt ?? null,
+    }))
+  )
 }
 
 export async function getThread(id: string) {
@@ -30,11 +44,15 @@ export async function createThread(projectId: string, title?: string) {
     data: {
       projectId,
       title: title || 'New Thread',
+      phase: 'discovery',
     },
   })
 }
 
-export async function updateThread(id: string, data: { title?: string }) {
+export async function updateThread(
+  id: string,
+  data: { title?: string; phase?: PlanningPhase; visionDocument?: string },
+) {
   return prisma.planningThread.update({
     where: { id },
     data,

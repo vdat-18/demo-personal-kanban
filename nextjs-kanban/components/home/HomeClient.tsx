@@ -59,7 +59,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
   const [isCreating, setIsCreating] = useState(false)
 
   const handleStartProject = useCallback(async () => {
-    if (!projectName.trim()) return
+    if (!projectName.trim() || isCreating) return
     setIsCreating(true)
     try {
       const res = await fetch('/api/projects', {
@@ -78,7 +78,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
     } finally {
       setIsCreating(false)
     }
-  }, [projectName, selectedDomain, router])
+  }, [projectName, selectedDomain, router, isCreating])
 
   const handleDeleteProject = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -294,7 +294,7 @@ export function HomeClient({ initialProjects }: HomeClientProps) {
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && projectName.trim()) {
+                    if (e.key === 'Enter' && projectName.trim() && !e.nativeEvent.isComposing) {
                       importMode ? triggerFileInput() : handleStartProject()
                     }
                   }}

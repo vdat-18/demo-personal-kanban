@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMessagesByThread, createMessage, getRecentMessages } from '@/lib/db/planning-messages'
 import { getThread, updateThread } from '@/lib/db/planning-threads'
+import type { PlanningPhase } from '@/lib/db/planning-threads'
 import { runAgent } from '@/lib/agents/orchestrator'
-import { buildPlanPrompt } from '@/lib/agents/prompts'
+import { buildPlanPrompt, extractPhaseTransition, extractVisionDocument } from '@/lib/agents/prompts'
 import { z } from 'zod'
 import { uuidSchema, sendPlanningMessageSchema } from '@/lib/validations/schemas'
 
@@ -69,13 +70,35 @@ export async function POST(
       content: m.content,
     }))
 
-    // Build the prompt with task awareness and conversation history
-    const prompt = await buildPlanPrompt(content, thread.projectId, conversationHistory)
+    // Current phase context
+    const currentPhase = (thread as any).phase as PlanningPhase ?? 'discovery'
+    const currentVisionDoc = (thread as any).visionDocument as string | null ?? null
+
+    // Build the prompt with phase awareness
+    const prompt = await buildPlanPrompt(
+      content,
+      thread.projectId,
+      conversationHistory,
+      currentPhase,
+      currentVisionDoc,
+    )
 
     // Call the AI planning agent
     const agentResult = await runAgent('architect', prompt)
     const resultText = (agentResult as any)?.output ?? String(agentResult)
     const tokenUsage = (agentResult as any)?.tokenUsage ?? null
+
+    // Auto-detect phase transition from AI response
+    const newPhase = extractPhaseTransition(resultText, currentPhase)
+    const newVisionDoc = extractVisionDocument(resultText, currentVisionDoc)
+
+    // Persist updates to the thread (phase + vision doc)
+    const threadUpdates: { phase?: PlanningPhase; visionDocument?: string } = {}
+    if (newPhase && newPhase !== currentPhase) threadUpdates.phase = newPhase
+    if (newVisionDoc !== null) threadUpdates.visionDocument = newVisionDoc
+    if (Object.keys(threadUpdates).length > 0) {
+      await updateThread(threadId, threadUpdates)
+    }
 
     // Persist the assistant response
     const assistantMessage = await createMessage(threadId, 'assistant', resultText, tokenUsage)
@@ -84,6 +107,8 @@ export async function POST(
       userMessage,
       assistantMessage,
       tokenUsage,
+      phase: newPhase ?? currentPhase,
+      visionDocument: newVisionDoc ?? currentVisionDoc,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

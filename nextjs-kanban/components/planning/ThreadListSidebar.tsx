@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trash2, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, MessageSquare, Pencil, Check, X, PanelLeftClose } from 'lucide-react'
 import type { PlanningThread } from '@/lib/hooks/usePlanningThreads'
 
 function formatRelativeTime(dateStr: string): string {
@@ -23,6 +23,8 @@ interface ThreadListSidebarProps {
   onSelectThread: (id: string) => void
   onNewThread: () => void
   onDeleteThread: (id: string) => void
+  onRenameThread: (id: string, title: string) => void
+  onToggleSidebar?: () => void
   isCreating?: boolean
   isLoading?: boolean
 }
@@ -33,10 +35,26 @@ export function ThreadListSidebar({
   onSelectThread,
   onNewThread,
   onDeleteThread,
+  onRenameThread,
+  onToggleSidebar,
   isCreating,
   isLoading,
 }: ThreadListSidebarProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+
+  const handleStartEdit = (thread: PlanningThread) => {
+    setEditingId(thread.id)
+    setEditTitle(thread.title)
+  }
+
+  const handleSaveEdit = (id: string) => {
+    if (editTitle.trim() && editTitle !== threads.find(t => t.id === id)?.title) {
+      onRenameThread(id, editTitle.trim())
+    }
+    setEditingId(null)
+  }
 
   return (
     <div className="flex flex-col h-full bg-[#f1f3f5] border-r border-gray-200">
@@ -46,18 +64,29 @@ export function ThreadListSidebar({
           <MessageSquare className="w-4 h-4 text-blue-600" />
           <span className="font-bold text-sm text-[#0a192f]">Threads</span>
         </div>
-        <button
-          onClick={onNewThread}
-          disabled={isCreating}
-          className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-blue-600 disabled:opacity-40"
-          title="New Thread"
-        >
-          {isCreating ? (
-            <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin block" />
-          ) : (
-            <Plus className="w-4 h-4" />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onNewThread}
+            disabled={isCreating}
+            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-blue-600 disabled:opacity-40"
+            title="New Thread"
+          >
+            {isCreating ? (
+              <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin block" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+          </button>
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-500 hover:text-[#0a192f]"
+              title="Collapse Sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Thread List */}
@@ -69,32 +98,61 @@ export function ThreadListSidebar({
         ) : (
           threads.map((thread) => (
             <div key={thread.id} className="relative group">
-              <button
+              <div
                 onClick={() => onSelectThread(thread.id)}
-                className={`w-full text-left px-4 py-3 transition-colors ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelectThread(thread.id)
+                  }
+                }}
+                className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
                   activeThreadId === thread.id
                     ? 'bg-white border-r-2 border-blue-600'
                     : 'hover:bg-gray-100'
                 }`}
               >
-                <p
+                <div
                   className={`text-sm font-semibold truncate ${
                     activeThreadId === thread.id ? 'text-blue-600' : 'text-[#0a192f]'
                   }`}
                 >
-                  {thread.title}
-                </p>
+                  {editingId === thread.id ? (
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      <input
+                        autoFocus
+                        className="flex-1 bg-white border border-blue-400 rounded px-1.5 py-0.5 text-sm focus:outline-none"
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleSaveEdit(thread.id)
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                      />
+                      <button 
+                        onClick={() => handleSaveEdit(thread.id)}
+                        className="p-1 hover:bg-green-50 rounded text-green-600"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    thread.title
+                  )}
+                </div>
                 <p className="text-xs text-gray-400 mt-0.5 truncate">
                   {thread.lastMessage || 'No messages yet'}
                 </p>
                 <p className="text-[10px] text-gray-300 mt-1">
                   {formatRelativeTime(thread.updatedAt)}
                 </p>
-              </button>
+              </div>
 
               {/* Delete button */}
               {confirmDeleteId === thread.id ? (
-                <div className="absolute right-2 top-2 flex items-center gap-1 bg-white rounded-lg shadow-md p-1 z-10">
+                <div className="absolute right-2 top-2 flex items-center gap-1 bg-white rounded-lg shadow-md p-1 z-20">
                   <button
                     onClick={() => { onDeleteThread(thread.id); setConfirmDeleteId(null) }}
                     className="px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -108,14 +166,25 @@ export function ThreadListSidebar({
                     Cancel
                   </button>
                 </div>
+              ) : editingId === thread.id ? (
+                null
               ) : (
-                <button
-                  onClick={() => setConfirmDeleteId(thread.id)}
-                  className="absolute right-2 top-3 p-1 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition-all text-gray-300 hover:text-red-500"
-                  title="Delete thread"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="absolute right-2 top-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all z-10">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleStartEdit(thread) }}
+                    className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-blue-600"
+                    title="Rename thread"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(thread.id) }}
+                    className="p-1 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-500"
+                    title="Delete thread"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           ))

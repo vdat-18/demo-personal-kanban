@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getThread, deleteThread } from '@/lib/db/planning-threads'
+import { getThread, deleteThread, updateThread } from '@/lib/db/planning-threads'
 import { z } from 'zod'
-import { uuidSchema } from '@/lib/validations/schemas'
+import { uuidSchema, updatePlanningThreadSchema } from '@/lib/validations/schemas'
 
 type Params = Promise<{ id: string }>
 
@@ -58,6 +58,36 @@ export async function DELETE(
     console.error('Error deleting planning thread:', error)
     return NextResponse.json(
       { error: 'Failed to delete planning thread' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Params },
+) {
+  try {
+    const { id } = await params
+    uuidSchema.parse(id)
+
+    const body = await request.json()
+    const data = updatePlanningThreadSchema.parse(body)
+
+    const thread = await updateThread(id, data)
+
+    return NextResponse.json(thread)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.issues },
+        { status: 400 },
+      )
+    }
+
+    console.error('Error updating planning thread:', error)
+    return NextResponse.json(
+      { error: 'Failed to update planning thread' },
       { status: 500 },
     )
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Archive,
@@ -12,6 +12,10 @@ import {
   Rocket,
   RotateCcw,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -23,6 +27,12 @@ import { AutoModeStatusBar } from '@/components/mission-control/AutoModeStatusBa
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
+interface Subtask {
+  id: string
+  title: string
+  completed: boolean
+}
+
 interface Task {
   id: string
   title: string
@@ -31,6 +41,7 @@ interface Task {
   priority: TaskPriority
   createdAt: string
   updatedAt: string
+  subtasks?: Subtask[]
 }
 
 interface Project {
@@ -77,6 +88,45 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<TaskStatus | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Task | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set())
+  const [isAutoBreakingDown, setIsAutoBreakingDown] = useState(false)
+
+  useEffect(() => {
+    const nakedTodos = project.tasks.filter(t => t.status === 'TODO' && (!t.subtasks || t.subtasks.length === 0))
+    if (nakedTodos.length > 0 && !isAutoBreakingDown) {
+      setIsAutoBreakingDown(true)
+      fetch('/api/tasks/auto-breakdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.count > 0) {
+          // Fetch updated tasks to reflect new subtasks
+          return fetch(`/api/tasks?projectId=${project.id}`)
+            .then(res => res.json())
+            .then(tasks => {
+              if (Array.isArray(tasks)) {
+                setProject(p => ({ ...p, tasks }))
+              }
+            })
+        }
+      })
+      .catch(err => console.error("Auto breakdown failed:", err))
+      .finally(() => setIsAutoBreakingDown(false))
+    }
+  }, [project.tasks, project.id]) // deliberately exclude isAutoBreakingDown to avoid infinite loops if it fails
+
+  const toggleTaskExpansion = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation()
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }
 
   const tasks = project.tasks
 
@@ -142,14 +192,16 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
   return (
     <div className="flex flex-col h-full w-full bg-[#f8f9fa] overflow-hidden font-sans">
       {/* Header */}
-      <header className="h-20 px-10 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm">
+      <header className="h-20 px-10 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm relative z-10">
         <div className="flex items-center gap-6">
           <button onClick={() => router.push('/')} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-black">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="font-extrabold text-2xl text-[#0a192f] tracking-tight">{project.name}</h1>
-            <p className="text-sm font-semibold text-gray-400">{project.description}</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="font-extrabold text-2xl text-[#0a192f] tracking-tight">{project.name}</h1>
+              <p className="text-sm font-semibold text-gray-400">{project.description}</p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -206,25 +258,33 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
               onDrop={(e) => { if (isValid) handleDrop(e, column.id) }}
             >
               {/* Column Header */}
-              <div className="px-6 pt-6 pb-4 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <h2 className="font-black text-sm text-[#0a192f] uppercase tracking-widest">{column.label}</h2>
-                  <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
-                    {getTasksByStatus(column.id).length}
-                  </span>
+              <div className="px-6 pt-6 pb-4 flex flex-col gap-3 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <h2 className="font-black text-sm text-[#0a192f] uppercase tracking-widest">{column.label}</h2>
+                    <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+                      {getTasksByStatus(column.id).length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAutoModeColumn && colAutoState && (
+                      <AutoModeToggle
+                        enabled={colAutoState.enabled}
+                        status={colAutoState.status}
+                        onToggle={() => toggleAutoMode(column.id)}
+                      />
+                    )}
+                    <button className="text-gray-300 hover:text-black transition-colors p-2 hover:bg-white rounded-xl shadow-sm">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isAutoModeColumn && colAutoState && (
-                    <AutoModeToggle
-                      enabled={colAutoState.enabled}
-                      status={colAutoState.status}
-                      onToggle={() => toggleAutoMode(column.id)}
-                    />
-                  )}
-                  <button className="text-gray-300 hover:text-black transition-colors p-2 hover:bg-white rounded-xl shadow-sm">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-                </div>
+                {column.id === 'TODO' && isAutoBreakingDown && (
+                  <div className="flex items-center justify-center gap-2 mt-1 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100 shadow-sm animate-pulse w-full">
+                    <span className="w-3.5 h-3.5 text-blue-500 animate-spin border-2 border-blue-500 border-t-transparent rounded-full" />
+                    <span className="text-[10px] font-bold text-blue-700 tracking-wider">AI IS BREAKING DOWN TASKS...</span>
+                  </div>
+                )}
               </div>
 
               {/* Auto-mode status bar */}
@@ -333,6 +393,59 @@ export function MissionControlClient({ project: initialProject }: { project: Pro
                       <p className="text-[11px] text-gray-500 leading-relaxed font-medium mt-3 line-clamp-2">
                         {task.description}
                       </p>
+                    )}
+
+                    {/* Subtasks Block */}
+                    {task.subtasks && task.subtasks.length > 0 && task.status !== 'BLOCKED' && (
+                      <div className="mt-4 pt-4 border-t border-gray-50">
+                        <div 
+                          className="flex items-center justify-between cursor-pointer group/sub"
+                          onClick={(e) => toggleTaskExpansion(e, task.id)}
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            {/* Progress bar visual */}
+                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                              {task.subtasks.map((st, i) => (
+                                <div 
+                                  key={st.id} 
+                                  className={`h-full border-r border-white/50 last:border-none ${st.completed ? 'bg-green-500' : 'bg-gray-200'}`}
+                                  style={{ width: `${100 / task.subtasks!.length}%` }}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-[10px] font-black text-gray-400 w-8 text-right shrink-0">
+                              {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}
+                            </span>
+                          </div>
+                          <div className="ml-2 text-gray-300 group-hover/sub:text-gray-600 transition-colors">
+                            {expandedTaskIds.has(task.id) ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Expanded subtasks preview list */}
+                        {expandedTaskIds.has(task.id) && (
+                          <div className="mt-3 flex flex-col gap-2">
+                            {task.subtasks.map((st) => (
+                              <div key={st.id} className="flex items-start gap-2">
+                                <div className="mt-0.5 shrink-0">
+                                  {st.completed ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-green-500" />
+                                  ) : (
+                                    <Square className="w-3.5 h-3.5 text-gray-300" />
+                                  )}
+                                </div>
+                                <span className={`text-[11px] leading-tight flex-1 ${st.completed ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                                  {st.title}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   )

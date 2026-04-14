@@ -12,7 +12,115 @@ export type ProjectDomain = 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LO
 
 // ── Domain-specific system prompts ───────────────────────────────────────────
 
-export const DOMAIN_SYSTEM_PROMPTS: Record<ProjectDomain, Record<AgentRole, string>> = {
+// Shared subtask execution rules injected into all developer prompts
+const SUBTASK_EXECUTION_RULES = `
+## MANDATORY SUBTASK EXECUTION RULES
+You will be given a list of subtasks in the format:
+  - ID: <uuid> | Status: [PENDING or COMPLETED] | Title: <title>
+
+Follow these rules strictly:
+1. OVERRIDING RULE: Execute ONLY ONE subtask per turn. Do NOT execute multiple subtasks in a single response.
+2. DELIVER REAL OUTPUT: For the subtask you are executing, you MUST produce the ACTUAL content — not a description of what you did. Think of yourself as the person doing the job, not a reporter summarizing it.
+
+   Structure your response as:
+   - 🔍 **Context & Approach:** 1-2 sentences on your method/angle.
+   - 🛠️ **Execution Output:** The REAL deliverable itself — examples of what this should look like:
+     • Research task → actual list with names, links, numbers, comparisons
+     • Writing task → the actual draft content (email, post, proposal, copy)
+     • Analysis task → structured findings with data, tables, pros/cons
+     • Planning task → step-by-step plan with specifics (dates, tools, owners)
+     • Design task → schema, wireframe description, or spec document
+     • Development task → actual code, configuration, or technical spec
+     ⚠️ Do NOT say "I would research..." or "Here is a plan to...". PRODUCE THE THING.
+   - 🏁 **Key Takeaways:** 2-3 bullet points with the most important facts or decisions from this output.
+
+   Minimum depth: 300-500 words or equivalent structured content (lists, tables, code blocks).
+3. CRITICAL — TOOL CALL REQUIRED: After writing your mini-report, you MUST invoke the 'subtask_update' tool natively (as a real function call, NOT as JSON text in your response). Pass exactly:
+   - "id": the UUID string from the "ID:" field (e.g., "3f2b1a00-abcd-1234-efgh-000000000000")
+   - "completed": true
+   ⚠️ WARNING: Do NOT write the tool call as JSON in your text. Do NOT say "Calling the function...". ACTUALLY INVOKE THE TOOL. The system requires a real native tool invocation to update the database.
+   ⚠️ WARNING: Do NOT write { "recipient_name": "functions.subtask_update", ... } — that is NOT a real tool call. Use the actual tool calling mechanism.
+4. After the tool call succeeds (you see { "success": true } in the tool result), STOP. Wait for the user to prompt you for the next subtask.
+5. Do NOT call 'db_query' to find subtask IDs — they are already provided above.
+6. MASTER REPORT (trigger when ALL subtasks are completed):
+   When all subtasks are done, you will be given the FULL CONVERSATION HISTORY above showing exactly what was researched, written, and delivered for each subtask.
+   Generate a rich, DETAILED Master Synthesis Report that synthesizes the ACTUAL CONTENT produced — not generic summaries. Quote specific data points, names, numbers, or findings from the work done.
+   Use this EXACT Markdown template:
+
+   [[REPORT_START]]
+   ## 🏁 Master Synthesis Report: [Task Title]
+
+   ### 🎯 Objective
+   [2-3 sentences: what this task set out to achieve and why it matters]
+
+   ### 🔗 How the Pieces Connect
+   [Explain the logical thread between subtasks — how each one built on the previous to reach the final goal. Be specific about dependencies.]
+
+   ### 📋 Detailed Work Completed
+   For EACH subtask, provide a substantive summary of the ACTUAL CONTENT produced (not just "this was done"). Include specific outputs, findings, data, or decisions:
+
+   #### [Subtask 1 Title]
+   [3-5 sentences summarizing the specific deliverable, key findings, data points, or content produced. Reference actual details from the conversation.]
+
+   #### [Subtask 2 Title]
+   [3-5 sentences summarizing the specific deliverable...]
+
+   [Continue for every subtask]
+
+   ### 💡 Key Insights & Findings
+   - **[Insight topic]**: [Concrete finding with specific detail — e.g., data point, name, number, or recommendation]
+   - **[Insight topic]**: [Concrete finding...]
+   - **[Insight topic]**: [Concrete finding...]
+   [Add more as needed — aim for 4-6 insights minimum]
+
+   ### ✅ Conclusion & Next Steps
+   [2-3 sentences confirming the task objective has been met. Then list 2-3 concrete next steps the user should take based on the work done.]
+   [[REPORT_END]]
+
+   After writing the report:
+   a) Call 'task_update' with the task's ID and set description to a condensed plain-text version of the report (2-3 paragraphs).
+   b) Suggest the user move the task to 'IN_REVIEW'.`
+
+// Shared review execution rules injected into all reviewer prompts
+const REVIEWER_EXECUTION_RULES = `
+## MANDATORY REVIEW EXECUTION RULES
+
+You are a Quality Reviewer. The task is currently IN_REVIEW status.
+The full work produced by the Doer Agent is provided above in the WORK HISTORY section.
+
+Follow these rules strictly:
+1. READ the Master Report and all work outputs thoroughly before writing anything.
+2. WRITE a structured Review Report using this EXACT format:
+
+   ### 🔍 Quality Review Report
+
+   **Overall Verdict:** APPROVED ✅ or NEEDS CHANGES ❌
+
+   **Criteria Assessment:**
+   For each subtask/goal listed in the task context, rate:
+   - ✅ Met — [brief explanation]
+   - ⚠️ Partially Met — [what's missing]
+   - ❌ Not Met — [what's wrong]
+
+   **What Was Done Well:**
+   [Specific strengths from the actual work produced]
+
+   **Required Changes (if NEEDS CHANGES only):**
+   [List exactly what needs to be fixed — be specific, actionable]
+
+   **Final Recommendation:**
+   [1-2 sentences summarising your decision]
+
+3. CRITICAL — CALL task_update AFTER writing your review:
+   - If APPROVED:       call task_update with { "id": "<Task ID>", "status": "DONE" }
+   - If NEEDS CHANGES:  call task_update with { "id": "<Task ID>", "status": "IN_PROGRESS", "description": "🔍 Reviewer Feedback:\\n<your specific required changes>" }
+
+   ⚠️ You MUST invoke task_update as a real native tool call — NOT as JSON text.
+   ⚠️ The Task ID is provided at the top of your context. Use it exactly.
+   ⚠️ Do NOT skip calling task_update — it is required to advance the workflow.
+`
+
+
   // ─── Software Engineering ──────────────────────────────────────────────
   SOFTWARE_ENGINEERING: {
     architect: `You are an expert software architect responsible for designing system architecture and breaking down complex tasks into manageable subtasks.
@@ -65,7 +173,8 @@ Always provide:
 - Working code implementation
 - Brief explanation of approach
 - Any assumptions made
-- Testing recommendations`,
+- Testing recommendations
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert code reviewer focused on ensuring code quality, correctness, and best practices.
 
@@ -96,7 +205,7 @@ Always provide:
 - Clear assessment (pass/needs changes)
 - Specific issues found (if any)
 - Actionable recommendations
-- Positive feedback on good practices`,
+- Positive feedback on good practices` + REVIEWER_EXECUTION_RULES,
   },
 
   // ─── Marketing ─────────────────────────────────────────────────────────
@@ -152,7 +261,8 @@ Always provide:
 - Ready-to-use deliverables (copy, briefs, outlines)
 - Rationale for messaging choices
 - Audience-specific considerations
-- Suggestions for testing and optimization`,
+- Suggestions for testing and optimization
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert marketing reviewer focused on ensuring campaign quality, brand alignment, and strategic effectiveness.
 
@@ -183,7 +293,7 @@ Always provide:
 - Clear assessment (ready to launch / needs revision)
 - Specific issues found (if any)
 - Actionable recommendations for improvement
-- Positive feedback on effective elements`,
+- Positive feedback on effective elements` + REVIEWER_EXECUTION_RULES,
   },
 
   // ─── Sales ─────────────────────────────────────────────────────────────
@@ -239,7 +349,8 @@ Always provide:
 - Ready-to-use deliverables (emails, scripts, proposals)
 - Rationale for approach and messaging
 - Account-specific considerations
-- Next-step recommendations`,
+- Next-step recommendations
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert sales reviewer focused on ensuring deal quality, pipeline accuracy, and process adherence.
 
@@ -270,7 +381,7 @@ Always provide:
 - Clear assessment (on track / needs attention / at risk)
 - Specific issues found (if any)
 - Actionable next steps to advance the deal
-- Positive feedback on effective sales motions`,
+- Positive feedback on effective sales motions` + REVIEWER_EXECUTION_RULES,
   },
 
   // ─── Logistics ─────────────────────────────────────────────────────────
@@ -326,7 +437,8 @@ Always provide:
 - Clear action plans with timelines
 - Resource and capacity requirements
 - Exception handling procedures
-- Status updates and tracking information`,
+- Status updates and tracking information
+` + SUBTASK_EXECUTION_RULES,
 
     reviewer: `You are an expert logistics auditor focused on ensuring operational efficiency, compliance, and service quality.
 
@@ -357,7 +469,7 @@ Always provide:
 - Clear assessment (compliant / needs improvement / critical)
 - Specific issues found (if any)
 - Actionable recommendations for optimization
-- Positive feedback on well-run operations`,
+- Positive feedback on well-run operations` + REVIEWER_EXECUTION_RULES,
   },
 }
 
@@ -401,10 +513,99 @@ export async function buildChatPrompt(
   const domain = (task.project?.domain as ProjectDomain) ?? 'SOFTWARE_ENGINEERING'
   const roleLabel = DOMAIN_ROLE_LABELS[domain][role]
 
+  const allCompleted = task.subtasks && task.subtasks.length > 0 && task.subtasks.every(st => st.completed)
+  const pendingCount = task.subtasks?.filter(st => !st.completed).length ?? 0
+
+  const subtasksContext = (task.subtasks && task.subtasks.length > 0)
+    ? `\nSubtasks for this task (${task.subtasks.length - pendingCount}/${task.subtasks.length} completed):\n${task.subtasks.map((st: any) => `- ID: ${st.id} | Status: [${st.completed ? 'COMPLETED' : 'PENDING'}] | Title: ${st.title}`).join('\n')}`
+    : '\nNo subtasks defined.';
+
+  // When all subtasks are done, inject conversation history so the agent can
+  // synthesize a detailed report from the ACTUAL CONTENT produced per subtask.
+  let conversationHistory = ''
+  if (allCompleted && task.conversations && task.conversations.length > 0) {
+    const workOutputs: string[] = []
+
+    for (const conv of (task.conversations as any[])) {
+      // Prefer the final 'result' if it exists (clean summary per conversation)
+      // result can be a string or a JSON object (e.g. { reply: "..." })
+      const resultStr = typeof conv.result === 'string'
+        ? conv.result
+        : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
+          ? conv.result.reply
+          : null
+      if (resultStr && resultStr.length > 50) {
+        workOutputs.push(resultStr)
+        continue
+      }
+      // Fallback: extract the last (longest) assistant message from this conversation
+      const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
+      const assistantMsgs = msgs
+        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
+        .map(m => m.content)
+      if (assistantMsgs.length > 0) {
+        // Take the last assistant message — usually the most complete work output
+        workOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+      }
+    }
+
+    if (workOutputs.length > 0) {
+      // Cap at ~10000 chars to avoid token overflow; keep most recent work
+      const fullHistory = workOutputs.join('\n\n---\n\n')
+      const cappedHistory = fullHistory.length > 10000
+        ? '...[earlier work truncated]\n\n' + fullHistory.slice(-10000)
+        : fullHistory
+      conversationHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nFULL WORK HISTORY — ${workOutputs.length} subtask(s) completed\n(Use ALL of this content to write your detailed report. Reference specific data, findings, and deliverables.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${cappedHistory}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    }
+  }
+
+  // ── Review Mode: inject full work history for Reviewer Agent ──────────────
+  // When the Reviewer is called and the task is IN_REVIEW, inject the complete
+  // conversation history (including the Master Report) so it can assess quality.
+  const isReviewMode = role === 'reviewer' && task.status === 'IN_REVIEW'
+  let reviewWorkHistory = ''
+  if (isReviewMode && task.conversations && task.conversations.length > 0) {
+    const rvOutputs: string[] = []
+    for (const conv of (task.conversations as any[])) {
+      const resultStr = typeof conv.result === 'string'
+        ? conv.result
+        : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
+          ? conv.result.reply
+          : null
+      if (resultStr && resultStr.length > 50) {
+        rvOutputs.push(resultStr)
+        continue
+      }
+      const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
+      const assistantMsgs = msgs
+        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
+        .map(m => m.content)
+      if (assistantMsgs.length > 0) {
+        rvOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+      }
+    }
+    if (rvOutputs.length > 0) {
+      const full = rvOutputs.join('\n\n---\n\n')
+      const capped = full.length > 12000 ? '...[earlier work truncated]\n\n' + full.slice(-12000) : full
+      reviewWorkHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWORK HISTORY TO REVIEW — ${rvOutputs.length} session(s)\n(Read ALL of this to assess quality before writing your review report.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${capped}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    }
+  }
+
+  const executionInstruction = allCompleted
+    ? `ALL SUBTASKS ARE ALREADY COMPLETED. The full work history is provided above — use it to write a DETAILED Master Synthesis Report that quotes specific findings, data points, and deliverables from the actual work. Do NOT call subtask_update again. Wrap the report in [[REPORT_START]] and [[REPORT_END]] tags, then natively call task_update to save it to Task ID: ${task.id}.`
+    : isReviewMode
+      ? `REVIEW MODE: Task ID is ${task.id}. Task status is IN_REVIEW. The full work history is provided above in the WORK HISTORY section. Review it thoroughly, write your Quality Review Report, then call task_update to finalize the decision (DONE if approved, IN_PROGRESS if changes needed).`
+      : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
+
   return [
-    `You are a ${roleLabel} working on task: "${task.title}".`,
+    `You are a ${roleLabel} working on task: "${task.title}" (Task ID: ${task.id}).`,
     `Task status: ${task.status}`,
     task.description ? `Task description: ${task.description}` : '',
+    subtasksContext,
+    conversationHistory,
+    reviewWorkHistory,
+    '',
+    executionInstruction,
     '',
     `User message: ${userMessage}`,
   ]
@@ -412,17 +613,127 @@ export async function buildChatPrompt(
     .join('\n')
 }
 
-// ── Planning prompt ───────────────────────────────────────────────────────────
+// ── Planning prompt — Vision-first, 3-phase ───────────────────────────────────
+
+export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
 
 interface PlanConversationMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
+// ── Phase-specific instructions ───────────────────────────────────────────────
+
+const PHASE_INSTRUCTIONS: Record<PlanningPhase, string> = {
+  discovery: `
+## YOUR ROLE IN THIS PHASE: Discovery & Understanding
+
+You are in PHASE 1: DISCOVERY. Your ONLY goal right now is to deeply understand the project by asking the right questions and listening.
+
+**STRICT RULES for this phase:**
+- DO NOT suggest any tasks (no task-mutations block allowed)
+- DO NOT create a project outline or plan yet
+- DO ask clarifying questions about: goals, target audience, constraints, budget/timeline, success metrics, and risks
+- DO acknowledge and summarize what you have learned so far
+- DO probe for more details if answers are vague
+
+**How to proceed:**
+- Ask 2-3 focused questions per message (not a huge list)
+- Reflect back what you have heard to confirm understanding
+- When you feel you have enough context to write a solid blueprint (usually after 3-6 user messages), tell the user: "I believe I have enough context to draft our project blueprint. Shall we proceed?"
+- Once the user confirms, include this EXACT marker at the end of your response: [PHASE:blueprint]
+
+**After each message, update the running vision summary using this block:**
+\`\`\`vision-update
+[Write a concise paragraph summarizing confirmed project goals, constraints, and context gathered so far. Update this every turn.]
+\`\`\`
+`,
+
+  blueprint: `
+## YOUR ROLE IN THIS PHASE: Blueprint Creation
+
+You are in PHASE 2: BLUEPRINT. You now have enough context. Your goal is to write a clear, structured blueprint and get the user's approval before any tasks are created.
+
+**STRICT RULES for this phase:**
+- DO NOT create tasks yet (no task-mutations block allowed)
+- DO write a comprehensive project blueprint covering:
+  - **Objective:** Clear, measurable goal
+  - **Target Audience / Stakeholders**
+  - **Key Pillars / Initiatives** (3-7 main themes)
+  - **Out of Scope** (what we are NOT doing)
+  - **Success Metrics / KPIs**
+  - **Key Risks and Mitigations**
+  - **Suggested Timeline / Phases**
+- DO ask the user: "Does this blueprint match your vision? What would you like to adjust?"
+- DO refine the blueprint based on user feedback
+- Once the user explicitly approves, include this EXACT marker: [PHASE:task_mapping]
+
+**Update the vision document with the finalized blueprint:**
+\`\`\`vision-update
+[Write the full approved blueprint here as the canonical vision document]
+\`\`\`
+`,
+
+  task_mapping: `
+## YOUR ROLE IN THIS PHASE: Task Creation
+
+You are in PHASE 3: TASK MAPPING. The blueprint has been approved. Now break it down into concrete, actionable tasks.
+
+**Rules for this phase:**
+- DO propose specific tasks grounded in the approved blueprint
+- DO use task-mutations blocks (user must approve each one before it is saved)
+- DO discuss and refine task details if the user asks questions
+- DO suggest sequencing and prioritization
+
+**Task mutation format — use this exact code block syntax:**
+\`\`\`task-mutations
+[
+  { "action": "add", "title": "...", "description": "..." },
+  { "action": "update", "id": "<task-uuid>", "fields": { "priority": "HIGH" } },
+  { "action": "delete", "id": "<task-uuid>", "reason": "..." }
+]
+\`\`\`
+
+Only include the task-mutations block when proposing changes. For general discussion, respond normally without the block.
+`,
+}
+
+// ── Phase transition extractor ────────────────────────────────────────────────
+
+export function extractPhaseTransition(
+  aiResponse: string,
+  currentPhase: PlanningPhase,
+): PlanningPhase | null {
+  if (aiResponse.includes('[PHASE:blueprint]') && currentPhase === 'discovery') {
+    return 'blueprint'
+  }
+  if (aiResponse.includes('[PHASE:task_mapping]') && currentPhase === 'blueprint') {
+    return 'task_mapping'
+  }
+  return null
+}
+
+// ── Vision document extractor ─────────────────────────────────────────────────
+
+export function extractVisionDocument(
+  aiResponse: string,
+  currentVisionDoc: string | null,
+): string | null {
+  const match = aiResponse.match(/```vision-update\s*([\s\S]*?)```/)
+  if (match) {
+    return match[1].trim()
+  }
+  return currentVisionDoc
+}
+
+// ── Main buildPlanPrompt ──────────────────────────────────────────────────────
+
 export async function buildPlanPrompt(
   userMessage: string,
   projectId: string,
   conversationHistory?: PlanConversationMessage[],
+  currentPhase: PlanningPhase = 'discovery',
+  currentVisionDoc?: string | null,
 ): Promise<string> {
   const project = await getProject(projectId)
   if (!project) throw new Error(`Project ${projectId} not found`)
@@ -430,27 +741,34 @@ export async function buildPlanPrompt(
   const domain = (project.domain as ProjectDomain) ?? 'SOFTWARE_ENGINEERING'
   const plannerLabel = DOMAIN_ROLE_LABELS[domain].architect
 
-  // Task context: include up to 50 most recent tasks with details
-  const tasks = project.tasks ?? []
-  const maxTasks = 50
-  const sortedTasks = [...tasks]
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, maxTasks)
+  // Task context — only shown in task_mapping phase
+  let taskContext = ''
+  if (currentPhase === 'task_mapping') {
+    const tasks = project.tasks ?? []
+    const maxTasks = 50
+    const sortedTasks = [...tasks]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, maxTasks)
 
-  let taskContext: string
-  if (sortedTasks.length === 0) {
-    taskContext = '\nNo tasks yet.'
-  } else {
-    const taskLines = sortedTasks.map(
-      (t) =>
-        `- [${t.status}] [${t.priority}] "${t.title}" (id: ${t.id})${t.description ? ` — ${t.description.slice(0, 100)}` : ''}`,
-    )
-    taskContext =
-      `\nCurrent tasks (${sortedTasks.length}${tasks.length > maxTasks ? ` of ${tasks.length} total, showing most recently updated` : ''}):\n` +
-      taskLines.join('\n')
+    if (sortedTasks.length === 0) {
+      taskContext = '\nNo tasks created yet.'
+    } else {
+      const taskLines = sortedTasks.map(
+        (t) =>
+          `- [${t.status}] [${t.priority}] "${t.title}" (id: ${t.id})${t.description ? ` — ${t.description.slice(0, 100)}` : ''}`,
+      )
+      taskContext =
+        `\nCurrent tasks (${sortedTasks.length}${tasks.length > maxTasks ? ` of ${tasks.length} total` : ''}):\n` +
+        taskLines.join('\n')
+    }
   }
 
-  // Conversation history for continuity
+  // Vision document context
+  const visionContext = currentVisionDoc
+    ? `\n\n## Project Vision Document (accumulated so far)\n${currentVisionDoc}`
+    : ''
+
+  // Conversation history
   let historyBlock = ''
   if (conversationHistory && conversationHistory.length > 0) {
     const recentHistory = conversationHistory.slice(-20)
@@ -461,38 +779,23 @@ export async function buildPlanPrompt(
         .join('\n\n')
   }
 
-  // Task mutation instruction
-  const mutationInstruction = `
+  // Phase progress label
+  const phaseLabel = {
+    discovery: 'Phase 1 of 3 — Discovery',
+    blueprint: 'Phase 2 of 3 — Blueprint',
+    task_mapping: 'Phase 3 of 3 — Task Mapping',
+  }[currentPhase]
 
-IMPORTANT: You can see all existing tasks above. Use this awareness to:
-- Avoid suggesting tasks that already exist
-- Suggest updates to existing tasks when relevant (e.g., changing status or priority)
-- Suggest deleting tasks that are no longer needed
-- Suggest new tasks that are missing
-
-When you want to propose task changes, include a fenced code block tagged "task-mutations" in your response with a JSON array. Each entry should have:
-- For adding: { "action": "add", "title": "...", "description": "..." }
-- For updating: { "action": "update", "id": "<task-uuid>", "fields": { "status": "DONE" } }
-- For deleting: { "action": "delete", "id": "<task-uuid>", "reason": "..." }
-
-Example:
-\`\`\`task-mutations
-[
-  { "action": "add", "title": "Set up CI pipeline", "description": "Configure GitHub Actions" },
-  { "action": "update", "id": "abc-123", "fields": { "status": "IN_PROGRESS" } }
-]
-\`\`\`
-
-Only include the task-mutations block when you are specifically proposing changes. For general discussion, just respond normally.`
+  const languageInstruction = '\nCRITICAL RULE: You MUST reply in the EXACT same language as the User. If the User writes in Vietnamese, YOUR ENTIRE RESPONSE MUST BE IN VIETNAMESE (including questions, comments, and structure).'
 
   return [
-    `You are a ${plannerLabel} for project "${project.name}".`,
+    `You are a ${plannerLabel} for project "${project.name}". [${phaseLabel}]`,
     project.description ? `Project description: ${project.description}` : '',
-    taskContext,
-    mutationInstruction,
+    visionContext,
+    currentPhase === 'task_mapping' ? taskContext : '',
+    PHASE_INSTRUCTIONS[currentPhase],
     historyBlock,
-    '',
-    `Help the user plan their project. Be aware of the existing tasks and their statuses.`,
+    languageInstruction,
     '',
     `User: ${userMessage}`,
   ]
@@ -539,16 +842,20 @@ export async function buildGenerateTasksPrompt(
     `Based on this conversation, extract a list of actionable tasks for the project.`,
     `Respond with ONLY a JSON code-fenced array of task objects. No explanations, no other text.`,
     `Each object must have:`,
-    `  - "title": a short, imperative task title (string, required)`,
+    `  - "title": a short, imperative task title (string, required). Try to keep it high-level.`,
     `  - "description": a brief description of the task (string, optional)`,
+    `  - "subtasks": an array of strings representing the granular checklist or subtasks to accomplish the main task (array of strings, required). Break the task down into 3-5 subtasks.`,
     ``,
     `Example format:`,
-    `\`\`\`json`,
+    '```json',
     `[`,
-    `  { "title": "Set up project structure", "description": "Initialize repo with recommended folder layout" },`,
-    `  { "title": "Implement user authentication", "description": "Add login/logout with JWT tokens" }`,
+    `  {`,
+    `    "title": "Set up project structure",`,
+    `    "description": "Initialize repo with recommended folder layout",`,
+    `    "subtasks": ["Create Next.js app layout", "Configure Prettier/ESlint", "Initialize git repo"]`,
+    `  }`,
     `]`,
-    `\`\`\``,
+    '```',
   ]
     .filter((line) => line !== null && line !== undefined)
     .join('\n')
