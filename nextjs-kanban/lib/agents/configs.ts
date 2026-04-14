@@ -25,7 +25,7 @@ export const agentConfigs: Record<AgentRole, AgentConfig> = {
     name: 'Reviewer',
     model: 'gpt-4o',
     provider: 'openai',
-    tools: ['db_query'],
+    tools: ['db_query', 'task_update'],
     systemPrompt: SYSTEM_PROMPTS.reviewer,
   },
 }
