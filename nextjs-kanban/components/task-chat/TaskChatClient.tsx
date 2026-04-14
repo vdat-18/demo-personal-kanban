@@ -10,6 +10,10 @@ import {
   StopCircle,
   Zap,
   AlertCircle,
+  ClipboardCopy,
+  Download,
+  ChevronRight,
+  CheckCircle2,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -77,6 +81,123 @@ function sanitizeAgentMessage(content: string): string {
   text = text.replace(/\n{3,}/g, '\n\n')
 
   return text.trim()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PostReportActions — shown below Master Report with quick actions
+// ─────────────────────────────────────────────────────────────────────────────
+function PostReportActions({
+  reportContent,
+  taskId,
+  taskStatus,
+  onStatusChange,
+}: {
+  reportContent: string
+  taskId: string
+  taskStatus: string
+  onStatusChange: (newStatus: string) => void
+}) {
+  const [isCopied, setIsCopied] = useState(false)
+  const [isMoving, setIsMoving] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
+  const [moved, setMoved] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(reportContent)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const handleDownload = () => {
+    const blob = new Blob([reportContent], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `report-${taskId}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleMoveToReview = async () => {
+    if (moved || taskStatus === 'IN_REVIEW' || taskStatus === 'DONE') return
+    setIsMoving(true)
+    setMoveError(null)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'IN_REVIEW' }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Failed to move task')
+      }
+      setMoved(true)
+      onStatusChange('IN_REVIEW')
+    } catch (e: any) {
+      setMoveError(e.message)
+    } finally {
+      setIsMoving(false)
+    }
+  }
+
+  const alreadyInReview = taskStatus === 'IN_REVIEW' || moved
+  const isDone = taskStatus === 'DONE'
+
+  return (
+    <div className="ml-11 flex flex-col gap-2">
+      {/* Action buttons row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Move to Review */}
+        {!isDone && (
+          <button
+            onClick={handleMoveToReview}
+            disabled={isMoving || alreadyInReview}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              alreadyInReview
+                ? 'bg-green-50 text-green-700 border border-green-200 cursor-default'
+                : 'bg-amber-500 text-white hover:bg-amber-600 active:scale-95 shadow-sm'
+            }`}
+          >
+            {alreadyInReview
+              ? <><CheckCircle2 className="w-3.5 h-3.5" /> Moved to Review</>
+              : isMoving
+                ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Moving…</>
+                : <><ChevronRight className="w-3.5 h-3.5" /> Move to Review</>
+            }
+          </button>
+        )}
+
+        {/* Copy */}
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors active:scale-95"
+        >
+          {isCopied
+            ? <><CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Copied!</>
+            : <><ClipboardCopy className="w-3.5 h-3.5" /> Copy Report</>
+          }
+        </button>
+
+        {/* Download */}
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors active:scale-95"
+        >
+          <Download className="w-3.5 h-3.5" /> Download .md
+        </button>
+      </div>
+
+      {/* Error message */}
+      {moveError && (
+        <p className="text-[11px] text-red-500 font-medium ml-1">⚠️ {moveError}</p>
+      )}
+    </div>
+  )
 }
 
 interface Conversation {
@@ -317,6 +438,13 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   const prevPendingCountRef = useRef<number>(-1)
   useEffect(() => { activeOptionRef.current = activeOption }, [activeOption])
 
+  // Auto-switch to Reviewer Agent when task enters IN_REVIEW
+  useEffect(() => {
+    if (task.status === 'IN_REVIEW') {
+      setActiveAgentIdx(2) // index 2 = Reviewer Agent
+    }
+  }, [task.status])
+
   // Detect "execute all" intent from the user's message
   const isExecuteAllIntent = (text: string) => {
     const lower = text.toLowerCase()
@@ -487,6 +615,17 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
     setMessages((prev) => [...prev, { role: 'assistant', content: '⏹️ Auto-execution stopped.' }])
   }, [abort])
 
+  // Auto-start Reviewer stream when task enters IN_REVIEW
+  const startReviewerStream = useCallback(async () => {
+    if (isStreaming) return
+    const reviewMsg = `The task is now IN_REVIEW. Please review all the work completed above and provide your Quality Review Report. Call task_update when you have made your decision.`
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: '🔍 Starting Quality Review — Reviewer Agent is evaluating the work…' },
+    ])
+    await startStream('reviewer', reviewMsg, task.id, [])
+  }, [isStreaming, task.id, startStream])
+
 
   const updateTaskStatus = useCallback(async (status: TaskStatus) => {
     try {
@@ -581,37 +720,52 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
             if (msg.role === 'assistant' && !displayContent.trim()) return null
 
             return (
-              <div
-                key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.role === 'assistant' && (
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-black mr-3 shrink-0 mt-1 ${isReport ? 'bg-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-blue-600'}`}>
-                    AI
+              <div key={i} className="flex flex-col gap-2">
+                <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'assistant' && (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-black mr-3 shrink-0 mt-1 ${isReport ? 'bg-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-blue-600'}`}>
+                      AI
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed text-justify relative group ${
+                      msg.role === 'user'
+                        ? 'bg-[#0a192f] text-white rounded-br-lg'
+                        : isReport
+                          ? 'bg-amber-50 border-2 border-amber-200 text-amber-950 rounded-bl-lg shadow-lg'
+                          : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
+                    }`}
+                  >
+                    {isReport && (
+                      <div className="absolute -top-3 left-4 bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm mb-1">
+                        Master Synthesis Report
+                      </div>
+                    )}
+                    {msg.role === 'assistant' ? (
+                      <div className={`prose prose-sm max-w-none text-justify ${isReport ? 'prose-amber font-medium' : ''}`}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      displayContent
+                    )}
                   </div>
-                )}
-                <div
-                  className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed text-justify relative group ${
-                    msg.role === 'user'
-                      ? 'bg-[#0a192f] text-white rounded-br-lg'
-                      : isReport
-                        ? 'bg-amber-50 border-2 border-amber-200 text-amber-950 rounded-bl-lg shadow-lg'
-                        : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
-                  }`}
-                >
-                  {isReport && (
-                    <div className="absolute -top-3 left-4 bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm mb-1">
-                      Master Synthesis Report
-                    </div>
-                  )}
-                  {msg.role === 'assistant' ? (
-                    <div className={`prose prose-sm max-w-none text-justify ${isReport ? 'prose-amber font-medium' : ''}`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    displayContent
-                  )}
                 </div>
+
+                {/* ── Post-Report Action Bar ──────────────────────────────── */}
+                {isReport && (
+                  <PostReportActions
+                    reportContent={displayContent}
+                    taskId={task.id}
+                    taskStatus={task.status}
+                    onStatusChange={(newStatus: string) => {
+                      setTask((prev) => ({ ...prev, status: newStatus as TaskStatus }))
+                      if (newStatus === 'IN_REVIEW') {
+                        // Small delay so status update renders first, then auto-start reviewer
+                        setTimeout(() => startReviewerStream(), 600)
+                      }
+                    }}
+                  />
+                )}
               </div>
             )
           })}
@@ -664,6 +818,19 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
               >
                 ✕
               </button>
+            </div>
+          )}
+
+          {/* Review Mode Banner — shown when task is IN_REVIEW */}
+          {task.status === 'IN_REVIEW' && (
+            <div className="mx-2 mb-3 flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl shrink-0">
+              <span className="text-lg shrink-0">🔍</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-amber-700 uppercase tracking-wider">Review Mode</p>
+                <p className="text-[11px] text-amber-600 leading-relaxed mt-0.5">
+                  Reviewer Agent is evaluating the completed work. It will approve (→ DONE) or request changes (→ back to Doing).
+                </p>
+              </div>
             </div>
           )}
 
@@ -756,8 +923,32 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
             <p className="text-xs text-gray-500 leading-relaxed">{task.description}</p>
           )}
 
-          {/* Subtasks Section */}
-          {(task.subtasks && task.subtasks.length > 0) ? (
+          {/* Subtask Section / Review Decision — context-aware */}
+          {task.status === 'IN_REVIEW' ? (
+            /* Review Decision panel — shown while IN_REVIEW */
+            <div className="mt-4 pt-4 border-t border-gray-50">
+              <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                🔍 Review Decision
+              </h4>
+              <p className="text-[10px] text-gray-400 leading-relaxed mb-3">
+                Reviewer Agent will call these automatically. You can also trigger manually:
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => updateTaskStatus('DONE')}
+                  className="py-2.5 rounded-xl text-xs font-black text-white bg-green-500 hover:bg-green-600 active:scale-95 transition-all shadow-sm"
+                >
+                  ✅ Approve → DONE
+                </button>
+                <button
+                  onClick={() => updateTaskStatus('IN_PROGRESS')}
+                  className="py-2.5 rounded-xl text-xs font-black text-gray-600 bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all"
+                >
+                  ↩️ Needs Changes → Doing
+                </button>
+              </div>
+            </div>
+          ) : (task.subtasks && task.subtasks.length > 0) ? (
             <div className="mt-4 pt-4 border-t border-gray-50">
               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center justify-between">
                 <span>Subtasks</span>
