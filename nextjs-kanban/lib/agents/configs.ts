@@ -3,7 +3,9 @@ import { SYSTEM_PROMPTS, DOMAIN_SYSTEM_PROMPTS } from './prompts'
 import type { ProjectDomain } from './prompts'
 import { getAgentModel } from '@/lib/validations/schemas'
 
-export type AgentRole = 'architect' | 'developer' | 'reviewer'
+// Re-export AgentRole from its canonical location so existing imports keep working
+export type { AgentRole } from './prompts/types'
+import type { AgentRole } from './prompts/types'
 
 export const agentConfigs: Record<AgentRole, AgentConfig> = {
   architect: {

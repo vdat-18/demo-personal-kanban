@@ -12,16 +12,7 @@ import type { AgentRunResult } from '@jackchen_me/open-multi-agent'
 
 export const PlanningService = {
   async listThreads(projectId: string) {
-    const threads = await getThreadsByProject(projectId)
-    return threads.map((thread) => ({
-      id: thread.id,
-      projectId: thread.projectId,
-      title: thread.title,
-      createdAt: thread.createdAt,
-      updatedAt: thread.updatedAt,
-      lastMessage: thread.messages[0]?.content?.slice(0, 100) ?? null,
-      lastMessageAt: thread.messages[0]?.createdAt ?? null,
-    }))
+    return getThreadsByProject(projectId)
   },
 
   async getThread(id: string) {
