@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { ThreadListSidebar } from '@/components/organisms/ThreadListSidebar'
@@ -46,11 +46,15 @@ export function PlanningTemplate({ project: initialProject }: PlanningTemplatePr
   const { data: messages = [], isLoading: messagesLoading } = usePlanningMessages(activeThreadId)
   const sendMessage = useSendPlanningMessage()
 
+  // Ref to ensure auto-create fires at most once per mount, regardless of re-renders
+  const autoCreateCalledRef = useRef(false)
+
   useEffect(() => {
     if (threadsLoading) return
     if (threads.length > 0 && !activeThreadId) {
       setActiveThreadId(threads[0].id)
-    } else if (threads.length === 0 && !createThread.isPending) {
+    } else if (threads.length === 0 && !autoCreateCalledRef.current) {
+      autoCreateCalledRef.current = true
       createThread.mutate(
         { projectId: initialProject.id },
         { onSuccess: (thread) => setActiveThreadId(thread.id) },
