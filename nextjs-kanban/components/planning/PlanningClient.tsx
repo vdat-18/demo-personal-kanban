@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, ChevronDown, ChevronUp, FileText, Lightbulb, Map, CheckSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ArrowLeft, Send, ChevronDown, ChevronUp, FileText, Lightbulb, Map, CheckSquare, PanelLeftClose, PanelLeftOpen, Paperclip, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useQueryClient } from '@tanstack/react-query'
@@ -156,8 +156,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [currentPhase, setCurrentPhase] = useState<PlanningPhase>('discovery')
   const [currentVisionDoc, setCurrentVisionDoc] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-resize textarea
   useEffect(() => {
@@ -188,32 +190,56 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   }, [activeThread?.id, activeThread?.phase, activeThread?.visionDocument])
 
   // ─── Auto-select or auto-create first thread ──────────────────────────────
+  const isCreatingThread = useRef(false)
   useEffect(() => {
     if (threadsLoading) return
 
     if (threads.length > 0 && !activeThreadId) {
       setActiveThreadId(threads[0].id)
-    } else if (threads.length === 0 && !createThread.isPending) {
+    } else if (threads.length === 0 && !isCreatingThread.current) {
+      isCreatingThread.current = true
       createThread.mutate(
         { projectId: initialProject.id },
         {
           onSuccess: (thread) => setActiveThreadId(thread.id),
+          onError: () => { isCreatingThread.current = false },
         },
       )
     }
-  }, [threads, threadsLoading, activeThreadId, initialProject.id, createThread])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threads, threadsLoading, activeThreadId, initialProject.id])
 
   // ─── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // ─── File upload handler ───────────────────────────────────────────────────
+  const handleFileSelect = useCallback((e: { target: HTMLInputElement & { value: string }; currentTarget: HTMLInputElement }) => {
+    const files = Array.from(e.target.files ?? [])
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const content = ev.target?.result as string
+        setAttachedFiles((prev) => [...prev, { name: file.name, content }])
+      }
+      reader.readAsText(file)
+    })
+    // reset input so same file can be re-selected
+    e.target.value = ''
+  }, [])
+
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async () => {
-    if (!input.trim() || !activeThreadId || sendMessage.isPending) return
+    if ((!input.trim() && attachedFiles.length === 0) || !activeThreadId || sendMessage.isPending) return
+
+    const fileBlock = attachedFiles.length > 0
+      ? '\n\n' + attachedFiles.map((f) => `--- File: ${f.name} ---\n${f.content}`).join('\n\n')
+      : ''
+    const fullContent = input.trim() + fileBlock
 
     sendMessage.mutate(
-      { threadId: activeThreadId, content: input.trim() },
+      { threadId: activeThreadId, content: fullContent },
       {
         onSuccess: (data) => {
           // Update local phase and vision doc state from server response
@@ -226,7 +252,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       },
     )
     setInput('')
-  }, [input, activeThreadId, sendMessage, qc, initialProject.id])
+    setAttachedFiles([])
+  }, [input, attachedFiles, activeThreadId, sendMessage, qc, initialProject.id])
 
   const handleNewThread = useCallback(() => {
     createThread.mutate(
@@ -504,7 +531,40 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               Failed to send message. Please try again.
             </div>
           )}
+          {/* Attached files preview */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {attachedFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 text-xs text-blue-700">
+                  <FileText className="w-3 h-3 shrink-0" />
+                  <span className="max-w-[140px] truncate">{f.name}</span>
+                  <button
+                    onClick={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="ml-0.5 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!activeThreadId}
+              className="w-7 h-7 rounded-xl text-gray-400 flex items-center justify-center hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-30 shrink-0"
+              title="Attach files"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <textarea
               ref={textareaRef}
               className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
@@ -522,7 +582,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             />
             <button
               onClick={handleSendMessage}
-              disabled={!input.trim() || sendMessage.isPending || !activeThreadId}
+              disabled={(!input.trim() && attachedFiles.length === 0) || sendMessage.isPending || !activeThreadId}
               className="w-9 h-9 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
             >
               <Send className="w-4 h-4" />

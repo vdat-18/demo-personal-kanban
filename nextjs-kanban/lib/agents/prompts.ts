@@ -121,6 +121,7 @@ Follow these rules strictly:
 `
 
 
+export const DOMAIN_SYSTEM_PROMPTS: Record<ProjectDomain, Record<AgentRole, string>> = {
   // ─── Software Engineering ──────────────────────────────────────────────
   SOFTWARE_ENGINEERING: {
     architect: `You are an expert software architect responsible for designing system architecture and breaking down complex tasks into manageable subtasks.
@@ -591,11 +592,34 @@ export async function buildChatPrompt(
     }
   }
 
+  const isPlanningMode = role === 'architect' && task.status === 'TODO'
+
   const executionInstruction = allCompleted
     ? `ALL SUBTASKS ARE ALREADY COMPLETED. The full work history is provided above — use it to write a DETAILED Master Synthesis Report that quotes specific findings, data points, and deliverables from the actual work. Do NOT call subtask_update again. Wrap the report in [[REPORT_START]] and [[REPORT_END]] tags, then natively call task_update to save it to Task ID: ${task.id}.`
     : isReviewMode
       ? `REVIEW MODE: Task ID is ${task.id}. Task status is IN_REVIEW. The full work history is provided above in the WORK HISTORY section. Review it thoroughly, write your Quality Review Report, then call task_update to finalize the decision (DONE if approved, IN_PROGRESS if changes needed).`
-      : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
+      : isPlanningMode
+        ? `PLANNING MODE: The task is in TODO status — it has NOT been started yet. Your role is to help the user review and refine the plan BEFORE execution begins.
+
+Your responsibilities:
+1. Review the subtask list shown above and assess if it is complete, well-ordered, and realistic.
+2. Identify any gaps, redundant steps, or unclear items.
+3. Suggest additions, removals, or rewordings if needed.
+4. Ask the user targeted questions if scope is unclear.
+5. Confirm the plan is ready when the user is satisfied.
+
+IMPORTANT:
+- Do NOT execute any subtasks.
+- Do NOT call subtask_update.
+- Respond in the same language the user writes in.
+- End your response with a clear question or summary that guides the user toward either refining the plan or starting the task.
+
+AI-FIRST WORKFLOW (status advancement):
+- If (and ONLY if) the user clearly confirms they want to start execution (e.g. "đồng ý", "bắt đầu", "ok start", "start task"), you MUST immediately call task_update to advance the task status:
+  - Call: task_update { "id": "<Task ID>", "status": "IN_PROGRESS" }
+- If the user's message is ambiguous, DO NOT change status. Ask a clarifying question instead.
+- Never change status to IN_PROGRESS unless the plan has been reviewed/refined and the user explicitly agreed to start.`
+        : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
 
   return [
     `You are a ${roleLabel} working on task: "${task.title}" (Task ID: ${task.id}).`,
@@ -628,19 +652,20 @@ const PHASE_INSTRUCTIONS: Record<PlanningPhase, string> = {
   discovery: `
 ## YOUR ROLE IN THIS PHASE: Discovery & Understanding
 
-You are in PHASE 1: DISCOVERY. Your ONLY goal right now is to deeply understand the project by asking the right questions and listening.
+You are in PHASE 1: DISCOVERY. Your goal is to gather ALL critical context in as few turns as possible — ideally just 1-2 exchanges total.
 
 **STRICT RULES for this phase:**
 - DO NOT suggest any tasks (no task-mutations block allowed)
 - DO NOT create a project outline or plan yet
-- DO ask clarifying questions about: goals, target audience, constraints, budget/timeline, success metrics, and risks
-- DO acknowledge and summarize what you have learned so far
-- DO probe for more details if answers are vague
-
-**How to proceed:**
-- Ask 2-3 focused questions per message (not a huge list)
-- Reflect back what you have heard to confirm understanding
-- When you feel you have enough context to write a solid blueprint (usually after 3-6 user messages), tell the user: "I believe I have enough context to draft our project blueprint. Shall we proceed?"
+- On your FIRST response, ask ALL key discovery questions at once in a single, well-organized message. Cover ALL of these areas:
+  1. **Goal & Vision** — What is the main objective? What does success look like?
+  2. **Target Audience / Stakeholders** — Who is this for? Who is involved?
+  3. **Scope & Key Deliverables** — What are the main outputs, features, or milestones?
+  4. **Budget & Timeline** — Any constraints or hard deadlines?
+  5. **Risks & Constraints** — Known blockers, technical limits, dependencies?
+  6. **Success Metrics / KPIs** — How will progress or completion be measured?
+- On follow-up turns, ONLY ask 1-2 targeted follow-up questions if critical information is still missing or too vague. Do NOT repeat questions already answered.
+- Once you have enough context (usually after 1-2 user replies), summarize what you've learned, then say: "I have enough context to draft our project blueprint. Shall we proceed?"
 - Once the user confirms, include this EXACT marker at the end of your response: [PHASE:blueprint]
 
 **After each message, update the running vision summary using this block:**

@@ -14,6 +14,7 @@ import {
   Download,
   ChevronRight,
   CheckCircle2,
+  ArrowRight,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -362,29 +363,41 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
         content: m.content,
       }))
     }
-    
-    let introContent = `I'm your AI agent for task: **${initialTask.title}**.\n\nStatus: \`${initialTask.status}\`\n\nHow can I help?`
-    
-    if (initialTask.subtasks && initialTask.subtasks.length > 0) {
-      const pendingSubtask = initialTask.subtasks.find(st => !st.completed)
-      if (pendingSubtask) {
-        introContent = `Hello! Task **${initialTask.title}** has ${initialTask.subtasks.length} subtasks. The next pending item is: **${pendingSubtask.title}**.\n\nTo instruct me to do this for you, you can type a prompt like:\n> *"Please execute the subtask: ${pendingSubtask.title}."*\n\nOr, if you want me to work through all of them for you, try:\n> *"Please execute all pending subtasks one by one, and confirm as you complete each one."*\n\nWhat would you like me to do?`
+
+    // Start with the context-aware intro message (kept in sync with auto-refresh).
+    const buildIntroForInitial = (t: Task): ChatMsg => {
+      const subtaskCount = t.subtasks?.length ?? 0
+      const allDone = subtaskCount > 0 && (t.subtasks ?? []).every(st => st.completed)
+      const pendingSubtask = t.subtasks?.find(st => !st.completed)
+
+      let introContent = `I'm your AI agent for task: **${t.title}**.\n\nStatus: \`${t.status}\`\n\nHow can I help?`
+
+      // TODO is planning mode: never show execution instructions here.
+      if (t.status === 'TODO') {
+        if (subtaskCount > 0) {
+          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has **${subtaskCount} subtasks** ready to review. Before you click **Start Task**, let's make sure the plan is solid.\n\nI can help you:\n- 🔍 **Review & refine** the existing subtasks\n- ➕ **Add / remove** missing or redundant steps\n- 🔄 **Reorder** subtasks by priority\n- ❓ Ask clarifying questions if scope is unclear\n\nIf you'd like, I can give you a quick full review and propose improvements. What should we adjust first?`
+        } else {
+          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what “done” looks like and any constraints (deadline, audience, scope), and I’ll propose a clear subtask plan before you start execution.`
+        }
+      } else if (t.subtasks && t.subtasks.length > 0) {
+        if (allDone) {
+          introContent = `🎉 All subtasks for **${t.title}** are complete.\n\nIf you want, I can generate the final report, or you can move this task to \`IN_REVIEW\`.`
+        } else if (pendingSubtask) {
+          introContent = `Hello! Task **${t.title}** has ${t.subtasks.length} subtasks. The next pending item is: **${pendingSubtask.title}**.\n\nTo instruct me to do this for you, you can type:\n> *"Please execute the subtask: ${pendingSubtask.title}."*\n\nOr:\n> *"Please execute all pending subtasks one by one, and confirm as you complete each one."*\n\nWhat would you like me to do?`
+        }
       } else {
-        introContent = `Awesome! All subtasks for **${initialTask.title}** are checked off. 🎉\n\nYou can command me to review the final work, or simply move this task to \`IN_REVIEW\`!`
+        introContent += `\n\nI can:\n- Break it down into subtasks\n- Research and analyse\n- Generate implementation plans`
       }
-    } else {
-      introContent += ` I can:\n- Break it down into subtasks\n- Research and analyse\n- Generate implementation plans`
+
+      return { role: 'assistant', content: introContent }
     }
 
-    return [
-      {
-        role: 'assistant',
-        content: introContent,
-      },
-    ]
+    return [buildIntroForInitial(initialTask)]
   })
   const [input, setInput] = useState('')
-  const [activeAgentIdx, setActiveAgentIdx] = useState(1) // default: Doer (developer)
+  const [activeAgentIdx, setActiveAgentIdx] = useState(
+    initialTask.status === 'TODO' ? 0 : initialTask.status === 'IN_REVIEW' ? 2 : 1
+  )
   // Latest progress events shown beneath the typing indicator (9.6)
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -394,8 +407,19 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   const buildIntroMessage = (t: Task): ChatMsg => {
     const allDone = t.subtasks && t.subtasks.length > 0 && t.subtasks.every(st => st.completed)
     const pendingSubtask = t.subtasks?.find(st => !st.completed)
+    const subtaskCount = t.subtasks?.length ?? 0
 
     let introContent = `I'm your AI agent for task: **${t.title}**.\n\nStatus: \`${t.status}\`\n\nHow can I help?`
+
+    // TODO is planning mode: never show execution instructions here.
+    if (t.status === 'TODO') {
+      if (subtaskCount > 0) {
+        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has **${subtaskCount} subtasks** ready to review. Before you click **Start Task**, let's make sure the plan is solid.\n\nI can help you:\n- 🔍 **Review & refine** the existing subtasks\n- ➕ **Add / remove** missing or redundant steps\n- 🔄 **Reorder** subtasks by priority\n- ❓ Ask clarifying questions if scope is unclear\n\nIf you'd like, I can give you a quick full review and propose improvements. What should we adjust first?`
+      } else {
+        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what “done” looks like and any constraints (deadline, audience, scope), and I’ll propose a clear subtask plan before you start execution.`
+      }
+      return { role: 'assistant', content: introContent }
+    }
 
     if (t.subtasks && t.subtasks.length > 0) {
       if (allDone) {
@@ -440,8 +464,12 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
 
   // Auto-switch to Reviewer Agent when task enters IN_REVIEW
   useEffect(() => {
-    if (task.status === 'IN_REVIEW') {
-      setActiveAgentIdx(2) // index 2 = Reviewer Agent
+    if (task.status === 'TODO') {
+      setActiveAgentIdx(0) // Planner Agent — brainstorm & refine subtasks
+    } else if (task.status === 'IN_REVIEW') {
+      setActiveAgentIdx(2) // Reviewer Agent
+    } else if (task.status === 'IN_PROGRESS') {
+      setActiveAgentIdx(1) // Doer Agent — execute subtasks
     }
   }, [task.status])
 
@@ -690,22 +718,41 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
           )}
         </header>
 
-        {/* Agent selector */}
-        <div className="px-6 py-3 border-b border-gray-50 flex gap-2 overflow-x-auto shrink-0">
-          {AGENT_OPTIONS.map((opt, i) => (
+        {/* Agent selector — filtered by status */}
+        <div className="px-6 py-3 border-b border-gray-50 flex items-center justify-between shrink-0">
+          <div className="flex gap-2 overflow-x-auto">
+            {AGENT_OPTIONS.map((opt, i) => {
+              // Show only the contextually relevant agent(s) per status
+              if (task.status === 'TODO' && opt.role !== 'architect') return null
+              if (task.status === 'IN_PROGRESS' && opt.role !== 'developer') return null
+              if (task.status === 'IN_REVIEW' && opt.role !== 'reviewer') return null
+              return (
+                <button
+                  key={opt.role}
+                  onClick={() => setActiveAgentIdx(i)}
+                  disabled={isStreaming}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-40 ${
+                    activeAgentIdx === i
+                      ? 'bg-[#0a192f] text-white'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          {/* Start Task CTA — only shown for TODO */}
+          {task.status === 'TODO' && (
             <button
-              key={opt.role}
-              onClick={() => setActiveAgentIdx(i)}
+              onClick={() => updateTaskStatus('IN_PROGRESS')}
               disabled={isStreaming}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-40 ${
-                activeAgentIdx === i
-                  ? 'bg-[#0a192f] text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-40 shrink-0 ml-4"
             >
-              {opt.label}
+              <ArrowRight className="w-3.5 h-3.5" />
+              Start Task
             </button>
-          ))}
+          )}
         </div>
 
         {/* Messages */}
