@@ -9,7 +9,7 @@ export const agentConfigs: Record<AgentRole, AgentConfig> = {
     name: 'Architect',
     model: 'gpt-4o',
     provider: 'openai',
-    tools: ['db_query', 'project_create'],
+    tools: ['db_query', 'project_create', 'task_update'],
     systemPrompt: SYSTEM_PROMPTS.architect,
   },
 
