@@ -212,6 +212,8 @@ export const envSchema = z.object({
   OPENAI_API_KEY: z.string().startsWith('sk-', 'Invalid OpenAI API key').optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   AGENT_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  AGNO_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  AGENT_BACKEND: z.enum(['agno', 'multi-agent']).default('agno'),
 })
 
 export type EnvConfig = z.infer<typeof envSchema>

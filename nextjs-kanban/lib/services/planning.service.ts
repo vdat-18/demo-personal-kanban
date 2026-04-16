@@ -8,6 +8,7 @@ import { getMessagesByThread, createMessage, getRecentMessages, persistMutationA
 import { runAgent } from '@/lib/agents/orchestrator'
 import { buildPlanPrompt } from '@/lib/agents/prompts'
 import { NotFoundError } from '@/lib/api/errors'
+import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
 import type { AgentRunResult } from '@jackchen_me/open-multi-agent'
 
 export const PlanningService = {
@@ -60,11 +61,33 @@ export const PlanningService = {
 
     // Build prompt and call AI
     const prompt = await buildPlanPrompt(content, thread.projectId, conversationHistory)
-    const agentResult: AgentRunResult = await runAgent('architect', prompt)
-    const resultText = agentResult.output
-    const tokenUsage = agentResult.tokenUsage
-      ? { input: agentResult.tokenUsage.input_tokens, output: agentResult.tokenUsage.output_tokens }
-      : null
+
+    let resultText: string
+    let tokenUsage: { input: number; output: number } | null = null
+
+    if (isAgnoBackend()) {
+      try {
+        const agnoResult = await smartRun({ message: prompt, project_id: thread.projectId })
+        resultText = agnoResult.result
+      } catch (err) {
+        if (err instanceof AgnoServiceError) {
+          console.warn(`[planning] Agno unavailable (${err.code}), falling back to multi-agent`)
+          const agentResult: AgentRunResult = await runAgent('architect', prompt)
+          resultText = agentResult.output
+          tokenUsage = agentResult.tokenUsage
+            ? { input: agentResult.tokenUsage.input_tokens, output: agentResult.tokenUsage.output_tokens }
+            : null
+        } else {
+          throw err
+        }
+      }
+    } else {
+      const agentResult: AgentRunResult = await runAgent('architect', prompt)
+      resultText = agentResult.output
+      tokenUsage = agentResult.tokenUsage
+        ? { input: agentResult.tokenUsage.input_tokens, output: agentResult.tokenUsage.output_tokens }
+        : null
+    }
 
     // Persist assistant response
     const assistantMessage = await createMessage(threadId, 'assistant', resultText, tokenUsage)

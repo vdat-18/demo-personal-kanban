@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/triphan/Documents/kanban/demo-personal-kanban/**)",
+      "Read(//Users/triphan/Documents/kanban/**)"
+    ]
+  }
+}

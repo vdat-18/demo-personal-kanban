@@ -169,3 +169,4 @@ server/node_modules/open-multi-agent/
 *graphify*
 # Ignore the open-multi-agent package
 open-multi-agent/
+*.claude/
