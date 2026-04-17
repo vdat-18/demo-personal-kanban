@@ -94,11 +94,23 @@ export async function buildChatPrompt(
     }
   }
 
+  const isTodoMode = task.status === 'TODO'
+
   const executionInstruction = allCompleted
     ? `ALL SUBTASKS ARE ALREADY COMPLETED. The full work history is provided above — use it to write a DETAILED Master Synthesis Report that quotes specific findings, data points, and deliverables from the actual work. Do NOT call subtask_update again. Wrap the report in [[REPORT_START]] and [[REPORT_END]] tags, then natively call task_update to save it to Task ID: ${task.id}.`
     : isReviewMode
       ? `REVIEW MODE: Task ID is ${task.id}. Task status is IN_REVIEW. The full work history is provided above in the WORK HISTORY section. Review it thoroughly, write your Quality Review Report, then call task_update to finalize the decision (DONE if approved, IN_PROGRESS if changes needed).`
-      : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
+      : isTodoMode
+        ? `PLANNING MODE — Task ID: ${task.id}. Task status is TODO. You are the Planner Agent. Your job is to make sure the plan is solid BEFORE any execution begins.
+
+RULES FOR THIS MODE:
+1. DO NOT execute any subtask. DO NOT call subtask_update.
+2. If there are NO subtasks yet: ask the user to describe what "done" looks like and any constraints (deadline, audience, scope, tech stack). Then propose a concrete subtask breakdown.
+3. If subtasks already exist: proactively walk the user through each subtask one at a time. For each subtask, briefly explain its purpose, ask if it needs clarification or refinement, and wait for the user's response before moving to the next.
+4. After reviewing all subtasks, summarise the plan and ask: "Does this plan look good? Say 'start execution', 'switch to doer', or 'go ahead' when you're ready to begin."
+5. TRANSITION TO EXECUTION: When the user confirms they are ready (e.g. says "start", "go ahead", "switch to doer", "execute now", "begin", or similar), call the 'task_update' tool with { "id": "${task.id}", "status": "IN_PROGRESS" }. Then say: "✅ Switching to execution mode. Doer Agent will take over from here."
+6. DO NOT transition to IN_PROGRESS unless the user has explicitly confirmed.`
+        : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
 
   return [
     `You are a ${roleLabel} working on task: "${task.title}" (Task ID: ${task.id}).`,
