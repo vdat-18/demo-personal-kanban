@@ -171,13 +171,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   }, [input])
 
   // ─── Thread hooks ──────────────────────────────────────────────────────────
-  const { data: threads = [], isLoading: threadsLoading } = usePlanningThreads(initialProject.id)
+  const { data: threads = [], isLoading: threadsLoading, isFetching: threadsFetching } = usePlanningThreads(initialProject.id)
   const createThread = useCreatePlanningThread()
   const deleteThread = useDeletePlanningThread()
   const renameThread = useUpdatePlanningThread()
 
   // ─── Message hooks ─────────────────────────────────────────────────────────
-  const { data: messages = [], isLoading: messagesLoading } = usePlanningMessages(activeThreadId)
+  const { data: messages = [], isLoading: messagesLoading, isError: messagesError } = usePlanningMessages(activeThreadId)
   const sendMessage = useSendPlanningMessage()
 
   // ─── Sync local phase state when switching threads ─────────────────────────
@@ -192,7 +192,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   // ─── Auto-select or auto-create first thread ──────────────────────────────
   const isCreatingThread = useRef(false)
   useEffect(() => {
-    if (threadsLoading) return
+    // Wait for BOTH initial load AND background refetch to finish
+    // before acting on thread list — prevents stale-cache race condition
+    // where an old cached thread ID no longer exists in the DB.
+    if (threadsLoading || threadsFetching) return
 
     if (threads.length > 0 && !activeThreadId) {
       setActiveThreadId(threads[0].id)
@@ -207,7 +210,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       )
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threads, threadsLoading, activeThreadId, initialProject.id])
+  }, [threads, threadsLoading, threadsFetching, activeThreadId, initialProject.id])
+
+  // ─── Reset stale thread ID if it no longer exists in DB (e.g. after restart) ─
+  useEffect(() => {
+    if (messagesError && activeThreadId) {
+      // Thread ID is invalid (404 or gone) — clear it so the effect above
+      // will either select another thread or create a fresh one.
+      setActiveThreadId(null)
+      isCreatingThread.current = false
+      // Also invalidate threads list to remove the stale entry from cache
+      qc.invalidateQueries({ queryKey: ['planning-threads', initialProject.id] })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messagesError, activeThreadId])
 
   // ─── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
