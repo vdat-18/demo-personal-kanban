@@ -1,6 +1,6 @@
 import { getProjects } from '@/lib/db/projects'
 import type { Metadata } from 'next'
-import { DirectoryClient } from '@/components/directory/DirectoryClient'
+import { DirectoryTemplate } from '@/components/templates/DirectoryTemplate'
 
 export const metadata: Metadata = {
   title: 'Directory | Personal Kanban',
@@ -31,5 +31,5 @@ export default async function DirectoryPage() {
     })),
   }))
 
-  return <DirectoryClient projects={serialized} />
+  return <DirectoryTemplate projects={serialized} />
 }

@@ -1,7 +1,7 @@
 import { getTask } from '@/lib/db/tasks'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { TaskSummaryClient } from '@/components/task-summary/TaskSummaryClient'
+import { SummaryTemplate } from '@/components/templates/SummaryTemplate'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -47,5 +47,5 @@ export default async function TaskSummaryPage({ params }: Props) {
     })),
   }
 
-  return <TaskSummaryClient task={serialized} />
+  return <SummaryTemplate task={serialized} />
 }

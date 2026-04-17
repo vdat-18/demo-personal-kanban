@@ -1,32 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withErrorHandler } from '@/lib/api/error-handler'
 import { runAgent } from '@/lib/agents/orchestrator'
-import type { AgentRole } from '@/lib/agents/configs'
-import { z } from 'zod'
 import { runAgentSchema } from '@/lib/validations/schemas'
+import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const validatedData = runAgentSchema.parse(body)
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const data = runAgentSchema.parse(body)
 
-    const result = await runAgent(
-      validatedData.role,
-      validatedData.prompt
-    )
-
-    return NextResponse.json(result)
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
+  // ── Agno backend (default) ────────────────────────────────────────────────
+  if (isAgnoBackend()) {
+    try {
+      const result = await smartRun({ message: data.prompt })
+      return NextResponse.json({
+        output: result.result,
+        tokenUsage: null,
+        agentsUsed: result.agents_used,
+        toolsUsed: result.tools_used,
+      })
+    } catch (err) {
+      if (err instanceof AgnoServiceError) {
+        console.warn(`[run] Agno unavailable (${err.code}), falling back to multi-agent`)
+        const result = await runAgent(data.role, data.prompt)
+        return NextResponse.json(result)
+      }
+      throw err
     }
-
-    console.error('Error running agent:', error)
-    return NextResponse.json(
-      { error: 'Failed to run agent' },
-      { status: 500 }
-    )
   }
-}
+
+  // ── Multi-agent backend ───────────────────────────────────────────────────
+  const result = await runAgent(data.role, data.prompt)
+  return NextResponse.json(result)
+})

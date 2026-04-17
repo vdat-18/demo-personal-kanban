@@ -1,38 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withErrorHandler } from '@/lib/api/error-handler'
 import { runTeam } from '@/lib/agents/orchestrator'
-import type { AgentRole } from '@/lib/agents/configs'
-import { z } from 'zod'
+import { teamAgentSchema } from '@/lib/validations/schemas'
+import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
 
-const agentRoleEnum = z.enum(['architect', 'developer', 'reviewer'])
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const data = teamAgentSchema.parse(body)
 
-const runTeamSchema = z.object({
-  goal: z.string().min(1, 'Goal is required'),
-  agents: z.array(agentRoleEnum).min(1, 'At least one agent is required'),
-})
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const validatedData = runTeamSchema.parse(body)
-
-    const result = await runTeam(
-      validatedData.goal,
-      validatedData.agents
-    )
-
-    return NextResponse.json(result)
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
+  // ── Agno backend (default) ────────────────────────────────────────────────
+  if (isAgnoBackend()) {
+    try {
+      const result = await smartRun({ message: data.goal })
+      return NextResponse.json({
+        result: result.result,
+        teamOutput: {
+          agentsUsed: result.agents_used,
+          toolsUsed: result.tools_used,
+          routingReason: result.routing_reason,
+        },
+      })
+    } catch (err) {
+      if (err instanceof AgnoServiceError) {
+        console.warn(`[team] Agno unavailable (${err.code}), falling back to multi-agent`)
+        const result = await runTeam(data.goal, data.agents)
+        return NextResponse.json(result)
+      }
+      throw err
     }
-
-    console.error('Error running team:', error)
-    return NextResponse.json(
-      { error: 'Failed to run team' },
-      { status: 500 }
-    )
   }
-}
+
+  // ── Multi-agent backend ───────────────────────────────────────────────────
+  const result = await runTeam(data.goal, data.agents)
+  return NextResponse.json(result)
+})

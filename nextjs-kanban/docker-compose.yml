@@ -22,14 +22,39 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    environment:
+      AGNO_SERVICE_URL: http://agno:8000
+      NODE_ENV: development
     env_file:
       - path: .env
         required: false
       - path: .env.docker
         required: false
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
     depends_on:
       db:
         condition: service_healthy
+
+  agno:
+    build:
+      context: ../agno-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      NEXTJS_API_URL: http://app:3000/api
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AGENT_MODEL: ${AGENT_MODEL:-gpt-4o-mini}
+    volumes:
+      - ../agno-service:/app
+    depends_on:
+      app:
+        condition: service_started
 
 volumes:
   postgres_data:

@@ -1,13 +1,16 @@
 import { AgentConfig } from '@jackchen_me/open-multi-agent'
 import { SYSTEM_PROMPTS, DOMAIN_SYSTEM_PROMPTS } from './prompts'
 import type { ProjectDomain } from './prompts'
+import { getAgentModel } from '@/lib/validations/schemas'
 
-export type AgentRole = 'architect' | 'developer' | 'reviewer'
+// Re-export AgentRole from its canonical location so existing imports keep working
+export type { AgentRole } from './prompts/types'
+import type { AgentRole } from './prompts/types'
 
 export const agentConfigs: Record<AgentRole, AgentConfig> = {
   architect: {
     name: 'Architect',
-    model: 'gpt-4o',
+    model: getAgentModel(),
     provider: 'openai',
     tools: ['db_query', 'project_create', 'task_update'],
     systemPrompt: SYSTEM_PROMPTS.architect,
@@ -15,7 +18,7 @@ export const agentConfigs: Record<AgentRole, AgentConfig> = {
 
   developer: {
     name: 'Developer',
-    model: 'gpt-4o',
+    model: getAgentModel(),
     provider: 'openai',
     tools: ['db_query', 'task_create', 'task_update', 'task_delete', 'project_create', 'subtask_update'],
     systemPrompt: SYSTEM_PROMPTS.developer,
@@ -23,7 +26,7 @@ export const agentConfigs: Record<AgentRole, AgentConfig> = {
 
   reviewer: {
     name: 'Reviewer',
-    model: 'gpt-4o',
+    model: getAgentModel(),
     provider: 'openai',
     tools: ['db_query', 'task_update'],
     systemPrompt: SYSTEM_PROMPTS.reviewer,

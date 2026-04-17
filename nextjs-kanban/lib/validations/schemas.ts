@@ -102,6 +102,23 @@ export const conversationQuerySchema = z.object({
 
 export const agentRoleSchema = z.enum(['architect', 'developer', 'reviewer'])
 
+export const chatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+})
+
+export const chatStreamSchema = z.object({
+  role: agentRoleSchema,
+  userMessage: z.string().min(1).max(10000),
+  taskId: uuidSchema,
+  messages: z.array(chatMessageSchema).optional(),
+})
+
+export const planRequestSchema = z.object({
+  projectId: uuidSchema,
+  userMessage: z.string().min(1).max(10000),
+})
+
 export const runAgentSchema = z.object({
   role: agentRoleSchema,
   prompt: z.string().min(1, 'Prompt is required').max(10000, 'Prompt too long'),
@@ -118,9 +135,28 @@ export const teamAgentSchema = z.object({
   agents: z.array(agentRoleSchema).min(1, 'At least one agent required'),
 })
 
+export const runTasksItemSchema = z.object({
+  agent: agentRoleSchema,
+  prompt: z.string().min(1, 'Prompt is required'),
+  dependencies: z.array(z.string()).optional(),
+})
+
+export const runTasksSchema = z.object({
+  tasks: z.array(runTasksItemSchema).min(1, 'At least one task is required'),
+})
+
 export const taskPipelineSchema = z.object({
   taskId: uuidSchema,
   agents: z.array(agentRoleSchema).optional(),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mutation action schema (for planning message mutations)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const mutationActionSchema = z.object({
+  mutationIndex: z.number().int().min(0),
+  action: z.enum(['approved', 'dismissed']),
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +211,9 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-', 'Invalid Anthropic API key').optional(),
   OPENAI_API_KEY: z.string().startsWith('sk-', 'Invalid OpenAI API key').optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  AGENT_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  AGNO_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  AGENT_BACKEND: z.enum(['agno', 'multi-agent']).default('agno'),
 })
 
 export type EnvConfig = z.infer<typeof envSchema>
@@ -190,4 +229,12 @@ export function validateEnv(): EnvConfig {
     throw new Error(`Invalid environment variables:\n${issues}`)
   }
   return result.data
+}
+
+/**
+ * Returns the configured AI model name from AGENT_MODEL env var,
+ * defaulting to 'gpt-4o-mini'.
+ */
+export function getAgentModel(): string {
+  return process.env.AGENT_MODEL || 'gpt-4o-mini'
 }

@@ -1,40 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { runAgent } from '@/lib/agents/orchestrator'
+import { withErrorHandler } from '@/lib/api/error-handler'
+import { AgentService } from '@/lib/services/agent.service'
+import { planRequestSchema } from '@/lib/validations/schemas'
+import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
 import { buildPlanPrompt } from '@/lib/agents/prompts'
-import { z } from 'zod'
-import { uuidSchema } from '@/lib/validations/schemas'
 
-const planSchema = z.object({
-  projectId: uuidSchema,
-  userMessage: z.string().min(1).max(10000),
-})
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json()
+  const { projectId, userMessage } = planRequestSchema.parse(body)
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { projectId, userMessage } = planSchema.parse(body)
-
-    // Assemble the full prompt on the BE — FE only sends raw user input + projectId
-    const prompt = await buildPlanPrompt(userMessage, projectId)
-
-    const agentResult = await runAgent('architect', prompt)
-
-    const result = (agentResult as any)?.output ?? agentResult
-    const tokenUsage = (agentResult as any)?.tokenUsage ?? null
-
-    return NextResponse.json({ result, ...(tokenUsage ? { tokenUsage } : {}) })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
+  // ── Agno backend (default) ────────────────────────────────────────────────
+  if (isAgnoBackend()) {
+    try {
+      const prompt = await buildPlanPrompt(userMessage, projectId)
+      const result = await smartRun({
+        message: prompt,
+        project_id: projectId,
+      })
+      return NextResponse.json({
+        result: result.result,
+        agentsUsed: result.agents_used,
+        toolsUsed: result.tools_used,
+      })
+    } catch (err) {
+      if (err instanceof AgnoServiceError) {
+        console.warn(`[plan] Agno unavailable (${err.code}), falling back to multi-agent`)
+        const { result, tokenUsage } = await AgentService.runPlan(projectId, userMessage)
+        return NextResponse.json({ result, ...(tokenUsage ? { tokenUsage } : {}) })
+      }
+      throw err
     }
-
-    console.error('Error running plan agent:', error)
-    return NextResponse.json(
-      { error: 'Failed to run plan agent' },
-      { status: 500 }
-    )
   }
-}
+
+  // ── Multi-agent backend ───────────────────────────────────────────────────
+  const { result, tokenUsage } = await AgentService.runPlan(projectId, userMessage)
+  return NextResponse.json({ result, ...(tokenUsage ? { tokenUsage } : {}) })
+})
