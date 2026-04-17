@@ -65,7 +65,16 @@ export function DashboardTemplate({ initialProjects }: DashboardTemplateProps) {
   }, [])
 
   const triggerFileInput = () => fileInputRef.current?.click()
-  const handleFileChange = () => handleStartProject()
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return
+    // File import requires a project name — open modal first if not provided
+    if (!projectName.trim()) {
+      setImportMode(true)
+      setShowModal(true)
+      return
+    }
+    handleStartProject()
+  }
 
   return (
     <div className="h-full w-full bg-[#f8fbfe] flex flex-col overflow-hidden font-sans text-slate-900">

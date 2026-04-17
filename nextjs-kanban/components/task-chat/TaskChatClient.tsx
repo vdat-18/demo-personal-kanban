@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AgentBadge } from '@/components/shared/AgentBadge'
+import { AgentBadge } from '@/components/molecules/AgentBadge'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
 import type { StreamEvent } from '@/lib/hooks/useAgentStream'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
@@ -498,7 +498,7 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   }, [task.status])
 
   // Detect "execute all" intent from the user's message
-  const isExecuteAllIntent = (text: string) => {
+  const isExecuteAllIntent = useCallback((text: string) => {
     const lower = text.toLowerCase()
     return (
       lower.includes('execute all') ||
@@ -507,7 +507,7 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
       lower.includes('do all') ||
       lower.includes('work through all')
     )
-  }
+  }, [])
 
   const { startStream, abort, isStreaming, streamingContent, error: streamError } = useAgentStream({
     onProgress: (ev) => {
