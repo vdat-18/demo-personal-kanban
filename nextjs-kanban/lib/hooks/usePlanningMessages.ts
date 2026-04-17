@@ -29,6 +29,7 @@ export function usePlanningMessages(threadId: string | null) {
     queryKey: ['planning-messages', threadId],
     queryFn: () => fetchMessages(threadId!),
     enabled: !!threadId,
+    retry: false,   // fail fast so stale thread IDs are detected immediately
   })
 }
 

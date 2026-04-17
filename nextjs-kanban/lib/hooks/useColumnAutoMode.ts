@@ -12,6 +12,32 @@ import type { AutoModeColumnState, TaskStatus } from '@/lib/auto-mode/constants'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
+// ─── API helpers ─────────────────────────────────────────────────────────────
+
+/** Re-fetch the live task state from DB to verify agent actually completed the work */
+async function fetchTaskState(taskId: string): Promise<{ status: string; subtasks: Array<{ completed: boolean }> } | null> {
+  try {
+    const res = await fetch(`/api/tasks/${taskId}`)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Pre-generate subtasks for a TODO task via AI before dispatching the doer.
+ * Calls POST /api/tasks/:id/breakdown — idempotent if subtasks already exist.
+ */
+async function ensureSubtasksGenerated(taskId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/tasks/${taskId}/breakdown`, { method: 'POST' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Task {
@@ -86,12 +112,42 @@ export function useColumnAutoMode({
       const taskId = activeTaskIdRef.current
       if (!columnId || !taskId) return
 
-      // Find the task and advance its status
-      const task = tasksRef.current.find((t) => t.id === taskId)
-      if (task) {
-        const nextStatus = getNextStatus(task.status)
-        if (nextStatus) {
-          await updateTaskStatus(taskId, nextStatus)
+      // ── Completion Verification ───────────────────────────────────────────
+      // Re-fetch task from DB to verify the agent actually completed the work
+      // (i.e., called task_update to change status). If the status hasn't
+      // changed we do NOT blindly advance it — we retry or flag an error.
+      const liveTask = await fetchTaskState(taskId)
+      const localTask = tasksRef.current.find((t) => t.id === taskId)
+
+      if (liveTask) {
+        const statusChanged = localTask && liveTask.status !== localTask.status
+        const allSubtasksCompleted =
+          liveTask.subtasks.length === 0 ||
+          liveTask.subtasks.every((st) => st.completed)
+
+        if (!statusChanged && !allSubtasksCompleted && columnId === 'IN_PROGRESS') {
+          // Agent streamed but didn't finish — keep running with a resume prompt
+          console.warn(`[AutoMode] Task ${taskId}: stream ended but work is incomplete. Resuming.`)
+          const resumePrompt = 'Continue from where you left off. Find the next PENDING subtask and execute it completely. Then keep going until all subtasks are done and the Master Report is written.'
+          startStream(COLUMN_AGENT_MAP[columnId], resumePrompt, taskId)
+          return
+        }
+
+        if (!statusChanged && columnId !== 'IN_PROGRESS') {
+          // For TODO/IN_REVIEW: agent didn't call task_update → advance manually as fallback
+          const nextStatus = getNextStatus(localTask?.status ?? (columnId as TaskStatus))
+          if (nextStatus) {
+            await updateTaskStatus(taskId, nextStatus)
+          }
+        }
+        // If statusChanged === true: agent already called task_update — no need to advance manually
+      } else {
+        // Fallback: couldn't fetch live state → use local data as before
+        if (localTask) {
+          const nextStatus = getNextStatus(localTask.status)
+          if (nextStatus) {
+            await updateTaskStatus(taskId, nextStatus)
+          }
         }
       }
 
@@ -130,7 +186,7 @@ export function useColumnAutoMode({
 
   // ── Dispatch agent for a specific task in a column ─────────────────────────
   const dispatchTask = useCallback(
-    (columnId: string, task: Task) => {
+    async (columnId: string, task: Task) => {
       const agentRole = COLUMN_AGENT_MAP[columnId]
       const prompt = DEFAULT_PROMPTS[columnId]
       if (!agentRole || !prompt) return
@@ -147,6 +203,14 @@ export function useColumnAutoMode({
           error: null,
         },
       }))
+
+      // ── Auto-breakdown: pre-generate subtasks for TODO tasks ──────────────
+      // Before the Planner agent runs, ensure subtasks are already created in DB.
+      // This way, when the agent starts it sees a ready subtask list and doesn't
+      // need to spend its first response just drafting a breakdown.
+      if (columnId === 'TODO') {
+        await ensureSubtasksGenerated(task.id)
+      }
 
       startStream(agentRole, prompt, task.id)
     },

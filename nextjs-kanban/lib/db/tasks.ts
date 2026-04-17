@@ -16,10 +16,38 @@ export async function getTasks(status?: TaskStatus, projectId?: string) {
 }
 
 export async function getTask(id: string) {
-  return prisma.task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id },
-    include: { project: true, conversations: true, subtasks: true }
+    include: {
+      project: {
+        include: {
+          planningThreads: {
+            orderBy: { updatedAt: 'desc' },
+            take: 1,
+            select: { visionDocument: true },
+          },
+        },
+      },
+      subtasks: {
+        orderBy: { createdAt: 'asc' },
+      },
+      // ── Conversation pruning ────────────────────────────────────────────
+      // Fetch the most recent 20 conversations only to prevent context bloat.
+      // When subtask.output fields are populated, older conversation turns are
+      // redundant — output is the canonical source of truth for the prompt builder.
+      conversations: {
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      },
+    },
   })
+
+  if (!task) return null
+
+  // Re-order conversations to chronological (asc) after the DESC + LIMIT fetch
+  task.conversations = task.conversations.reverse()
+
+  return task
 }
 
 export async function createTask(data: {

@@ -28,6 +28,8 @@ export function usePlanningThreads(projectId: string) {
     queryKey: ['planning-threads', projectId],
     queryFn: () => fetchThreads(projectId),
     enabled: !!projectId,
+    staleTime: 0,        // always refetch — thread list must be fresh on mount
+    gcTime: 0,           // do not cache between page navigations
   })
 }
 
