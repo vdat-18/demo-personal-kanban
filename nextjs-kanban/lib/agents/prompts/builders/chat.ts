@@ -74,35 +74,49 @@ export async function buildChatPrompt(
     }
   }
 
-  // ── Review Mode: inject full work history for Reviewer Agent ──────────────
-  // When the Reviewer is called and the task is IN_REVIEW, inject the complete
-  // conversation history (including the Master Report) so it can assess quality.
+  // ── Review Mode: inject work history for Reviewer Agent ───────────────────
+  // Primary source: subtask.output (structured, saved per subtask).
+  // Fallback: conversation messages (for older tasks without saved outputs).
   const isReviewMode = role === 'reviewer' && task.status === 'IN_REVIEW'
   let reviewWorkHistory = ''
-  if (isReviewMode && task.conversations && task.conversations.length > 0) {
-    const rvOutputs: string[] = []
-    for (const conv of (task.conversations as any[])) {
-      const resultStr = typeof conv.result === 'string'
-        ? conv.result
-        : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
-          ? conv.result.reply
-          : null
-      if (resultStr && resultStr.length > 50) {
-        rvOutputs.push(resultStr)
-        continue
+  if (isReviewMode) {
+    // Count prior reviews from task description (look for "[Review #" markers)
+    const reviewMatches = (task.description ?? '').match(/\[Review #\d+/g)
+    const reviewIteration = reviewMatches ? reviewMatches.length + 1 : 1
+    const iterationNote = reviewIteration > 1
+      ? `\n⚠️ This is Review #${reviewIteration}. Previous reviewer feedback is included in the task description above. Check if prior issues have been addressed.`
+      : `\nThis is the first review of this task.`
+
+    // Primary: use saved subtask outputs
+    const subtasksForReview = (task.subtasks ?? []).filter((st: any) => st.completed && st.output && String(st.output).trim().length > 0)
+    if (subtasksForReview.length > 0) {
+      reviewWorkHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSUBTASK OUTPUTS TO REVIEW — ${subtasksForReview.length} subtask(s) completed${iterationNote}\n(Review EACH subtask output below individually before writing your verdict.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${subtasksForReview.map((st: any) => `### Subtask: ${st.title}\n${st.output}`).join('\n\n---\n\n')}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    } else if (task.conversations && task.conversations.length > 0) {
+      // Fallback: read from conversation messages
+      const rvOutputs: string[] = []
+      for (const conv of (task.conversations as any[])) {
+        const resultStr = typeof conv.result === 'string'
+          ? conv.result
+          : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
+            ? conv.result.reply
+            : null
+        if (resultStr && resultStr.length > 50) {
+          rvOutputs.push(resultStr)
+          continue
+        }
+        const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
+        const assistantMsgs = msgs
+          .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
+          .map(m => m.content)
+        if (assistantMsgs.length > 0) {
+          rvOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+        }
       }
-      const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
-      const assistantMsgs = msgs
-        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
-        .map(m => m.content)
-      if (assistantMsgs.length > 0) {
-        rvOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+      if (rvOutputs.length > 0) {
+        const full = rvOutputs.join('\n\n---\n\n')
+        const capped = full.length > 12000 ? '...[earlier work truncated]\n\n' + full.slice(-12000) : full
+        reviewWorkHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWORK HISTORY TO REVIEW (fallback) — ${rvOutputs.length} session(s)${iterationNote}\n(Read ALL of this to assess quality before writing your review report.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${capped}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
       }
-    }
-    if (rvOutputs.length > 0) {
-      const full = rvOutputs.join('\n\n---\n\n')
-      const capped = full.length > 12000 ? '...[earlier work truncated]\n\n' + full.slice(-12000) : full
-      reviewWorkHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nWORK HISTORY TO REVIEW — ${rvOutputs.length} session(s)\n(Read ALL of this to assess quality before writing your review report.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${capped}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
     }
   }
 
