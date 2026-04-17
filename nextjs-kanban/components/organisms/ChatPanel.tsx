@@ -54,11 +54,21 @@ export function ChatPanel({
   isDone,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isStreaming])
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const maxHeight = 128 // max-h-32 = 8rem = 128px
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [input])
 
   return (
     <div className="flex flex-col flex-1 border-r border-gray-100 bg-white min-w-0">
@@ -147,7 +157,9 @@ export function ChatPanel({
       <div className="p-4 border-t border-gray-100 shrink-0">
         <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
           <textarea
-            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
+            ref={textareaRef}
+            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px]"
+            style={{ overflowY: 'hidden' }}
             placeholder={`Ask ${activeOption.label}...`}
             rows={1}
             value={input}

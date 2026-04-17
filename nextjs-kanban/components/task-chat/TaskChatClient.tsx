@@ -447,10 +447,11 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
   }, [task.subtasks])
   useEffect(() => {
     const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${textarea.scrollHeight}px`
-    }
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    const maxHeight = 128 // max-h-32 = 8rem = 128px
+    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
   }, [input])
 
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
@@ -913,7 +914,8 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
           <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
             <textarea
               ref={textareaRef}
-              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
+              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px]"
+              style={{ overflowY: 'hidden' }}
               placeholder={`Ask ${activeOption.label}…`}
               rows={1}
               value={input}

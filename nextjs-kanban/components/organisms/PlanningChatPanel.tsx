@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useCallback } from 'react'
 import { ArrowLeft, Send } from 'lucide-react'
 import { AiAvatar } from '@/components/atoms/AiAvatar'
 import { TypingDots } from '@/components/atoms/TypingDots'
@@ -40,11 +40,29 @@ export function PlanningChatPanel({
   onPersistMutationAction,
 }: PlanningChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const showWelcome = !messagesLoading && messages.length === 0
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Auto-resize textarea as content grows
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const maxHeight = 192 // max-h-48 = 12rem = 192px
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [input])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      onSend()
+    }
+  }, [onSend])
 
   return (
     <div className="flex flex-col flex-1 min-w-0 border-r border-gray-100 bg-white">
@@ -119,17 +137,14 @@ export function PlanningChatPanel({
         )}
         <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
           <textarea
-            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
+            ref={textareaRef}
+            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px]"
+            style={{ overflowY: 'hidden' }}
             placeholder="Describe your project goals..."
             rows={1}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                onSend()
-              }
-            }}
+            onKeyDown={handleKeyDown}
             disabled={!activeThreadId}
           />
           <button
