@@ -227,16 +227,17 @@ export const projectCreateTool = defineTool({
 
 export const subtaskUpdateTool = defineTool({
   name: 'subtask_update',
-  description: 'Mark a subtask as completed. Call this after you finish working on a subtask. Pass the subtask UUID from the "ID:" field in your context. The "completed" field defaults to true — you can omit it.',
+  description: 'Mark a subtask as completed and save its output. Call this after you finish working on a subtask. Pass the subtask UUID from the "ID:" field in your context. The "completed" field defaults to true — you can omit it. ALWAYS pass the "output" field with the full work you produced.',
   inputSchema: z.object({
     id: z.string().describe('The EXACT UUID of the subtask to update, from the "ID:" field in the subtask list. Example: "3f2b1a00-abcd-1234-efgh-000000000000"'),
     // Accept boolean OR string — LLMs sometimes emit "true"/"false" strings. Default to true so omitting it still works.
     completed: z.union([z.boolean(), z.literal('true'), z.literal('false')]).optional().default(true).describe('Set to true to mark complete (default). Omit or pass true — do not pass the subtask title here.'),
     title: z.string().optional().describe('Optionally update the subtask title. Leave out if you just want to mark it complete.'),
+    output: z.string().optional().describe('The full work output you produced for this subtask — the actual deliverable, code, analysis, or content. This is REQUIRED and will be used to generate the Master Report later.'),
   }) as any,
   execute: async (input: unknown, context: ToolUseContext) => {
     void context
-    const { id, completed, title } = input as any
+    const { id, completed, title, output } = input as any
     // Sanitize ID: keep only valid UUID characters (alphanumeric + hyphens)
     const rawId = String(id ?? '').trim()
     const safeId = rawId.replace(/[^a-zA-Z0-9-]/g, '')
@@ -271,6 +272,10 @@ export const subtaskUpdateTool = defineTool({
       // Only update title if explicitly provided
       if (title !== undefined && title !== null) {
         updateData.title = title
+      }
+      // Save the work output if provided
+      if (output !== undefined && output !== null && String(output).trim().length > 0) {
+        updateData.output = String(output).trim()
       }
 
       const subtask = await prisma.subtask.update({

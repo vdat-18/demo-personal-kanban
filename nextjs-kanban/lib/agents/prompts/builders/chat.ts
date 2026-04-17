@@ -23,42 +23,54 @@ export async function buildChatPrompt(
     ? `\nSubtasks for this task (${task.subtasks.length - pendingCount}/${task.subtasks.length} completed):\n${task.subtasks.map((st: any) => `- ID: ${st.id} | Status: [${st.completed ? 'COMPLETED' : 'PENDING'}] | Title: ${st.title}`).join('\n')}`
     : '\nNo subtasks defined.';
 
-  // When all subtasks are done, inject conversation history so the agent can
-  // synthesize a detailed report from the ACTUAL CONTENT produced per subtask.
+  // Inject completed subtask outputs for context — used in Execution Mode to give AI continuity
+  const completedWithOutput = (task.subtasks ?? []).filter((st: any) => st.completed && st.output && String(st.output).trim().length > 0)
+  const previousOutputsContext = completedWithOutput.length > 0
+    ? `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nPREVIOUS SUBTASK OUTPUTS (use for continuity — build on this work, don't repeat it)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${completedWithOutput.map((st: any) => `### ✅ ${st.title}\n${st.output}`).join('\n\n---\n\n')}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+    : ''
+
+  // Determine next pending subtask for proactive suggestion
+  const nextPendingSubtask = (task.subtasks ?? []).find((st: any) => !st.completed)
+
+  // When all subtasks are done, provide work history for Master Report generation.
+  // Primary source: subtask.output fields (saved by subtask_update tool).
+  // Fallback: raw conversation messages (for older tasks without saved outputs).
   let conversationHistory = ''
-  if (allCompleted && task.conversations && task.conversations.length > 0) {
-    const workOutputs: string[] = []
+  if (allCompleted) {
+    // Primary: use saved subtask outputs (clean, structured, no token waste)
+    // previousOutputsContext already contains this — no need to duplicate here.
+    // Only fall back to conversation messages if NO subtasks have saved outputs.
+    const hasStoredOutputs = completedWithOutput.length > 0
 
-    for (const conv of (task.conversations as any[])) {
-      // Prefer the final 'result' if it exists (clean summary per conversation)
-      // result can be a string or a JSON object (e.g. { reply: "..." })
-      const resultStr = typeof conv.result === 'string'
-        ? conv.result
-        : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
-          ? conv.result.reply
-          : null
-      if (resultStr && resultStr.length > 50) {
-        workOutputs.push(resultStr)
-        continue
-      }
-      // Fallback: extract the last (longest) assistant message from this conversation
-      const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
-      const assistantMsgs = msgs
-        .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
-        .map(m => m.content)
-      if (assistantMsgs.length > 0) {
-        // Take the last assistant message — usually the most complete work output
-        workOutputs.push(assistantMsgs[assistantMsgs.length - 1])
-      }
-    }
+    if (!hasStoredOutputs && task.conversations && task.conversations.length > 0) {
+      const workOutputs: string[] = []
 
-    if (workOutputs.length > 0) {
-      // Cap at ~10000 chars to avoid token overflow; keep most recent work
-      const fullHistory = workOutputs.join('\n\n---\n\n')
-      const cappedHistory = fullHistory.length > 10000
-        ? '...[earlier work truncated]\n\n' + fullHistory.slice(-10000)
-        : fullHistory
-      conversationHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nFULL WORK HISTORY — ${workOutputs.length} subtask(s) completed\n(Use ALL of this content to write your detailed report. Reference specific data, findings, and deliverables.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${cappedHistory}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+      for (const conv of (task.conversations as any[])) {
+        const resultStr = typeof conv.result === 'string'
+          ? conv.result
+          : conv.result && typeof conv.result === 'object' && typeof conv.result.reply === 'string'
+            ? conv.result.reply
+            : null
+        if (resultStr && resultStr.length > 50) {
+          workOutputs.push(resultStr)
+          continue
+        }
+        const msgs = Array.isArray(conv.messages) ? conv.messages as Array<{ role: string; content: string }> : []
+        const assistantMsgs = msgs
+          .filter(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 50)
+          .map(m => m.content)
+        if (assistantMsgs.length > 0) {
+          workOutputs.push(assistantMsgs[assistantMsgs.length - 1])
+        }
+      }
+
+      if (workOutputs.length > 0) {
+        const fullHistory = workOutputs.join('\n\n---\n\n')
+        const cappedHistory = fullHistory.length > 10000
+          ? '...[earlier work truncated]\n\n' + fullHistory.slice(-10000)
+          : fullHistory
+        conversationHistory = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nFULL WORK HISTORY (fallback) — ${workOutputs.length} subtask(s) completed\n(Use ALL of this content to write your detailed report. Reference specific data, findings, and deliverables.)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${cappedHistory}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+      }
     }
   }
 
@@ -110,13 +122,14 @@ RULES FOR THIS MODE:
 4. After reviewing all subtasks, summarise the plan and ask: "Does this plan look good? Say 'start execution', 'switch to doer', or 'go ahead' when you're ready to begin."
 5. TRANSITION TO EXECUTION: When the user confirms they are ready (e.g. says "start", "go ahead", "switch to doer", "execute now", "begin", or similar), call the 'task_update' tool with { "id": "${task.id}", "status": "IN_PROGRESS" }. Then say: "✅ Switching to execution mode. Doer Agent will take over from here."
 6. DO NOT transition to IN_PROGRESS unless the user has explicitly confirmed.`
-        : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat. Then call 'subtask_update' with BOTH fields: { "id": "<exact-uuid-from-list>", "completed": true }. NEVER omit the "completed" field. Stop after the tool call succeeds. Do not process the next subtask.`
+        : `INSTRUCTION: Focus ONLY on the single subtask requested by the user. Show your detailed work in the chat following the structured format in your system prompt. Then call 'subtask_update' with THREE fields: { "id": "<exact-uuid-from-list>", "completed": true, "output": "<your full work output for this subtask>" }. NEVER omit the "completed" or "output" fields — output is required for the Master Report. After the tool call succeeds, end your response with: "✅ Done. ${nextPendingSubtask ? `Next up: **${nextPendingSubtask.title}** — say 'go' or describe any changes before we begin.` : 'All subtasks complete! Say anything to generate the Master Report.'}" Do not process the next subtask automatically.`
 
   return [
     `You are a ${roleLabel} working on task: "${task.title}" (Task ID: ${task.id}).`,
     `Task status: ${task.status}`,
     task.description ? `Task description: ${task.description}` : '',
     subtasksContext,
+    previousOutputsContext,
     conversationHistory,
     reviewWorkHistory,
     '',

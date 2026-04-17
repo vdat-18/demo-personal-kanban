@@ -27,9 +27,9 @@ export const COLUMN_AGENT_MAP: Record<string, AgentRole> = {
 
 /** Default prompts sent as the "user message" for each column's agent */
 export const DEFAULT_PROMPTS: Record<string, string> = {
-  TODO: 'Analyze this task and create a detailed plan. Break it down into actionable steps with clear requirements and acceptance criteria.',
-  IN_PROGRESS: 'Implement this task based on its description and any prior planning conversations. Provide a thorough implementation with clear explanations.',
-  IN_REVIEW: 'Review the implementation work done on this task. Check for correctness, quality, completeness, and suggest improvements if needed.',
+  TODO: 'Analyze this task carefully. If no subtasks exist yet, propose a detailed breakdown of 3-6 actionable subtasks with clear scope. If subtasks already exist, review them and confirm the plan is solid. Then transition the task to IN_PROGRESS.',
+  IN_PROGRESS: 'Check the subtasks list. Find the first PENDING subtask and execute it completely — deliver the actual output (code, content, analysis, etc.), save your output via subtask_update, then move on to the next PENDING subtask. Continue until all subtasks are completed, then write the Master Report and transition to IN_REVIEW.',
+  IN_REVIEW: 'Review all the work produced for this task. Read the Master Report and any previous subtask outputs carefully. Write a structured Quality Review Report assessing correctness, completeness, and quality. Then call task_update to either approve (DONE) or request changes (IN_PROGRESS).',
 }
 
 /** Initial state for a column with auto mode disabled */
