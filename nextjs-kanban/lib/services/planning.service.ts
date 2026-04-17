@@ -6,7 +6,8 @@
 import { getThreadsByProject, getThread, createThread, updateThread, deleteThread } from '@/lib/db/planning-threads'
 import { getMessagesByThread, createMessage, getRecentMessages, persistMutationAction } from '@/lib/db/planning-messages'
 import { runAgent } from '@/lib/agents/orchestrator'
-import { buildPlanPrompt } from '@/lib/agents/prompts'
+import { buildPlanPrompt, extractPhaseTransition, extractVisionDocument } from '@/lib/agents/prompts'
+import type { PlanningPhase as PromptPlanningPhase } from '@/lib/agents/prompts'
 import { NotFoundError } from '@/lib/api/errors'
 import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
 import type { AgentRunResult } from '@jackchen_me/open-multi-agent'
@@ -59,8 +60,16 @@ export const PlanningService = {
       content: m.content,
     }))
 
-    // Build prompt and call AI
-    const prompt = await buildPlanPrompt(content, thread.projectId, conversationHistory)
+    // Build prompt with current phase and vision document from the thread
+    const currentPhase = (thread.phase as PromptPlanningPhase) ?? 'discovery'
+    const currentVisionDoc = thread.visionDocument ?? null
+    const prompt = await buildPlanPrompt(
+      content,
+      thread.projectId,
+      conversationHistory,
+      currentPhase,
+      currentVisionDoc,
+    )
 
     let resultText: string
     let tokenUsage: { input: number; output: number } | null = null
@@ -89,10 +98,27 @@ export const PlanningService = {
         : null
     }
 
+    // Extract phase transition and vision document from AI response
+    const newPhase = extractPhaseTransition(resultText, currentPhase)
+    const newVisionDoc = extractVisionDocument(resultText, currentVisionDoc)
+
+    // Update thread if phase or vision changed
+    const threadUpdates: { phase?: string; visionDocument?: string } = {}
+    if (newPhase) threadUpdates.phase = newPhase
+    if (newVisionDoc !== undefined && newVisionDoc !== currentVisionDoc) {
+      threadUpdates.visionDocument = newVisionDoc ?? ''
+    }
+    if (Object.keys(threadUpdates).length > 0) {
+      await updateThread(threadId, threadUpdates as Parameters<typeof updateThread>[1])
+    }
+
     // Persist assistant response
     const assistantMessage = await createMessage(threadId, 'assistant', resultText, tokenUsage)
 
-    return { userMessage, assistantMessage, tokenUsage }
+    const updatedPhase = newPhase ?? currentPhase
+    const updatedVisionDoc = newVisionDoc ?? currentVisionDoc
+
+    return { userMessage, assistantMessage, tokenUsage, phase: updatedPhase, visionDocument: updatedVisionDoc }
   },
 
   async persistMutationAction(

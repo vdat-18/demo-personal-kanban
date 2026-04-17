@@ -3,6 +3,7 @@ import { withErrorHandler } from '@/lib/api/error-handler'
 import { AgentService } from '@/lib/services/agent.service'
 import { planRequestSchema } from '@/lib/validations/schemas'
 import { isAgnoBackend, smartRun, AgnoServiceError } from '@/lib/agno-client'
+import { buildPlanPrompt } from '@/lib/agents/prompts'
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const body = await request.json()
@@ -11,8 +12,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // ── Agno backend (default) ────────────────────────────────────────────────
   if (isAgnoBackend()) {
     try {
+      const prompt = await buildPlanPrompt(userMessage, projectId)
       const result = await smartRun({
-        message: userMessage,
+        message: prompt,
         project_id: projectId,
       })
       return NextResponse.json({
