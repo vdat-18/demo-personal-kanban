@@ -24,11 +24,16 @@ services:
       - "3000:3000"
     environment:
       AGNO_SERVICE_URL: http://agno:8000
+      NODE_ENV: development
     env_file:
       - path: .env
         required: false
       - path: .env.docker
         required: false
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +50,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AGENT_MODEL: ${AGENT_MODEL:-gpt-4o-mini}
+    volumes:
+      - ../agno-service:/app
     depends_on:
       app:
         condition: service_started
