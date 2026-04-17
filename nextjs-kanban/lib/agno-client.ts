@@ -14,9 +14,7 @@ export function getAgentBackend(): AgentBackend {
 }
 
 export function isAgnoBackend(): boolean {
-  const isAgno = getAgentBackend() === 'agno'
-  console.log("isAgno", isAgno);
-  return isAgno;
+  return getAgentBackend() === 'agno'
 }
 
 // ── Error class ─────────────────────────────────────────────────────────────
