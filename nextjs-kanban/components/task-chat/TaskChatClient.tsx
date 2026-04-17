@@ -355,6 +355,7 @@ function ConversationHistory({ conversations }: { conversations: Conversation[] 
 export function TaskChatClient({ task: initialTask }: { task: Task }) {
   const router = useRouter()
   const [task, setTask] = useState(initialTask)
+  const prevStatusRef = useRef<TaskStatus>(initialTask.status)
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
     const last = initialTask.conversations[initialTask.conversations.length - 1]
     if (last?.messages?.length) {
@@ -375,9 +376,9 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
       // TODO is planning mode: never show execution instructions here.
       if (t.status === 'TODO') {
         if (subtaskCount > 0) {
-          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has **${subtaskCount} subtasks** ready to review. Before you click **Start Task**, let's make sure the plan is solid.\n\nI can help you:\n- 🔍 **Review & refine** the existing subtasks\n- ➕ **Add / remove** missing or redundant steps\n- 🔄 **Reorder** subtasks by priority\n- ❓ Ask clarifying questions if scope is unclear\n\nIf you'd like, I can give you a quick full review and propose improvements. What should we adjust first?`
+          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task already has **${subtaskCount} subtask${subtaskCount > 1 ? 's' : ''}** from the planning phase. Let me walk you through each one to make sure the plan is solid before we begin.\n\nI'll go step by step — reviewing each subtask with you, checking if anything needs clarification or adjustment.\n\n**Ready? Let's start with the first one.** Just say "go" and I'll begin the review.`
         } else {
-          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what “done” looks like and any constraints (deadline, audience, scope), and I’ll propose a clear subtask plan before you start execution.`
+          introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what "done" looks like and any constraints (deadline, audience, scope), and I'll propose a clear subtask plan before you start execution.`
         }
       } else if (t.subtasks && t.subtasks.length > 0) {
         if (allDone) {
@@ -414,9 +415,9 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
     // TODO is planning mode: never show execution instructions here.
     if (t.status === 'TODO') {
       if (subtaskCount > 0) {
-        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has **${subtaskCount} subtasks** ready to review. Before you click **Start Task**, let's make sure the plan is solid.\n\nI can help you:\n- 🔍 **Review & refine** the existing subtasks\n- ➕ **Add / remove** missing or redundant steps\n- 🔄 **Reorder** subtasks by priority\n- ❓ Ask clarifying questions if scope is unclear\n\nIf you'd like, I can give you a quick full review and propose improvements. What should we adjust first?`
+        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task already has **${subtaskCount} subtask${subtaskCount > 1 ? 's' : ''}** from the planning phase. Let me walk you through each one to make sure the plan is solid before we begin.\n\nI'll go step by step — reviewing each subtask with you, checking if anything needs clarification or adjustment.\n\n**Ready? Let's start with the first one.** Just say "go" and I'll begin the review.`
       } else {
-        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what “done” looks like and any constraints (deadline, audience, scope), and I’ll propose a clear subtask plan before you start execution.`
+        introContent = `👋 I'm your **Planner Agent** for task: **${t.title}**.\n\nThis task has no subtasks yet. Tell me what "done" looks like and any constraints (deadline, audience, scope), and I'll propose a clear subtask plan before you start execution.`
       }
       return { role: 'assistant', content: introContent }
     }
@@ -470,6 +471,29 @@ export function TaskChatClient({ task: initialTask }: { task: Task }) {
       setActiveAgentIdx(2) // Reviewer Agent
     } else if (task.status === 'IN_PROGRESS') {
       setActiveAgentIdx(1) // Doer Agent — execute subtasks
+    }
+  }, [task.status])
+
+  // On status transitions, switch chat context so UI feels like the new mode.
+  useEffect(() => {
+    const prev = prevStatusRef.current
+    if (prev !== task.status) {
+      if (prev === 'TODO' && task.status === 'IN_PROGRESS') {
+        const nextIntro = buildIntroMessage(task)
+        setMessages((prevMsgs) => {
+          // If user hasn't started a real thread yet, replace intro outright.
+          if (prevMsgs.length <= 1) return [nextIntro]
+          // Otherwise, preserve history and add a clear mode-switch message.
+          return [
+            ...prevMsgs,
+            {
+              role: 'assistant',
+              content: `✅ Task moved to \`IN_PROGRESS\`. Switching to **Doer Agent** mode.\n\n${nextIntro.content}`,
+            },
+          ]
+        })
+      }
+      prevStatusRef.current = task.status
     }
   }, [task.status])
 
