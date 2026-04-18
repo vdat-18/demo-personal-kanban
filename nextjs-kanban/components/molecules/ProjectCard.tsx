@@ -12,20 +12,6 @@ export interface ProjectCardProps {
   onDelete: (e: React.MouseEvent, id: string) => void
 }
 
-'use client'
-
-import { Trash2 } from 'lucide-react'
-import { ProgressBar } from '@/components/atoms/ProgressBar'
-
-export interface ProjectCardProps {
-  id: string
-  name: string
-  status: string
-  tasks: Array<{ id: string; status: string }>
-  onClick: () => void
-  onDelete: (e: React.MouseEvent, id: string) => void
-}
-
 export function ProjectCard({ id, name, status, tasks, onClick, onDelete }: ProjectCardProps) {
   const completedTasks = tasks?.filter((t) => t.status === 'DONE').length || 0
   const totalTasks = tasks?.length || 0
