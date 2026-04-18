@@ -449,7 +449,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 mt-1 shadow-lg shadow-blue-500/30">
                     AI
                   </div>
-                  <div className="max-w-[90%] rounded-[32px] rounded-bl-lg px-6 py-4 text-sm leading-relaxed bg-slate-50 text-[#0a192f] shadow-sm">
+                  <div className="max-w-[90%] rounded-[32px] rounded-bl-lg px-6 py-4 text-sm leading-relaxed bg-slate-50 text-[#0a192f] shadow-sm text-justify">
                     <div className="prose prose-slate max-w-none ai-prose">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {welcomeText}
@@ -481,7 +481,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                       </div>
                     )}
                     <div
-                      className={`max-w-[90%] rounded-[32px] px-6 py-4 text-sm leading-relaxed shadow-sm ${
+                      className={`max-w-[90%] rounded-[32px] px-6 py-4 text-sm leading-relaxed shadow-sm text-justify ${
                         msg.role === 'user'
                           ? 'bg-[#0a192f] text-white rounded-br-lg whitespace-pre-wrap'
                           : 'bg-slate-50 text-[#0a192f] rounded-bl-lg'
