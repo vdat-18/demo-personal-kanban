@@ -14,6 +14,7 @@ import {
 import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { TaskMutation } from '@/lib/utils/parseTaskMutations'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Task {
   id: string
@@ -92,53 +93,48 @@ export function PlanningTemplate({ project: initialProject }: PlanningTemplatePr
     [deleteThread, initialProject.id, activeThreadId, threads],
   )
 
+  const createTaskFn = useKanbanStore((s) => s.createTask)
+  const updateTaskFn = useKanbanStore((s) => s.updateTask)
+  const deleteTaskFn = useKanbanStore((s) => s.deleteTask)
+  const setMessageMutationActionFn = useKanbanStore((s) => s.setMessageMutationAction)
+
   const handleApproveMutation = useCallback(
     async (mutation: TaskMutation) => {
       if (mutation.action === 'add') {
-        const res = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: mutation.title,
-            description: mutation.description,
-            priority: mutation.priority || 'MEDIUM',
-            projectId: initialProject.id,
-          }),
+        createTaskFn({
+          title: mutation.title,
+          description: mutation.description,
+          priority: (mutation.priority || 'MEDIUM') as never,
+          projectId: initialProject.id,
         })
-        if (!res.ok) throw new Error('Failed to create task')
       } else if (mutation.action === 'update') {
-        const res = await fetch(`/api/tasks/${mutation.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mutation.fields),
-        })
-        if (!res.ok) throw new Error('Failed to update task')
+        updateTaskFn(mutation.id, mutation.fields as never)
       } else if (mutation.action === 'delete') {
-        const res = await fetch(`/api/tasks/${mutation.id}`, { method: 'DELETE' })
-        if (!res.ok) throw new Error('Failed to delete task')
+        deleteTaskFn(mutation.id)
       }
       qc.invalidateQueries({ queryKey: ['tasks'] })
     },
-    [initialProject.id, qc],
+    [initialProject.id, qc, createTaskFn, updateTaskFn, deleteTaskFn],
   )
 
   const handlePersistMutationAction = useCallback(
-    async (threadId: string, messageId: string, mutationIndex: number, action: string) => {
-      await fetch(
-        `/api/planning-threads/${threadId}/messages/${messageId}/mutations`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mutationIndex, action }),
-        },
-      )
+    async (_threadId: string, messageId: string, mutationIndex: number, action: string) => {
+      setMessageMutationActionFn(messageId, mutationIndex, action as 'approved' | 'dismissed')
     },
-    [],
+    [setMessageMutationActionFn],
   )
 
   const chatMessages = messages
     .filter((m: PlanningMessage) => m.role === 'user' || m.role === 'assistant')
     .map((m: PlanningMessage) => ({ role: m.role, content: m.content }))
+
+  const renameThread = useKanbanStore((s) => s.updatePlanningThread)
+  const handleRenameThread = useCallback(
+    (id: string, title: string) => {
+      renameThread(id, { title })
+    },
+    [renameThread],
+  )
 
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
@@ -149,6 +145,7 @@ export function PlanningTemplate({ project: initialProject }: PlanningTemplatePr
           onSelectThread={setActiveThreadId}
           onNewThread={handleNewThread}
           onDeleteThread={handleDeleteThread}
+          onRenameThread={handleRenameThread}
           isCreating={createThread.isPending}
           isLoading={threadsLoading}
         />

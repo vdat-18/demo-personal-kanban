@@ -1,50 +1,54 @@
-import { getTask } from '@/lib/db/tasks'
+'use client'
+
+import { useEffect, useMemo, use } from 'react'
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
 import { SummaryTemplate } from '@/components/templates/SummaryTemplate'
+import { useStoreHydrated, useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  let title = 'Task Summary'
-  try {
-    const task = await getTask(id)
-    if (task) title = task.title
-  } catch {}
-  return {
-    title: `Summary: ${title} | Personal Kanban`,
-    description: `Execution summary for task: ${title}`,
-  }
-}
+export default function TaskSummaryPage({ params }: Props) {
+  const { id } = use(params)
+  const hydrated = useStoreHydrated()
+  const tasks = useKanbanStore((s) => s.tasks)
+  const allConversations = useKanbanStore((s) => s.conversations)
+  const task = useMemo(() => tasks.find((t) => t.id === id), [tasks, id])
+  const conversations = useMemo(
+    () => allConversations.filter((c) => c.taskId === id),
+    [allConversations, id],
+  )
 
-type TaskRow = NonNullable<Awaited<ReturnType<typeof getTask>>>
-type ConvRow = TaskRow['conversations'][number]
+  const serialized = useMemo(() => {
+    if (!task) return null
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      projectId: task.projectId,
+      conversations: conversations.map((c) => ({
+        id: c.id,
+        messages: c.messages,
+        result: c.result,
+        tokenUsage: c.tokenUsage,
+        createdAt: c.createdAt,
+      })),
+    }
+  }, [task, conversations])
 
-export default async function TaskSummaryPage({ params }: Props) {
-  const { id } = await params
-  let task: TaskRow | null = null
-  try {
-    task = await getTask(id)
-  } catch {}
-  if (!task) notFound()
+  useEffect(() => {
+    if (hydrated && !task) notFound()
+  }, [hydrated, task])
 
-  const serialized = {
-    id: task.id,
-    title: task.title,
-    description: task.description ?? null,
-    status: task.status,
-    priority: task.priority,
-    projectId: task.projectId ?? null,
-    conversations: (task.conversations ?? []).map((c: ConvRow) => ({
-      id: c.id,
-      messages: c.messages as unknown as Array<{ role: string; content: string }>,
-      result: c.result != null ? (typeof c.result === 'string' ? c.result : JSON.stringify(c.result)) : null,
-      tokenUsage: c.tokenUsage ?? null,
-      createdAt: c.createdAt.toISOString(),
-    })),
+  if (!hydrated || !serialized) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+        Loading summary…
+      </div>
+    )
   }
 
   return <SummaryTemplate task={serialized} />

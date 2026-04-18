@@ -23,6 +23,7 @@ import type { PlanningPhase } from '@/lib/hooks/usePlanningThreads'
 import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import { FetchError } from '@/lib/hooks/usePlanningMessages'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Task {
   id: string
@@ -192,6 +193,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const { data: messages = [], isLoading: messagesLoading, isError: messagesError } = usePlanningMessages(activeThreadId)
   const sendMessage = useSendPlanningMessage()
 
+  // ─── Store mutations (replaces /api/tasks routes and mutation persistence) ─
+  const createTaskFn = useKanbanStore((s) => s.createTask)
+  const updateTaskFn = useKanbanStore((s) => s.updateTask)
+  const deleteTaskFn = useKanbanStore((s) => s.deleteTask)
+  const setMessageMutationActionFn = useKanbanStore((s) => s.setMessageMutationAction)
+
   // ─── Sync local phase state when switching threads ─────────────────────────
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
   useEffect(() => {
@@ -250,7 +257,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   // ─── Reset stale thread ID if it no longer exists in DB (e.g. after restart) ─
   useEffect(() => {
     if (messagesError && activeThreadId) {
-      if (messagesError instanceof FetchError && messagesError.status === 404) {
+      const err = messagesError as unknown
+      if (err instanceof FetchError && err.status === 404) {
         setBadThreads(prev => prev.includes(activeThreadId) ? prev : [...prev, activeThreadId])
       }
       // Thread ID is invalid (404 or gone) — clear it so the effect above
@@ -349,31 +357,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const handleApproveMutation = useCallback(
     async (mutation: TaskMutation) => {
       if (mutation.action === 'add') {
-        const res = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: mutation.title,
-            description: mutation.description,
-            priority: mutation.priority || 'MEDIUM',
-            projectId: initialProject.id,
-          }),
+        createTaskFn({
+          title: mutation.title,
+          description: mutation.description,
+          priority: (mutation.priority || 'MEDIUM') as never,
+          projectId: initialProject.id,
         })
-        if (!res.ok) throw new Error('Failed to create task')
       } else if (mutation.action === 'update') {
-        const res = await fetch(`/api/tasks/${mutation.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mutation.fields),
-        })
-        if (!res.ok) throw new Error('Failed to update task')
+        updateTaskFn(mutation.id, mutation.fields as never)
       } else if (mutation.action === 'delete') {
-        const res = await fetch(`/api/tasks/${mutation.id}`, { method: 'DELETE' })
-        if (!res.ok) throw new Error('Failed to delete task')
+        deleteTaskFn(mutation.id)
       }
       qc.invalidateQueries({ queryKey: ['tasks'] })
     },
-    [initialProject.id, qc],
+    [initialProject.id, qc, createTaskFn, updateTaskFn, deleteTaskFn],
   )
 
   // Build conversation messages for generate-tasks API
@@ -524,14 +521,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                                     onApprove={handleApproveMutation}
                                     onDismiss={() => {}}
                                     onPersistAction={async (action) => {
-                                      await fetch(
-                                        `/api/planning-threads/${msg.threadId}/messages/${msg.id}/mutations`,
-                                        {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ mutationIndex: idx, action }),
-                                        },
-                                      )
+                                      setMessageMutationActionFn(msg.id, idx, action)
                                     }}
                                   />
                                 )

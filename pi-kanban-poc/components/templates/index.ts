@@ -1,7 +1,6 @@
 // Templates barrel — re-exports all template components
 
 export { DashboardTemplate } from './DashboardTemplate'
-export type { DashboardTemplateProps } from './DashboardTemplate'
 export { MissionControlTemplate } from './MissionControlTemplate'
 export type { MissionControlTemplateProps } from './MissionControlTemplate'
 export { ChatTemplate } from './ChatTemplate'

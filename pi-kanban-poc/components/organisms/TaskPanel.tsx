@@ -30,20 +30,10 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
   }, [createTask, projectId])
 
   const handleGenerateTasks = useCallback(async () => {
-    if (!messages || messages.length === 0) return
-    try {
-      const res = await fetch('/api/agents/generate-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, messages }),
-      })
-      if (res.ok) {
-        refetch()
-      }
-    } catch (err) {
-      console.error('Failed to generate tasks:', err)
-    }
-  }, [projectId, messages, refetch])
+    // Now handled by approving mutation cards inline in the planning chat.
+    // Keeping the prop for backward compat; the button is hidden below.
+    console.warn('handleGenerateTasks is deprecated — approve tasks via chat mutations instead.')
+  }, [])
 
   const hasMessages = messages && messages.some((m) => m.role === 'user')
 
@@ -94,7 +84,7 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
               Your task list is empty
             </p>
             <p className="text-xs text-slate-400 text-center max-w-[200px] leading-relaxed">
-              Trò chuyện với AI để lên danh sách công việc nhé!
+              Chat with the AI to draft your task list.
             </p>
           </div>
         ) : (

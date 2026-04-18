@@ -1,64 +1,54 @@
-import { getTask } from '@/lib/db/tasks'
+'use client'
+
+import { useEffect, useMemo, use } from 'react'
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
 import { ChatTemplate } from '@/components/templates/ChatTemplate'
+import { useStoreHydrated, useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  let title = 'Task Chat'
-  try {
-    const task = await getTask(id)
-    if (task) title = task.title
-  } catch {}
-  return {
-    title: `Chat: ${title} | Personal Kanban`,
-    description: `AI agent chat for task: ${title}`,
-  }
-}
+export default function TaskChatPage({ params }: Props) {
+  const { id } = use(params)
+  const hydrated = useStoreHydrated()
+  const tasks = useKanbanStore((s) => s.tasks)
+  const allConversations = useKanbanStore((s) => s.conversations)
+  const task = useMemo(() => tasks.find((t) => t.id === id), [tasks, id])
+  const conversations = useMemo(
+    () => allConversations.filter((c) => c.taskId === id),
+    [allConversations, id],
+  )
 
-type TaskRow = NonNullable<Awaited<ReturnType<typeof getTask>>>
-type ConvRow = TaskRow['conversations'][number]
-
-export default async function TaskChatPage({ params }: Props) {
-  const { id } = await params
-  let task: TaskRow | null = null
-  try {
-    task = await getTask(id)
-  } catch {}
-  if (!task) notFound()
-
-  const serialized = {
-    id: task.id,
-    title: task.title,
-    description: task.description ?? null,
-    status: task.status,
-    priority: task.priority,
-    projectId: task.projectId ?? null,
-    subtasks: (task.subtasks || []).map((st: any) => ({
-      id: st.id,
-      title: st.title,
-      completed: st.completed
-    })),
-    conversations: (task.conversations ?? []).map((c: ConvRow) => {
-      let tokenUsage: { input: number; output: number } | null = null
-      if (c.tokenUsage) {
-        const tu = typeof c.tokenUsage === 'string' ? JSON.parse(c.tokenUsage) : c.tokenUsage
-        if (tu && typeof tu === 'object' && 'input' in tu && 'output' in tu) {
-          tokenUsage = { input: Number(tu.input), output: Number(tu.output) }
-        }
-      }
-      return {
+  const serialized = useMemo(() => {
+    if (!task) return null
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      projectId: task.projectId,
+      conversations: conversations.map((c) => ({
         id: c.id,
-        messages: c.messages as unknown as Array<{ role: string; content: string }>,
-        result: c.result != null ? (typeof c.result === 'string' ? c.result : JSON.stringify(c.result)) : null,
-        tokenUsage,
-        createdAt: c.createdAt.toISOString(),
-      }
-    }),
+        messages: c.messages,
+        result: c.result,
+        tokenUsage: c.tokenUsage,
+        createdAt: c.createdAt,
+      })),
+    }
+  }, [task, conversations])
+
+  useEffect(() => {
+    if (hydrated && !task) notFound()
+  }, [hydrated, task])
+
+  if (!hydrated || !serialized) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+        Loading chat…
+      </div>
+    )
   }
 
   return <ChatTemplate task={serialized} />

@@ -1,47 +1,47 @@
-import { getProject } from '@/lib/db/projects'
+'use client'
+
+import { useEffect, useMemo, use } from 'react'
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
 import { PlanningClient } from '@/components/planning/PlanningClient'
+import { useProject } from '@/lib/hooks/useProjects'
+import { useStoreHydrated } from '@/lib/storage/kanbanStore'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  let name = 'Planning'
-  try {
-    const project = await getProject(id)
-    if (project) name = project.name
-  } catch {}
-  return {
-    title: `Planning: ${name} | Personal Kanban`,
-    description: `AI-powered planning for ${name}`,
-  }
-}
+export default function PlanningPage({ params }: Props) {
+  const { id } = use(params)
+  const hydrated = useStoreHydrated()
+  const { data: project } = useProject(id)
 
-type ProjectRow = NonNullable<Awaited<ReturnType<typeof getProject>>>
-type TaskRow = ProjectRow['tasks'][number]
+  const serialized = useMemo(() => {
+    if (!project) return null
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      tasks: (project.tasks ?? []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: null as string | null,
+        status: t.status,
+        priority: t.priority,
+      })),
+    }
+  }, [project])
 
-export default async function PlanningPage({ params }: Props) {
-  const { id } = await params
-  let project: ProjectRow | null = null
-  try {
-    project = await getProject(id)
-  } catch {}
-  if (!project) notFound()
+  // Wait for localStorage hydration before deciding "not found"
+  useEffect(() => {
+    if (hydrated && !project) notFound()
+  }, [hydrated, project])
 
-  const serialized = {
-    id: project.id,
-    name: project.name,
-    description: project.description ?? null,
-    tasks: (project.tasks ?? []).map((t: TaskRow) => ({
-      id: t.id,
-      title: t.title,
-      description: t.description ?? null,
-      status: t.status,
-      priority: t.priority,
-    })),
+  if (!hydrated || !serialized) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+        Loading project…
+      </div>
+    )
   }
 
   return <PlanningClient project={serialized} />

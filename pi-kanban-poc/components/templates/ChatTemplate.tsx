@@ -8,6 +8,9 @@ import { AGENT_OPTIONS } from '@/components/molecules/AgentSelector'
 import type { UITaskStatus, UIConversation, ChatMsg } from '@/types/domain'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
 import type { StreamEvent } from '@/lib/hooks/useAgentStream'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import { validateTransition } from '@/lib/status-lifecycle'
+import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
 interface Task {
   id: string
@@ -26,6 +29,8 @@ export interface ChatTemplateProps {
 export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   const router = useRouter()
   const [task, setTask] = useState(initialTask)
+  const createConversationInStore = useKanbanStore((s) => s.createConversation)
+  const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
     const last = initialTask.conversations[initialTask.conversations.length - 1]
     if (last?.messages?.length) {
@@ -51,25 +56,36 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     onProgress: (ev) => {
       setProgressEvents((prev) => [...prev.slice(-4), ev])
     },
-    onComplete: async (result, _tokenUsage, conversation) => {
-      setMessages((prev) => [...prev, { role: 'assistant', content: result }])
+    onComplete: async (result, tokenUsage) => {
+      // Append final assistant message
+      const newAssistant: ChatMsg = { role: 'assistant', content: result }
+      setMessages((prev) => [...prev, newAssistant])
       setProgressEvents([])
 
-      if (conversation) {
-        setTask((prev) => ({
-          ...prev,
-          conversations: [
-            ...prev.conversations,
-            {
-              id: conversation.id,
-              messages: conversation.messages,
-              result: typeof conversation.result === 'string' ? conversation.result : conversation.result ? JSON.stringify(conversation.result) : null,
-              tokenUsage: conversation.tokenUsage as { input: number; output: number } | null,
-              createdAt: conversation.createdAt,
-            },
-          ],
-        }))
-      }
+      // Persist the full transcript as a Conversation in the local store
+      const transcript = [...messages, newAssistant].map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }))
+      const conv = createConversationInStore({
+        taskId: task.id,
+        messages: transcript,
+        result,
+        tokenUsage: tokenUsage ?? null,
+      })
+      setTask((prev) => ({
+        ...prev,
+        conversations: [
+          ...prev.conversations,
+          {
+            id: conv.id,
+            messages: conv.messages,
+            result: conv.result,
+            tokenUsage: conv.tokenUsage,
+            createdAt: conv.createdAt,
+          },
+        ],
+      }))
     },
     onError: (msg) => {
       setProgressEvents([])
@@ -92,24 +108,18 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     await startStream(activeOption.role, userContent, task.id, messages)
   }, [input, isStreaming, task.id, activeOption.role, startStream, messages])
 
-  const updateTaskStatus = useCallback(async (status: UITaskStatus) => {
-    try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      if (res.ok) {
-        const updated = await res.json()
-        setTask((prev) => ({ ...prev, ...updated }))
-      } else if (res.status === 422) {
-        const body = await res.json().catch(() => ({}))
-        console.warn(`Invalid transition: ${body.from} → ${body.to}. Allowed: ${body.allowed?.join(', ')}`)
+  const updateTaskStatus = useCallback(
+    async (status: UITaskStatus) => {
+      const result = validateTransition(task.status as TaskStatusValue, status as TaskStatusValue)
+      if (!result.valid && task.status !== status) {
+        console.warn(result.message)
+        return
       }
-    } catch (err) {
-      console.error(err)
-    }
-  }, [task.id])
+      const updated = updateTaskInStore(task.id, { status })
+      if (updated) setTask((prev) => ({ ...prev, status: updated.status }))
+    },
+    [task.id, task.status, updateTaskInStore],
+  )
 
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">

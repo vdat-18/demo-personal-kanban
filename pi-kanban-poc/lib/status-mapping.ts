@@ -7,7 +7,7 @@
  * in frontend terms, so components never need to import from the DB layer.
  */
 
-import type { TaskStatus } from '@/types/domain'
+import type { LegacyTaskStatus as TaskStatus } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
