@@ -1,0 +1,19 @@
+# docker-compose.override.yml
+# Automatically loaded by `docker compose up` for local development.
+# Overrides the app service to run Next.js in development mode with hot-reload.
+# CI/production: use `docker compose -f docker-compose.yml up` to skip this file.
+
+services:
+  app:
+    build:
+      target: deps  # Stop at deps stage — no full production build needed for dev
+    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
+    environment:
+      NODE_ENV: development
+    volumes:
+      # Bind-mount source for hot-reload
+      - .:/app
+      # Named volume shadows node_modules to prevent host override (avoids macOS perf issues)
+      - node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
