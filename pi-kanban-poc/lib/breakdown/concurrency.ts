@@ -32,7 +32,24 @@ const active = new Set<string>()
 const queue: PendingResolver[] = []
 const listeners = new Set<Listener>()
 
+// `useSyncExternalStore` requires getSnapshot() to be referentially stable when
+// the underlying data hasn't changed. Returning a fresh object/arrays on every
+// call triggers React 19's warning about potential infinite loops.
+//
+// We solve this by caching the last materialized snapshot and invalidating it
+// only when `active` or `queue` mutate (via emit()).
+let cachedSnapshot: ConcurrencySnapshot = {
+  active: [],
+  queue: [],
+  limit: MAX_CONCURRENT,
+}
+
 function emit() {
+  cachedSnapshot = {
+    active: Array.from(active),
+    queue: queue.map((e) => e.taskId),
+    limit: MAX_CONCURRENT,
+  }
   for (const fn of listeners) fn()
 }
 
@@ -112,11 +129,7 @@ export interface ConcurrencySnapshot {
 }
 
 export function getSnapshot(): ConcurrencySnapshot {
-  return {
-    active: Array.from(active),
-    queue: queue.map((e) => e.taskId),
-    limit: MAX_CONCURRENT,
-  }
+  return cachedSnapshot
 }
 
 /**

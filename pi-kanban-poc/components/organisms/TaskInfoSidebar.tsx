@@ -11,11 +11,18 @@ export interface TaskInfoSidebarProps {
   taskDescription: string | null
   taskStatus: UITaskStatus
   taskPriority: string
+  subtasks?: Array<{
+    id: string
+    title: string
+    completed: boolean
+    description?: string | null
+  }>
   conversations: UIConversation[]
   isStreaming: boolean
   activeAgentLabel: string
   onUpdateStatus: (status: UITaskStatus) => void
   onAbort: () => void
+  activityTimeline?: React.ReactNode
 }
 
 export function TaskInfoSidebar({
@@ -23,11 +30,13 @@ export function TaskInfoSidebar({
   taskDescription,
   taskStatus,
   taskPriority,
+  subtasks = [],
   conversations,
   isStreaming,
   activeAgentLabel,
   onUpdateStatus,
   onAbort,
+  activityTimeline,
 }: TaskInfoSidebarProps) {
   return (
     <div className="w-80 overflow-y-auto p-6 flex flex-col gap-6 shrink-0">
@@ -75,9 +84,43 @@ export function TaskInfoSidebar({
         </div>
       </div>
 
+      {/* Subtasks */}
+      {subtasks.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+            Steps
+          </h3>
+          <div className="space-y-1.5">
+            {subtasks.map((sub) => (
+              <div key={sub.id} className={`flex items-start gap-2 rounded-xl px-2 py-1 ${sub.completed ? 'bg-slate-50' : 'bg-indigo-50/40'}`}>
+                <span className="mt-0.5 text-[11px]">{sub.completed ? '☑' : '☐'}</span>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-xs font-semibold leading-snug ${sub.completed ? 'line-through text-slate-400' : 'text-[#0a192f]'}`}>
+                    {sub.title}
+                  </div>
+                  {sub.description && (
+                    <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Conversation History */}
       {conversations.length > 0 && (
         <ConversationHistoryPanel conversations={conversations} />
+      )}
+
+      {/* Activity timeline */}
+      {activityTimeline && (
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+            Activity
+          </h3>
+          {activityTimeline}
+        </div>
       )}
 
       {/* Streaming status card */}

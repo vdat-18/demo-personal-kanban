@@ -18,6 +18,7 @@ export interface ChatPanelProps {
   taskTitle: string
   taskStatus: UITaskStatus
   taskProjectId: string | null
+  topPanel?: React.ReactNode
   messages: ChatMsg[]
   input: string
   onInputChange: (value: string) => void
@@ -38,6 +39,7 @@ export function ChatPanel({
   taskTitle,
   taskStatus,
   taskProjectId,
+  topPanel,
   messages,
   input,
   onInputChange,
@@ -112,6 +114,9 @@ export function ChatPanel({
         onSelect={onAgentChange}
         disabled={isStreaming}
       />
+
+      {/* Optional task-specific panel (e.g. TODO step planning) */}
+      {topPanel && <div className="px-6 pt-4 shrink-0">{topPanel}</div>}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">

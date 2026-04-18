@@ -45,6 +45,10 @@ export interface UseBreakdownAgentReturn {
     subtasksToApprove: SubtaskProposal[]
     totalSuggested: number
   }) => void
+  /** Board-level automation: generate subtasks and immediately persist them.
+   *  Still respects the clarification path — if the model needs input, it will
+   *  stop at needs-input instead of hallucinating. */
+  autoCreateSubtasks: () => Promise<void>
   dismiss: () => void
   resetLocal: () => void
 }
@@ -384,6 +388,93 @@ export function useBreakdownAgent(taskId: string): UseBreakdownAgentReturn {
     [task, createSubtasks, markCachedBreakdownApproved, logActivity, cachedBreakdownId],
   )
 
+  // ─── autoCreateSubtasks (board-level auto-break) ─────────────────────────
+  // Used by MissionControlTemplate when the kanban board first loads. It
+  // reuses the same breakdown pipeline but skips the preview step: if the
+  // model returns real subtasks, we persist them immediately so opening the
+  // task chat later shows the subtasks right away. If the model needs human
+  // input, we stop and surface the question in the chat UI instead.
+  const autoCreateSubtasks = useCallback(async () => {
+    if (!task) return
+    // Safety guard: don't generate twice if real subtasks already exist.
+    const existing = tasks.filter((t) => t.id === task.id)
+    void existing // just to keep dependency explicit
+
+    setError(null)
+    setEnvelope(null)
+    setCachedBreakdownId(null)
+    setClarifyAttempts(0)
+
+    setState(snapshot.active.length >= snapshot.limit ? 'queued' : 'loading')
+    try {
+      await acquire(task.id)
+    } catch {
+      setState('idle')
+      return
+    }
+    setState('loading')
+
+    try {
+      const { envelope: env } = await callBreakdownApi()
+      const cached = saveCachedBreakdown({
+        taskId: task.id,
+        envelope: env,
+        taskTitleAtGeneration: task.title,
+        taskDescriptionAtGeneration: task.description,
+      })
+      setCachedBreakdownId(cached.id)
+      setEnvelope(env)
+
+      if (env.needsHumanInput) {
+        logActivity({
+          taskId: task.id,
+          type: 'ai_needed_human_input',
+          actor: 'ai',
+          summary: `AI asked: ${env.needsHumanInput.question}`,
+          resourceLink: { type: 'cached_breakdown', id: cached.id },
+        })
+        setState('needs-input')
+        return
+      }
+
+      const created = createSubtasks(
+        task.id,
+        env.subtasks.map((s) => ({
+          title: s.title,
+          description: s.description,
+          estimatedEffort: s.estimatedEffort,
+          type: s.type,
+          aiGenerated: true,
+        })),
+      )
+      markCachedBreakdownApproved(task.id, created.map((c) => c.id))
+      logActivity({
+        taskId: task.id,
+        type: 'ai_suggestion_approved',
+        actor: 'ai',
+        summary: `AI auto-created ${created.length} step${created.length === 1 ? '' : 's'} for this task`,
+        metadata: { autoApproved: true, totalSuggested: env.subtasks.length },
+        resourceLink: { type: 'cached_breakdown', id: cached.id },
+      })
+      setEnvelope(null)
+      setState('idle')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      setState('error')
+    } finally {
+      release(task.id)
+    }
+  }, [
+    task,
+    tasks,
+    snapshot,
+    callBreakdownApi,
+    saveCachedBreakdown,
+    createSubtasks,
+    markCachedBreakdownApproved,
+    logActivity,
+  ])
+
   // ─── dismiss ────────────────────────────────────────────────────────────────
   const dismiss = useCallback(() => {
     if (!task) return
@@ -433,6 +524,7 @@ export function useBreakdownAgent(taskId: string): UseBreakdownAgentReturn {
     answerClarification,
     refine,
     approve,
+    autoCreateSubtasks,
     dismiss,
     resetLocal,
   }

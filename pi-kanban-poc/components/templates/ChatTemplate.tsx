@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChatPanel } from '@/components/organisms/ChatPanel'
 import { TaskInfoSidebar } from '@/components/organisms/TaskInfoSidebar'
+import { TodoStepPlannerPanel } from '@/components/task-chat/TodoStepPlannerPanel'
+import { TaskActivityTimeline } from '@/components/molecules/TaskActivityTimeline'
 import { AGENT_OPTIONS } from '@/components/molecules/AgentSelector'
 import type { UITaskStatus, UIConversation, ChatMsg } from '@/types/domain'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
@@ -26,11 +28,18 @@ export interface ChatTemplateProps {
   task: Task
 }
 
+function getDefaultAgentIndex(status: UITaskStatus): number {
+  if (status === 'TODO') return 0
+  if (status === 'IN_REVIEW') return 2
+  return 1
+}
+
 export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   const router = useRouter()
   const [task, setTask] = useState(initialTask)
   const createConversationInStore = useKanbanStore((s) => s.createConversation)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
+  const allSubtasks = useKanbanStore((s) => s.subtasks)
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
     const last = initialTask.conversations[initialTask.conversations.length - 1]
     if (last?.messages?.length) {
@@ -47,7 +56,7 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     ]
   })
   const [input, setInput] = useState('')
-  const [activeAgentIdx, setActiveAgentIdx] = useState(1)
+  const [activeAgentIdx, setActiveAgentIdx] = useState(() => getDefaultAgentIndex(initialTask.status))
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
 
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
@@ -121,12 +130,28 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     [task.id, task.status, updateTaskInStore],
   )
 
+  const taskSubtasks = useMemo(
+    () => allSubtasks.filter((sub) => sub.taskId === task.id),
+    [allSubtasks, task.id],
+  )
+
+  const topPanel =
+    task.status === 'TODO' ? (
+      <TodoStepPlannerPanel
+        taskId={task.id}
+        taskTitle={task.title}
+        taskStatus={task.status}
+        onMoveToInProgress={() => updateTaskStatus('IN_PROGRESS')}
+      />
+    ) : null
+
   return (
     <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
       <ChatPanel
         taskTitle={task.title}
         taskStatus={task.status}
         taskProjectId={task.projectId}
+        topPanel={topPanel}
         messages={messages}
         input={input}
         onInputChange={setInput}
@@ -152,11 +177,13 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         taskDescription={task.description}
         taskStatus={task.status}
         taskPriority={task.priority}
+        subtasks={taskSubtasks}
         conversations={task.conversations}
         isStreaming={isStreaming}
         activeAgentLabel={activeOption.label}
         onUpdateStatus={updateTaskStatus}
         onAbort={abort}
+        activityTimeline={<TaskActivityTimeline taskId={task.id} />}
       />
     </div>
   )
