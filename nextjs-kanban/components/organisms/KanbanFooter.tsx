@@ -21,7 +21,7 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
   const enabledCount = AUTO_MODE_COLUMNS.filter((col) => autoModeStates[col]?.enabled).length
 
   return (
-    <footer className="h-20 px-10 flex items-center justify-between bg-white border-t border-gray-100 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+    <footer className="h-24 px-10 flex items-center justify-between bg-white/80 backdrop-blur-md border-t border-gray-100 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.02)]">
       <div className="flex items-center gap-10">
         {[
           { label: 'Total', value: tasks.length, color: 'text-[#0a192f]' },
@@ -44,13 +44,13 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
       <button
         onClick={onCloseProject}
         disabled={!canClose}
-        className={`px-10 py-3.5 rounded-2xl font-black text-sm transition-all flex items-center gap-3 uppercase tracking-widest border-b-4 ${
+        className={`px-10 py-4 rounded-[20px] font-black text-sm transition-all flex items-center gap-3 uppercase tracking-[0.2em] ${
           !canClose
-            ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-            : 'bg-[#0a192f] text-white border-blue-950 hover:bg-blue-900 shadow-xl shadow-blue-900/20'
+            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+            : 'bg-[#0a192f] text-white hover:bg-blue-900 shadow-2xl shadow-blue-900/20 active:scale-95'
         }`}
       >
-        Close Project <Rocket className="w-4 h-4" />
+        Close Project <Rocket className="w-5 h-5" />
       </button>
     </footer>
   )

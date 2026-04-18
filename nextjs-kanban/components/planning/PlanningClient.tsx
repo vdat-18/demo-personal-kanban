@@ -86,22 +86,24 @@ function VisionDocumentPanel({ visionDocument }: { visionDocument: string | null
   if (!visionDocument) return null
 
   return (
-    <div className="mx-4 mb-3 rounded-2xl border border-blue-100 bg-blue-50/60 overflow-hidden">
+    <div className="mx-4 mb-3 rounded-3xl border border-blue-100 bg-blue-50/40 overflow-hidden shadow-sm">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-blue-100/40 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-blue-100/40 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <FileText className="w-3.5 h-3.5 text-blue-500" />
-          <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">Vision Document</span>
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+            <FileText className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <span className="text-xs font-black text-blue-700 uppercase tracking-widest">Vision Document</span>
         </div>
         {isExpanded
-          ? <ChevronUp className="w-3.5 h-3.5 text-blue-400" />
-          : <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
+          ? <ChevronUp className="w-4 h-4 text-blue-400" />
+          : <ChevronDown className="w-4 h-4 text-blue-400" />
         }
       </button>
       {isExpanded && (
-        <div className="px-4 pb-4 text-xs text-blue-900 leading-relaxed prose prose-xs max-w-none prose-headings:text-blue-800 prose-strong:text-blue-900 text-justify border-t border-blue-100 pt-3">
+        <div className="px-6 pb-5 text-sm text-blue-900 leading-relaxed prose prose-sm max-w-none prose-headings:text-blue-800 prose-strong:text-blue-900 text-justify border-t border-blue-100 pt-4">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{visionDocument}</ReactMarkdown>
         </div>
       )}
@@ -116,7 +118,7 @@ function PhaseProgressBar({ phase }: { phase: PlanningPhase }) {
   const currentStep = PHASE_CONFIG[phase].step
 
   return (
-    <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50 shrink-0">
+    <div className="flex items-center gap-1 px-6 py-4 border-b border-gray-100 bg-white shrink-0">
       {phases.map((p, idx) => {
         const cfg = PHASE_CONFIG[p]
         const Icon = cfg.icon
@@ -124,20 +126,20 @@ function PhaseProgressBar({ phase }: { phase: PlanningPhase }) {
         const isDone = cfg.step < currentStep
 
         return (
-          <div key={p} className="flex items-center gap-1 flex-1">
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+          <div key={p} className="flex items-center gap-2 flex-1">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] font-black transition-all ${
               isActive
-                ? `${cfg.bg} ${cfg.color} border ${cfg.border}`
+                ? `${cfg.bg} ${cfg.color} shadow-sm border ${cfg.border}`
                 : isDone
-                  ? 'bg-green-50 text-green-600 border border-green-200'
-                  : 'bg-gray-100 text-gray-400'
+                  ? 'bg-green-50 text-green-600 border border-green-100'
+                  : 'bg-gray-50 text-gray-300 border border-transparent'
             }`}>
-              <Icon className="w-3 h-3" />
-              <span>{cfg.label}</span>
-              {isDone && <span>✓</span>}
+              <Icon className={`w-3.5 h-3.5 ${isActive ? cfg.color : isDone ? 'text-green-500' : 'text-gray-300'}`} />
+              <span className="uppercase tracking-wider">{cfg.label}</span>
+              {isDone && <span className="ml-1">✓</span>}
             </div>
             {idx < phases.length - 1 && (
-              <div className={`flex-1 h-px mx-1 ${isDone ? 'bg-green-300' : 'bg-gray-200'}`} />
+              <div className={`flex-1 h-0.5 mx-1 rounded-full ${isDone ? 'bg-green-200' : 'bg-gray-100'}`} />
             )}
           </div>
         )
@@ -351,7 +353,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const welcomeText = `Welcome! I'm your AI Planning Agent for **${initialProject.name}**.\n\nI follow a structured 3-phase process:\n1. **Discovery** — I'll ask questions to understand your goals deeply\n2. **Blueprint** — We'll create a strategic plan together\n3. **Task Mapping** — Then we'll break it into actionable tasks\n\nLet's start. Tell me about this project — what are you trying to achieve?`
 
   return (
-    <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
+    <div className="flex h-full w-full bg-[#f0f2f5] font-sans">
       {/* Left: Thread Sidebar */}
       <div className={`shrink-0 transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
         <ThreadListSidebar
@@ -368,9 +370,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       </div>
 
       {/* Center: Chat Panel */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-gray-100 bg-white">
+      <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
         {/* Header */}
-        <header className="h-16 px-6 border-b border-gray-100 flex items-center gap-4 shrink-0">
+        <header className="h-20 px-8 border-b border-gray-100 flex items-center gap-5 shrink-0 bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <button
               onClick={() => router.push('/')}
@@ -394,9 +396,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             <p className="text-xs text-gray-400">AI Planning Session</p>
           </div>
           {/* Phase badge in header */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold ${phaseConfig.bg} ${phaseConfig.color} border ${phaseConfig.border}`}>
-            <PhaseIcon className="w-3.5 h-3.5" />
-            <span>{phaseConfig.label}</span>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[12px] font-black ${phaseConfig.bg} ${phaseConfig.color} border ${phaseConfig.border} shadow-sm`}>
+            <PhaseIcon className="w-4 h-4" />
+            <span className="uppercase tracking-wider">{phaseConfig.label}</span>
           </div>
         </header>
 
@@ -407,7 +409,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         <VisionDocumentPanel visionDocument={currentVisionDoc} />
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {messagesLoading ? (
             <div className="flex justify-center py-12">
               <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
@@ -416,11 +418,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             <>
               {showWelcome && (
                 <div className="flex justify-start">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 mt-1 shadow-lg shadow-blue-500/30">
                     AI
                   </div>
-                  <div className="max-w-[80%] rounded-3xl rounded-bl-lg px-5 py-4 text-sm leading-relaxed bg-gray-50 text-[#0a192f] text-justify">
-                    <div className="prose prose-sm max-w-none">
+                  <div className="max-w-[90%] rounded-[32px] rounded-bl-lg px-6 py-4 text-sm leading-relaxed bg-slate-50 text-[#0a192f] shadow-sm">
+                    <div className="prose prose-slate max-w-none ai-prose">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {welcomeText}
                       </ReactMarkdown>
@@ -446,20 +448,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0 mt-1">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 mt-1 shadow-lg shadow-blue-500/30">
                         AI
                       </div>
                     )}
                     <div
-                      className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
+                      className={`max-w-[90%] rounded-[32px] px-6 py-4 text-sm leading-relaxed shadow-sm ${
                         msg.role === 'user'
                           ? 'bg-[#0a192f] text-white rounded-br-lg whitespace-pre-wrap'
-                          : 'bg-gray-50 text-[#0a192f] rounded-bl-lg text-justify'
+                          : 'bg-slate-50 text-[#0a192f] rounded-bl-lg'
                       }`}
                     >
                       {msg.role === 'assistant' ? (
                         <>
-                          <div className="prose prose-sm max-w-none">
+                          <div className="prose prose-slate max-w-none ai-prose">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {displayContent}
                             </ReactMarkdown>
@@ -507,21 +509,21 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
               {sendMessage.isPending && (
                 <div className="flex justify-start">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-3 shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 shadow-lg shadow-blue-500/30">
                     AI
                   </div>
-                  <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4">
-                    <div className="flex gap-1">
+                  <div className="bg-slate-50 rounded-[32px] rounded-bl-lg px-6 py-4 shadow-sm">
+                    <div className="flex gap-1.5">
                       <span
-                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
                         style={{ animationDelay: '0ms' }}
                       />
                       <span
-                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
                         style={{ animationDelay: '150ms' }}
                       />
                       <span
-                        className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+                        className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
                         style={{ animationDelay: '300ms' }}
                       />
                     </div>
@@ -534,14 +536,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           )}
         </div>
 
-        {/* Phase hint above input */}
-        <div className={`mx-4 mb-1 px-3 py-1.5 rounded-xl text-[10px] font-medium ${phaseConfig.bg} ${phaseConfig.color} flex items-center gap-1.5`}>
-          <PhaseIcon className="w-3 h-3 shrink-0" />
-          <span>{phaseConfig.description}</span>
-        </div>
-
-        {/* Input */}
-        <div className="p-4 pt-1 border-t border-gray-100">
+        {/* Input Area */}
+        <div className="px-8 pb-8 pt-2">
+          {/* Phase hint above input */}
+          <div className={`mb-3 px-4 py-2.5 rounded-2xl text-[11px] font-black ${phaseConfig.bg} ${phaseConfig.color} flex items-center gap-2 shadow-sm border ${phaseConfig.border}`}>
+            <PhaseIcon className="w-3.5 h-3.5 shrink-0" />
+            <span className="uppercase tracking-widest">{phaseConfig.description}</span>
+          </div>
           {sendMessage.isError && (
             <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
               Failed to send message. Please try again.
@@ -564,7 +565,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               ))}
             </div>
           )}
-          <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
+          <div className="flex gap-4 items-end bg-white border border-gray-100 rounded-[32px] px-6 py-4 shadow-xl shadow-gray-200/50">
             {/* Hidden file input */}
             <input
               ref={fileInputRef}
@@ -583,7 +584,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             </button>
             <textarea
               ref={textareaRef}
-              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32 overflow-y-auto"
+              className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[24px] max-h-[450px] overflow-y-auto scrollbar-none transition-[height] duration-75"
               placeholder={currentPhase === 'discovery' ? 'Tell me about your project...' : currentPhase === 'blueprint' ? 'Review or adjust the blueprint...' : 'Describe your next task or ask a question...'}
               rows={1}
               value={input}
@@ -599,9 +600,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             <button
               onClick={handleSendMessage}
               disabled={(!input.trim() && attachedFiles.length === 0) || sendMessage.isPending || !activeThreadId}
-              className="w-9 h-9 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
+              className="w-11 h-11 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-all shadow-lg shadow-blue-900/20 active:scale-95 disabled:opacity-30 shrink-0"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5" />
             </button>
           </div>
         </div>

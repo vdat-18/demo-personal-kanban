@@ -26,9 +26,9 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-blue-500" />
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">History</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">History</span>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Recent Projects</h2>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Recent Projects</h2>
         </div>
         <span className="text-xs font-black text-blue-600 uppercase tracking-widest">
           {projects.length > 0 ? `${projects.length} total` : ''}
@@ -37,12 +37,15 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {projects.length === 0 ? (
-          <div className="col-span-full py-24 flex flex-col items-center justify-center border-4 border-dashed border-slate-100 rounded-[50px] bg-white/50">
-            <div className="w-24 h-24 rounded-[40px] bg-slate-50 flex items-center justify-center text-slate-200 mb-6">
+          <div className="col-span-full py-24 flex flex-col items-center justify-center bg-white/40 rounded-[64px] border border-white shadow-inner">
+            <div className="w-24 h-24 rounded-[40px] bg-white shadow-xl shadow-slate-200/50 flex items-center justify-center text-blue-400 mb-8">
               <Layout className="w-10 h-10" />
             </div>
-            <p className="text-lg font-black text-slate-300 uppercase tracking-widest text-center max-w-xs">
+            <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-2">
               Your journeys will appear here
+            </p>
+            <p className="text-xs text-slate-400 text-center max-w-[200px] leading-relaxed">
+              Bắt đầu một dự án mới để AI giúp bạn lên kế hoạch nhé!
             </p>
           </div>
         ) : (

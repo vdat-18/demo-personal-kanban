@@ -42,14 +42,21 @@ export function TaskCard({
         if (isAutoProcessing) return
         onClick()
       }}
-      className={`bg-white p-6 rounded-3xl shadow-sm border border-gray-100 border-b-4 transition-all group relative select-none ${
+      className={`bg-white p-6 rounded-[2rem] shadow-sm border border-white transition-all group relative select-none ${
         isAutoProcessing
           ? 'ring-2 ring-violet-300 border-violet-200 shadow-lg shadow-violet-100/50 cursor-default'
           : status === 'BLOCKED'
-          ? 'opacity-60 cursor-default border-red-100'
-          : 'hover:border-blue-400 hover:shadow-xl hover:shadow-blue-900/5 cursor-pointer'
-      } ${!isAutoProcessing && status === 'IN_PROGRESS' ? 'ring-2 ring-blue-100 border-blue-200 shadow-lg' : ''}`}
+          ? 'opacity-60 cursor-default bg-slate-50/50'
+          : 'hover:shadow-2xl hover:shadow-blue-900/10 cursor-pointer hover:-translate-y-1'
+      } ${!isAutoProcessing && status === 'IN_PROGRESS' ? 'ring-2 ring-blue-100 shadow-xl shadow-blue-500/10' : ''}`}
     >
+      {/* Status indicator line */}
+      <div className={`absolute left-0 top-6 bottom-6 w-1 rounded-r-full ${
+        status === 'DONE' ? 'bg-green-400' :
+        status === 'IN_PROGRESS' ? 'bg-blue-500' :
+        status === 'BLOCKED' ? 'bg-red-400' :
+        'bg-slate-200'
+      }`} />
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <StatusPill status={status} />
@@ -59,7 +66,7 @@ export function TaskCard({
             </span>
           )}
         </div>
-        <h3 className={`font-bold text-sm leading-snug pr-4 ${
+        <h3 className={`font-black text-sm leading-snug pr-4 ${
           isAutoProcessing
             ? 'text-violet-700'
             : status === 'BLOCKED' ? 'text-gray-400 line-through' : 'text-[#0a192f] group-hover:text-blue-600 transition-colors'
