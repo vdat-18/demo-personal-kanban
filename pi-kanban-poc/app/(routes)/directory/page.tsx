@@ -1,35 +1,34 @@
-import { getProjects } from '@/lib/db/projects'
-import type { Metadata } from 'next'
+'use client'
+
+import { useMemo } from 'react'
 import { DirectoryTemplate } from '@/components/templates/DirectoryTemplate'
+import { useProjects } from '@/lib/hooks/useProjects'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 
-export const metadata: Metadata = {
-  title: 'Directory | Personal Kanban',
-  description: 'Browse all projects and tasks',
-}
+export default function DirectoryPage() {
+  const { data: projects = [] } = useProjects()
+  const tasks = useKanbanStore((s) => s.tasks)
 
-type ProjectRow = Awaited<ReturnType<typeof getProjects>>[number]
-type TaskRow = ProjectRow['tasks'][number]
+  const enriched = useMemo(
+    () =>
+      projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        status: p.status ?? 'planning',
+        createdAt: p.createdAt,
+        tasks: tasks
+          .filter((t) => t.projectId === p.id)
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+          })),
+      })),
+    [projects, tasks],
+  )
 
-export default async function DirectoryPage() {
-  let projects: Awaited<ReturnType<typeof getProjects>> = []
-  try {
-    projects = await getProjects()
-  } catch {}
-
-  const serialized = projects.map((p: ProjectRow) => ({
-    id: p.id,
-    name: p.name,
-    description: p.description ?? null,
-    status: 'planning',
-    createdAt: p.createdAt.toISOString(),
-    tasks: (p.tasks ?? []).map((t: TaskRow) => ({
-      id: t.id,
-      title: t.title,
-      description: t.description ?? null,
-      status: t.status,
-      priority: t.priority,
-    })),
-  }))
-
-  return <DirectoryTemplate projects={serialized} />
+  return <DirectoryTemplate projects={enriched} />
 }

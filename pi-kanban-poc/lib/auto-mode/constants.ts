@@ -1,4 +1,6 @@
-import type { AgentRole } from '@/lib/agents/configs'
+// Agent role labels (used only as semantic hints — the unified /api/agent
+// endpoint handles routing internally).
+export type AgentRole = 'architect' | 'developer' | 'reviewer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

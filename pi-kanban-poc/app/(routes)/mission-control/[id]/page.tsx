@@ -1,49 +1,51 @@
-import { getProject } from '@/lib/db/projects'
+'use client'
+
+import { useEffect, useMemo, use } from 'react'
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
 import { MissionControlTemplate } from '@/components/templates/MissionControlTemplate'
+import { useProject } from '@/lib/hooks/useProjects'
+import { useStoreHydrated, useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  let name = 'Mission Control'
-  try {
-    const project = await getProject(id)
-    if (project) name = project.name
-  } catch {}
-  return {
-    title: `${name} | Personal Kanban`,
-    description: `Kanban board for ${name}`,
-  }
-}
+export default function MissionControlPage({ params }: Props) {
+  const { id } = use(params)
+  const hydrated = useStoreHydrated()
+  const { data: project } = useProject(id)
+  const tasks = useKanbanStore((s) => s.tasks)
 
-type ProjectRow = NonNullable<Awaited<ReturnType<typeof getProject>>>
-type TaskRow = ProjectRow['tasks'][number]
+  const serialized = useMemo(() => {
+    if (!project) return null
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      tasks: tasks
+        .filter((t) => t.projectId === project.id)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          priority: t.priority,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+        })),
+    }
+  }, [project, tasks])
 
-export default async function MissionControlPage({ params }: Props) {
-  const { id } = await params
-  let project: ProjectRow | null = null
-  try {
-    project = await getProject(id)
-  } catch {}
-  if (!project) notFound()
+  useEffect(() => {
+    if (hydrated && !project) notFound()
+  }, [hydrated, project])
 
-  const serialized = {
-    id: project.id,
-    name: project.name,
-    description: project.description ?? null,
-    tasks: (project.tasks ?? []).map((t: TaskRow) => ({
-      id: t.id,
-      title: t.title,
-      description: t.description ?? null,
-      status: t.status,
-      priority: t.priority,
-      createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt.toISOString(),
-    })),
+  if (!hydrated || !serialized) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+        Loading mission control…
+      </div>
+    )
   }
 
   return <MissionControlTemplate project={serialized} />

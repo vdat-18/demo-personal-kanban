@@ -1,106 +1,115 @@
 /**
- * React Query hooks for Projects API
- * Provides: useProjects, useProject, useCreateProject, useUpdateProject, useDeleteProject
+ * Hooks for Projects, backed by localStorage store.
+ * API surface kept compatible with the prior React-Query version.
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+'use client'
 
-export interface Project {
-  id: string
-  name: string
-  description: string | null
-  domain: 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LOGISTICS'
-  status: string | null
-  createdAt: string
-  updatedAt: string
+import { useCallback, useMemo } from 'react'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import type { Project as StoreProject, ProjectDomain } from '@/types/domain'
+
+export interface Project extends StoreProject {
   tasks?: Array<{ id: string; title: string; status: string; priority: string }>
 }
 
-async function fetchProjects(): Promise<Project[]> {
-  const res = await fetch('/api/projects')
-  if (!res.ok) throw new Error('Failed to fetch projects')
-  return res.json()
-}
-
-async function fetchProject(id: string): Promise<Project> {
-  const res = await fetch(`/api/projects/${id}`)
-  if (!res.ok) throw new Error('Failed to fetch project')
-  return res.json()
-}
-
-// ─── Query hooks ──────────────────────────────────────────────────────────────
-
 export function useProjects() {
-  return useQuery({
-    queryKey: ['projects'],
-    queryFn: fetchProjects,
-  })
+  const projects = useKanbanStore((s) => s.projects)
+  const tasks = useKanbanStore((s) => s.tasks)
+
+  const data = useMemo<Project[]>(
+    () =>
+      projects.map((p) => ({
+        ...p,
+        tasks: tasks
+          .filter((t) => t.projectId === p.id)
+          .map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority })),
+      })),
+    [projects, tasks],
+  )
+
+  return {
+    data,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
 export function useProject(id: string) {
-  return useQuery({
-    queryKey: ['projects', id],
-    queryFn: () => fetchProject(id),
-    enabled: !!id,
-  })
+  const projects = useKanbanStore((s) => s.projects)
+  const allTasks = useKanbanStore((s) => s.tasks)
+  const project = useMemo(() => projects.find((p) => p.id === id), [projects, id])
+  const tasks = useMemo(() => allTasks.filter((t) => t.projectId === id), [allTasks, id])
+  const data = useMemo<Project | undefined>(
+    () =>
+      project
+        ? {
+            ...project,
+            tasks: tasks.map((t) => ({
+              id: t.id,
+              title: t.title,
+              status: t.status,
+              priority: t.priority,
+            })),
+          }
+        : undefined,
+    [project, tasks],
+  )
+  return {
+    data,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
-// ─── Mutation hooks ───────────────────────────────────────────────────────────
-
 export function useCreateProject() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: { name: string; description?: string; domain?: Project['domain'] }) => {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Failed to create project')
-      return res.json() as Promise<Project>
+  const createProject = useKanbanStore((s) => s.createProject)
+  const mutateAsync = useCallback(
+    async (data: { name: string; description?: string; domain?: ProjectDomain }) =>
+      createProject(data),
+    [createProject],
+  )
+  return {
+    mutate: (data: Parameters<typeof mutateAsync>[0]) => {
+      void mutateAsync(data)
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useUpdateProject() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Project> & { id: string }) => {
-      const res = await fetch(`/api/projects/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Failed to update project')
-      return res.json() as Promise<Project>
+  const updateProject = useKanbanStore((s) => s.updateProject)
+  const mutateAsync = useCallback(
+    async ({ id, ...patch }: Partial<Project> & { id: string }) => {
+      const result = updateProject(id, patch as Partial<StoreProject>)
+      if (!result) throw new Error('Project not found')
+      return result
     },
-    onMutate: async ({ id, ...data }) => {
-      await qc.cancelQueries({ queryKey: ['projects', id] })
-      const prev = qc.getQueryData<Project>(['projects', id])
-      if (prev) qc.setQueryData(['projects', id], { ...prev, ...data })
-      return { prev }
+    [updateProject],
+  )
+  return {
+    mutate: (data: Parameters<typeof mutateAsync>[0]) => {
+      void mutateAsync(data)
     },
-    onError: (_err, { id }, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['projects', id], ctx.prev)
-    },
-    onSettled: (_data, _err, { id }) => {
-      qc.invalidateQueries({ queryKey: ['projects', id] })
-      qc.invalidateQueries({ queryKey: ['projects'] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useDeleteProject() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete project')
+  const deleteProject = useKanbanStore((s) => s.deleteProject)
+  const mutateAsync = useCallback(async (id: string) => {
+    deleteProject(id)
+  }, [deleteProject])
+  return {
+    mutate: (id: string) => {
+      void mutateAsync(id)
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }

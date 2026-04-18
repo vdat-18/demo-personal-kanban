@@ -1,76 +1,85 @@
 /**
- * React Query hooks for Planning Threads API
+ * Hooks for Planning Threads, backed by localStorage store.
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+'use client'
 
-export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
+import { useCallback, useMemo } from 'react'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import type { PlanningThread as StoreThread, PlanningPhase } from '@/types/domain'
 
-export interface PlanningThread {
-  id: string
-  projectId: string
-  title: string
-  phase: PlanningPhase
-  visionDocument: string | null
-  createdAt: string
-  updatedAt: string
-  lastMessage: string | null
-  lastMessageAt: string | null
-}
-
-async function fetchThreads(projectId: string): Promise<PlanningThread[]> {
-  const res = await fetch(`/api/planning-threads?projectId=${projectId}`)
-  if (!res.ok) throw new Error('Failed to fetch threads')
-  return res.json()
-}
+export type { PlanningPhase }
+export type PlanningThread = StoreThread
 
 export function usePlanningThreads(projectId: string) {
-  return useQuery({
-    queryKey: ['planning-threads', projectId],
-    queryFn: () => fetchThreads(projectId),
-    enabled: !!projectId,
-    staleTime: 0,        // always refetch — thread list must be fresh on mount
-    gcTime: 0,           // do not cache between page navigations
-  })
+  const threads = useKanbanStore((s) => s.planningThreads)
+  const data = useMemo(
+    () =>
+      threads
+        .filter((t) => t.projectId === projectId)
+        .sort(
+          (a, b) =>
+            new Date(b.lastMessageAt ?? b.updatedAt).getTime() -
+            new Date(a.lastMessageAt ?? a.updatedAt).getTime(),
+        ),
+    [threads, projectId],
+  )
+  return {
+    data,
+    isLoading: false,
+    isPending: false,
+    isFetching: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
 export function useCreatePlanningThread() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: { projectId: string; title?: string }) => {
-      const res = await fetch('/api/planning-threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Failed to create thread')
-      return res.json() as Promise<PlanningThread>
+  const createThread = useKanbanStore((s) => s.createPlanningThread)
+  const mutateAsync = useCallback(
+    async (data: { projectId: string; title?: string }) => createThread(data),
+    [createThread],
+  )
+  return {
+    mutate: (
+      data: Parameters<typeof mutateAsync>[0],
+      options?: { onSuccess?: (thread: StoreThread) => void; onError?: (err: Error) => void },
+    ) => {
+      mutateAsync(data)
+        .then((thread) => options?.onSuccess?.(thread))
+        .catch((err) => options?.onError?.(err instanceof Error ? err : new Error(String(err))))
     },
-    onSuccess: (thread) => {
-      qc.invalidateQueries({ queryKey: ['planning-threads', thread.projectId] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useDeletePlanningThread() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, projectId }: { id: string; projectId: string }) => {
-      const res = await fetch(`/api/planning-threads/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete thread')
-      return { id, projectId }
+  const deleteThread = useKanbanStore((s) => s.deletePlanningThread)
+  const mutateAsync = useCallback(
+    async ({ id }: { id: string; projectId: string }) => {
+      deleteThread(id)
     },
-    onSuccess: (_, { projectId }) => {
-      qc.invalidateQueries({ queryKey: ['planning-threads', projectId] })
+    [deleteThread],
+  )
+  return {
+    mutate: (
+      data: Parameters<typeof mutateAsync>[0],
+      options?: { onSuccess?: () => void; onError?: (err: Error) => void },
+    ) => {
+      mutateAsync(data)
+        .then(() => options?.onSuccess?.())
+        .catch((err) => options?.onError?.(err instanceof Error ? err : new Error(String(err))))
     },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useUpdatePlanningThread() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
+  const updateThread = useKanbanStore((s) => s.updatePlanningThread)
+  const mutateAsync = useCallback(
+    async ({
       id,
-      projectId,
       title,
       phase,
       visionDocument,
@@ -81,16 +90,26 @@ export function useUpdatePlanningThread() {
       phase?: PlanningPhase
       visionDocument?: string
     }) => {
-      const res = await fetch(`/api/planning-threads/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, phase, visionDocument }),
+      const result = updateThread(id, {
+        ...(title !== undefined ? { title } : {}),
+        ...(phase !== undefined ? { phase } : {}),
+        ...(visionDocument !== undefined ? { visionDocument } : {}),
       })
-      if (!res.ok) throw new Error('Failed to update thread')
-      return res.json() as Promise<PlanningThread>
+      if (!result) throw new Error('Thread not found')
+      return result
     },
-    onSuccess: (thread) => {
-      qc.invalidateQueries({ queryKey: ['planning-threads', thread.projectId] })
+    [updateThread],
+  )
+  return {
+    mutate: (
+      data: Parameters<typeof mutateAsync>[0],
+      options?: { onSuccess?: (thread: StoreThread) => void; onError?: (err: Error) => void },
+    ) => {
+      mutateAsync(data)
+        .then((thread) => options?.onSuccess?.(thread))
+        .catch((err) => options?.onError?.(err instanceof Error ? err : new Error(String(err))))
     },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }

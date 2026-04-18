@@ -7,9 +7,10 @@ import { KanbanHeader } from '@/components/organisms/KanbanHeader'
 import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
 import type { UITaskStatus } from '@/types/domain'
-import { getAllowedTransitions } from '@/lib/status-lifecycle'
+import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { useColumnAutoMode } from '@/lib/hooks/useColumnAutoMode'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Task {
   id: string
@@ -46,38 +47,46 @@ export interface MissionControlTemplateProps {
 
 export function MissionControlTemplate({ project: initialProject }: MissionControlTemplateProps) {
   const router = useRouter()
-  const [project, setProject] = useState(initialProject)
+  const storeTasks = useKanbanStore((s) => s.tasks)
+  const updateTaskInStore = useKanbanStore((s) => s.updateTask)
+  const createTaskInStore = useKanbanStore((s) => s.createTask)
+
+  // Live tasks for this project (always reflect store state)
+  const tasks = storeTasks
+    .filter((t) => t.projectId === initialProject.id)
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      status: t.status as UITaskStatus,
+      priority: t.priority,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    })) as Task[]
+
+  const project = { ...initialProject, tasks }
+
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<UITaskStatus | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Task | null>(null)
   const [cancelReason, setCancelReason] = useState('')
 
-  const tasks = project.tasks
-
-  const updateTaskStatus = useCallback(async (taskId: string, status: UITaskStatus) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      if (!res.ok) {
-        if (res.status === 422) {
-          const body = await res.json().catch(() => ({}))
-          console.warn(`Invalid transition: ${body.from} → ${body.to}. Allowed: ${body.allowed?.join(', ')}`)
+  const updateTaskStatus = useCallback(
+    async (taskId: string, status: UITaskStatus) => {
+      const current = storeTasks.find((t) => t.id === taskId)
+      if (!current) return
+      if (current.status !== status) {
+        const result = validateTransition(current.status as TaskStatusValue, status as TaskStatusValue)
+        if (!result.valid) {
+          console.warn(result.message)
+          return
         }
-        return
       }
-      const updated = await res.json()
-      setProject((prev) => ({
-        ...prev,
-        tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, ...updated } : t)),
-      }))
-    } catch (err) {
-      console.error(err)
-    }
-  }, [])
+      updateTaskInStore(taskId, { status })
+    },
+    [storeTasks, updateTaskInStore],
+  )
 
   const {
     columnStates: autoModeStates,
@@ -120,15 +129,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         onAddTask={async () => {
           const title = window.prompt('Task title:')
           if (!title?.trim()) return
-          const res = await fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, projectId: project.id }),
-          })
-          if (res.ok) {
-            const task = await res.json()
-            setProject((prev) => ({ ...prev, tasks: [...prev.tasks, task] }))
-          }
+          createTaskInStore({ title, projectId: project.id })
         }}
       />
 

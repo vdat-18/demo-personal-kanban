@@ -1,72 +1,57 @@
 /**
- * React Query hooks for Conversations API
- * Provides: useConversations, useConversation, useCreateConversation
+ * Hooks for Conversations, backed by localStorage store.
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+'use client'
 
-export interface Conversation {
-  id: string
-  taskId: string
-  messages: Array<{ role: string; content: string }>
-  result: string | null
-  tokenUsage: unknown
-  createdAt: string
-  updatedAt: string
-}
+import { useCallback, useMemo } from 'react'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import type { Conversation as StoreConversation, ConversationMessage, TokenUsage } from '@/types/domain'
 
-async function fetchConversations(taskId?: string): Promise<Conversation[]> {
-  const url = new URL('/api/conversations', window.location.origin)
-  if (taskId) url.searchParams.set('taskId', taskId)
-  const res = await fetch(url.toString())
-  if (!res.ok) throw new Error('Failed to fetch conversations')
-  return res.json()
-}
-
-async function fetchConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`/api/conversations/${id}`)
-  if (!res.ok) throw new Error('Failed to fetch conversation')
-  return res.json()
-}
-
-// ─── Query hooks ──────────────────────────────────────────────────────────────
+export type Conversation = StoreConversation
 
 export function useConversations(taskId?: string) {
-  return useQuery({
-    queryKey: ['conversations', taskId],
-    queryFn: () => fetchConversations(taskId),
-  })
+  const conversations = useKanbanStore((s) => s.conversations)
+  const data = useMemo(
+    () => (taskId ? conversations.filter((c) => c.taskId === taskId) : conversations),
+    [conversations, taskId],
+  )
+  return {
+    data,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
 export function useConversation(id: string) {
-  return useQuery({
-    queryKey: ['conversations', 'single', id],
-    queryFn: () => fetchConversation(id),
-    enabled: !!id,
-  })
+  const conversations = useKanbanStore((s) => s.conversations)
+  const data = useMemo(() => conversations.find((c) => c.id === id), [conversations, id])
+  return {
+    data,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
-// ─── Mutation hooks ───────────────────────────────────────────────────────────
-
 export function useCreateConversation() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: {
+  const createConversation = useKanbanStore((s) => s.createConversation)
+  const mutateAsync = useCallback(
+    async (data: {
       taskId: string
-      messages: Array<{ role: string; content: string }>
-      result?: string
-      tokenUsage?: unknown
-    }) => {
-      const res = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Failed to create conversation')
-      return res.json() as Promise<Conversation>
+      messages: ConversationMessage[]
+      result?: string | null
+      tokenUsage?: TokenUsage | null
+    }) => createConversation(data),
+    [createConversation],
+  )
+  return {
+    mutate: (data: Parameters<typeof mutateAsync>[0]) => {
+      void mutateAsync(data)
     },
-    onSuccess: (conv) => {
-      qc.invalidateQueries({ queryKey: ['conversations', conv.taskId] })
-      qc.invalidateQueries({ queryKey: ['tasks', conv.taskId] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }

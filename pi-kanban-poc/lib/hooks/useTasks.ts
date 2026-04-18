@@ -1,139 +1,135 @@
 /**
- * React Query hooks for Tasks API
- * Provides: useTasks, useTask, useCreateTask, useUpdateTask, useDeleteTask
+ * Hooks for Tasks, backed by localStorage store.
+ * API surface kept compatible with the old React-Query version so existing
+ * components don't need to change.
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+'use client'
 
-type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
-type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+import { useCallback, useMemo } from 'react'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import type { Task as StoreTask, TaskStatus, TaskPriority } from '@/types/domain'
+import { validateTransition, getAllowedTransitions } from '@/lib/status-lifecycle'
 
-// ─── Transition error (422 from status-lifecycle validation) ─────────────────
+export type Task = StoreTask
+export type { TaskStatus, TaskPriority }
 
 export class TransitionError extends Error {
   public readonly from: string
   public readonly to: string
   public readonly allowed: string[]
 
-  constructor(body: { error: string; from: string; to: string; allowed: string[] }) {
-    super(body.error)
+  constructor(from: string, to: string, allowed: string[]) {
+    super(`Invalid status transition from ${from} to ${to}`)
     this.name = 'TransitionError'
-    this.from = body.from
-    this.to = body.to
-    this.allowed = body.allowed
+    this.from = from
+    this.to = to
+    this.allowed = allowed
   }
 }
 
-export interface Task {
-  id: string
-  title: string
-  description: string | null
-  status: TaskStatus
-  priority: TaskPriority
-  projectId: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-async function fetchTasks(params?: { status?: TaskStatus; projectId?: string }): Promise<Task[]> {
-  const url = new URL('/api/tasks', window.location.origin)
-  if (params?.status) url.searchParams.set('status', params.status)
-  if (params?.projectId) url.searchParams.set('projectId', params.projectId)
-  const res = await fetch(url.toString())
-  if (!res.ok) throw new Error('Failed to fetch tasks')
-  return res.json()
-}
-
-async function fetchTask(id: string): Promise<Task> {
-  const res = await fetch(`/api/tasks/${id}`)
-  if (!res.ok) throw new Error('Failed to fetch task')
-  return res.json()
-}
-
-// ─── Query hooks ──────────────────────────────────────────────────────────────
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export function useTasks(params?: { status?: TaskStatus; projectId?: string }) {
-  return useQuery({
-    queryKey: ['tasks', params],
-    queryFn: () => fetchTasks(params),
-  })
+  const tasks = useKanbanStore((s) => s.tasks)
+  const filtered = useMemo(() => {
+    return tasks.filter((t) => {
+      if (params?.status && t.status !== params.status) return false
+      if (params?.projectId && t.projectId !== params.projectId) return false
+      return true
+    })
+  }, [tasks, params?.status, params?.projectId])
+
+  return {
+    data: filtered,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+    refetch: () => Promise.resolve({ data: filtered }),
+  }
 }
 
 export function useTask(id: string) {
-  return useQuery({
-    queryKey: ['tasks', id],
-    queryFn: () => fetchTask(id),
-    enabled: !!id,
-  })
+  const tasks = useKanbanStore((s) => s.tasks)
+  const task = useMemo(() => tasks.find((t) => t.id === id), [tasks, id])
+  return {
+    data: task,
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+  }
 }
 
-// ─── Mutation hooks ───────────────────────────────────────────────────────────
+// ─── Mutations ────────────────────────────────────────────────────────────────
 
 export function useCreateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: { title: string; description?: string; status?: TaskStatus; priority?: TaskPriority; projectId?: string }) => {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Failed to create task')
-      return res.json() as Promise<Task>
+  const createTask = useKanbanStore((s) => s.createTask)
+  const mutateAsync = useCallback(
+    async (data: {
+      title: string
+      description?: string
+      status?: TaskStatus
+      priority?: TaskPriority
+      projectId: string
+    }) => createTask(data),
+    [createTask],
+  )
+  return {
+    mutate: (data: Parameters<typeof mutateAsync>[0]) => {
+      void mutateAsync(data)
     },
-    onSuccess: (task) => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-      if (task.projectId) qc.invalidateQueries({ queryKey: ['projects', task.projectId] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useUpdateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Task> & { id: string }) => {
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) {
-        // Parse 422 transition errors into a structured TransitionError
-        if (res.status === 422) {
-          const body = await res.json().catch(() => ({}))
-          if (body.from && body.to && body.allowed) {
-            throw new TransitionError(body)
-          }
+  const tasks = useKanbanStore((s) => s.tasks)
+  const updateTask = useKanbanStore((s) => s.updateTask)
+
+  const mutateAsync = useCallback(
+    async ({ id, ...patch }: Partial<Task> & { id: string }) => {
+      const current = tasks.find((t) => t.id === id)
+      if (!current) throw new Error('Task not found')
+
+      // Enforce status lifecycle on the client (replaces server 422)
+      if (patch.status && patch.status !== current.status) {
+        const result = validateTransition(current.status, patch.status)
+        if (!result.valid) {
+          throw new TransitionError(
+            current.status,
+            patch.status,
+            getAllowedTransitions(current.status),
+          )
         }
-        throw new Error('Failed to update task')
       }
-      return res.json() as Promise<Task>
+      const updated = updateTask(id, patch as Partial<Omit<Task, 'id' | 'createdAt' | 'projectId'>>)
+      if (!updated) throw new Error('Task not found')
+      return updated
     },
-    onMutate: async ({ id, ...data }) => {
-      // Optimistic update
-      await qc.cancelQueries({ queryKey: ['tasks', id] })
-      const prev = qc.getQueryData<Task>(['tasks', id])
-      if (prev) qc.setQueryData(['tasks', id], { ...prev, ...data })
-      return { prev }
+    [tasks, updateTask],
+  )
+
+  return {
+    mutate: (data: Parameters<typeof mutateAsync>[0]) => {
+      void mutateAsync(data)
     },
-    onError: (_err, { id }, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['tasks', id], ctx.prev)
-    },
-    onSettled: (_data, _err, { id }) => {
-      qc.invalidateQueries({ queryKey: ['tasks', id] })
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }
 
 export function useDeleteTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete task')
+  const deleteTask = useKanbanStore((s) => s.deleteTask)
+  const mutateAsync = useCallback(async (id: string) => {
+    deleteTask(id)
+  }, [deleteTask])
+  return {
+    mutate: (id: string) => {
+      void mutateAsync(id)
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-    },
-  })
+    mutateAsync,
+    isPending: false,
+  }
 }

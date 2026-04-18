@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import type { TaskStatus, AgentHint } from "@/types/domain";
+import type { LegacyTaskStatus as TaskStatus, AgentHint } from "@/types/domain";
 
 // ── Status → Agent mapping ───────────────────────────────────────────────────
 
