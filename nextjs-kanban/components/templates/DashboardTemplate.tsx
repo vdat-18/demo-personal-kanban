@@ -77,8 +77,8 @@ export function DashboardTemplate({ initialProjects }: DashboardTemplateProps) {
   }
 
   return (
-    <div className="h-full w-full bg-[#f8fbfe] flex flex-col overflow-hidden font-sans text-slate-900">
-      <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 lg:px-20">
+    <div className="h-full w-full bg-transparent flex flex-col overflow-hidden font-sans text-slate-900">
+      <div className="flex-1 overflow-y-auto px-6 py-10 md:px-10 lg:px-16">
         <div className="max-w-7xl mx-auto space-y-10 pb-20">
           <HeroSection
             onNewProject={() => { setImportMode(false); setShowModal(true) }}

@@ -20,34 +20,41 @@ export function ProjectCard({ id, name, status, tasks, onClick, onDelete }: Proj
   return (
     <div
       onClick={onClick}
-      className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.05)] hover:shadow-2xl hover:shadow-blue-900/5 hover:-translate-y-2 transition-all duration-500 cursor-pointer group"
+      className="bg-white p-10 rounded-[3.5rem] shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-2 transition-all duration-700 cursor-pointer group border border-white"
     >
-      <div className="flex justify-between items-start mb-8">
-        <div className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border bg-blue-50 text-blue-600 border-blue-100">
+      <div className="flex justify-between items-start mb-10">
+        <div className="px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-blue-50 text-blue-600 border border-blue-100 shadow-sm">
           {status || 'planning'}
         </div>
-        <div className="flex -space-x-2">
-          <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-white" />
-          <div className="w-7 h-7 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-black text-white">AI</div>
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-3">
+            <div className="w-9 h-9 rounded-full bg-slate-900 border-2 border-white shadow-md z-10" />
+            <div className="w-9 h-9 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[10px] font-black text-white shadow-md z-20">AI</div>
+          </div>
+          <button
+            onClick={(e) => onDelete(e, id)}
+            className="p-3 ml-2 rounded-2xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 active:scale-95"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
-        <button
-          onClick={(e) => onDelete(e, id)}
-          className="p-2 ml-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
       </div>
 
-      <h3 className="text-2xl font-black mb-10 text-slate-800 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+      <h3 className="text-2xl font-black mb-12 text-[#0a192f] line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors tracking-tight">
         {name}
       </h3>
 
       <div className="space-y-4">
-        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          <span>Progress</span>
-          <span className="text-slate-900">{progress}%</span>
+        <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-[0.15em]">
+          <span>Project Completion</span>
+          <span className="text-[#0a192f]">{progress}%</span>
         </div>
-        <ProgressBar value={progress} />
+        <div className="h-2.5 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+          <div 
+            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
     </div>
   )

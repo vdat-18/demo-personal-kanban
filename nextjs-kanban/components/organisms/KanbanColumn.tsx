@@ -64,22 +64,22 @@ export function KanbanColumn({
 
   return (
     <div
-      className={`w-80 flex flex-col rounded-[2.5rem] border transition-all duration-200 shrink-0 ${
+      className={`w-80 flex flex-col rounded-[2.5rem] border transition-all duration-500 shrink-0 ${
         isHovering && isValid
-          ? 'border-blue-300 bg-blue-50/50'
+          ? 'border-blue-300 bg-blue-50/70 shadow-2xl shadow-blue-500/10 scale-[1.02]'
           : isDragging && !isValid
-          ? 'border-gray-200 bg-gray-50/30 opacity-50 cursor-not-allowed'
-          : 'border-gray-100 bg-white/80'
+          ? 'border-gray-200 bg-gray-100/30 opacity-50 cursor-not-allowed'
+          : 'border-white bg-white/40 backdrop-blur-xl shadow-xl shadow-slate-200/40'
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
       {/* Column Header */}
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="font-black text-sm text-[#0a192f] uppercase tracking-widest">{label}</h2>
-          <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+      <div className="px-8 pt-10 pb-6 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <h2 className="font-black text-[12px] text-[#0a192f] uppercase tracking-[0.25em]">{label}</h2>
+          <span className="text-[10px] font-black text-blue-600 bg-white px-3 py-1.5 rounded-[0.8rem] shadow-sm border border-slate-50">
             {tasks.length}
           </span>
         </div>
@@ -91,7 +91,7 @@ export function KanbanColumn({
               onToggle={onToggleAutoMode}
             />
           )}
-          <button className="text-gray-300 hover:text-black transition-colors p-2 hover:bg-white rounded-xl shadow-sm">
+          <button className="text-gray-400 hover:text-black transition-all p-2.5 hover:bg-white rounded-2xl shadow-sm hover:shadow-md active:scale-90">
             <MoreHorizontal className="w-4 h-4" />
           </button>
         </div>

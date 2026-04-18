@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kanban}:${POSTGRES_PASSWORD:-kanban}@db:5432/${POSTGRES_DB:-kanban}
       AGNO_SERVICE_URL: http://agno:8000
       NODE_ENV: development
+      WATCHPACK_POLLING: "true"
     env_file:
       - path: .env
         required: false
@@ -34,7 +35,8 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run dev
+      - /app/.next
+    command: sh -c "rm -rf /app/.next/* /app/.next/.* 2>/dev/null; npm run dev"
     depends_on:
       db:
         condition: service_healthy

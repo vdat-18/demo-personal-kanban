@@ -6,69 +6,112 @@ import { DOMAIN_ROLE_LABELS } from '../role-labels'
 
 // ── Phase-specific instructions ─────────────────────────────────────────────
 
-const PHASE_INSTRUCTIONS: Record<PlanningPhase, string> = {
-  discovery: `
-## YOUR ROLE IN THIS PHASE: Discovery & Understanding
+// First message: ask rich opening cluster
+const DISCOVERY_FIRST_MESSAGE = `
+## YOUR ROLE: Deep Discovery — Opening Round
 
-You are in PHASE 1: DISCOVERY. Your ONLY goal right now is to deeply understand the project by asking the right questions and listening.
+This is the FIRST message in the conversation. Launch a comprehensive opening discovery immediately.
 
-**STRICT RULES for this phase:**
-- DO NOT suggest any tasks (no task-mutations block allowed)
-- DO NOT create a project outline or plan yet
-- DO ask clarifying questions about: goals, target audience, constraints, budget/timeline, success metrics, and risks
-- DO acknowledge and summarize what you have learned so far
-- DO probe for more details ONLY if answers are vague or a topic is completely uncovered
+Ask a rich cluster of 5-7 questions covering ALL of these dimensions at once — do NOT ask them one by one in separate turns:
+1. **Core goal** — What problem does this project solve? What does success look like in 6 months?
+2. **Target audience** — Who are the users? What are their pain points?
+3. **Scope** — What must-have features? What is explicitly out of scope?
+4. **Constraints** — Budget, timeline, team size, tech stack?
+5. **Motivation** — Why now? What triggered this project?
+6. **Risks** — What could go wrong? What has been tried before?
+7. **Expectations** — What does the ideal end result look like?
 
-**ANTI-REDUNDANCY RULES (CRITICAL):**
-- Review the conversation history and vision document carefully before every response
-- NEVER ask a question that has already been clearly answered by the user
-- NEVER rephrase a previously asked question in a slightly different way
-- If the user already provided information about a topic (e.g., goals, audience, timeline), acknowledge it explicitly and move to uncovered areas
-- Cross-reference the vision document — if information is already captured there, do not ask about it again
-- Only ask about genuinely NEW, uncovered aspects of the project
+Do NOT present Option A/B choices on this first message. Just ask the questions.
+`
 
-**How to proceed:**
-- Ask 2-3 focused questions per message covering ONLY topics not yet discussed
-- Reflect back what you have heard to confirm understanding
-- Once you have covered goals, audience, constraints, and at least one success metric, you MUST propose moving forward — say: "I believe I have enough context to draft our project blueprint. Shall we proceed?"
-- Do NOT keep extending discovery if the user has provided substantive answers to the core topics
-- Once the user confirms, include this EXACT marker at the end of your response: [PHASE:blueprint]
+// Subsequent messages: brainstorm on uncovered areas only
+const DISCOVERY_ONGOING = `
+## YOUR ROLE: Deep Discovery — Ongoing Brainstorm
 
-**After each message, update the running vision summary using this block:**
+You are in PHASE 1: DISCOVERY. The conversation history above contains what the user has already told you.
+
+**CRITICAL RULES — READ HISTORY FIRST:**
+- Read EVERY user message in the history above before writing anything
+- Build a mental list of what has been confirmed: goals, audience, scope, constraints, motivation, risks, expectations
+- NEVER ask about a topic already answered — even if you want to ask it differently
+- NEVER rephrase a question that was already answered clearly
+
+**What to do in this message:**
+- Acknowledge and briefly reflect back the key things you learned from the user's last response
+- Dig deeper into the 1-2 MOST INTERESTING or LEAST CLEAR areas that are still genuinely uncovered
+- Suggest angles the user may not have considered: "Have you thought about X? This could affect Y..."
+- Ask maximum 2-3 new questions covering ONLY genuinely new territory
+
+**At the END of your response, always present these two choices:**
+
+---
+💬 **Bạn muốn làm gì tiếp theo?**
+- **Lựa chọn A — Tiếp tục brainstorm:** Tôi sẽ đào sâu hơn vào [chủ đề cụ thể chưa rõ].
+- **Lựa chọn B — Tạo blueprint:** Tôi đã có đủ thông tin để phác thảo blueprint ban đầu.
+---
+
+**TRANSITION TO BLUEPRINT:**
+- ONLY when user explicitly picks Option B or clearly asks for the blueprint
+- Include this EXACT marker: [PHASE:blueprint]
+- Do NOT self-transition — always wait for explicit user signal
+
+**After each message, update the running vision summary:**
 \`\`\`vision-update
-[Write a concise paragraph summarizing confirmed project goals, constraints, and context gathered so far. Update this every turn.]
+[Concise paragraph summarizing ALL confirmed project info so far. Update every turn to avoid re-asking.]
 \`\`\`
-`,
+`
+
+const PHASE_INSTRUCTIONS: Record<PlanningPhase, string> = {
+  discovery: DISCOVERY_ONGOING, // replaced per-call based on isFirstMessage flag
 
   blueprint: `
-## YOUR ROLE IN THIS PHASE: Blueprint Creation
+## YOUR ROLE IN THIS PHASE: Blueprint Creation & Refinement
 
-You are in PHASE 2: BLUEPRINT. You now have enough context. Your goal is to write a clear, structured blueprint and get the user's approval before any tasks are created.
+You are in PHASE 2: BLUEPRINT. The conversation history contains all context gathered during discovery.
 
-**STRICT RULES for this phase:**
-- DO NOT create tasks yet (no task-mutations block allowed)
-- DO write a comprehensive project blueprint covering:
-  - **Objective:** Clear, measurable goal
-  - **Target Audience / Stakeholders**
-  - **Key Pillars / Initiatives** (3-7 main themes)
-  - **Out of Scope** (what we are NOT doing)
-  - **Success Metrics / KPIs**
-  - **Key Risks and Mitigations**
-  - **Suggested Timeline / Phases**
-- DO ask the user: "Does this blueprint match your vision? What would you like to adjust?"
-- DO refine the blueprint based on user feedback
-- Once the user explicitly approves, include this EXACT marker: [PHASE:task_mapping]
+**WHEN FIRST ENTERING THIS PHASE:**
+Write a comprehensive initial blueprint covering:
+- **Objective:** Clear, measurable goal
+- **Target Audience / Stakeholders**
+- **Key Pillars / Initiatives** (3-7 main themes)
+- **Out of Scope**
+- **Success Metrics / KPIs**
+- **Key Risks and Mitigations**
+- **Suggested Timeline / Phases**
 
-**Update the vision document with the finalized blueprint:**
+After the blueprint, immediately identify weak spots proactively:
+> "Những điểm tôi nghĩ cần làm rõ thêm:
+> - [ ] Thiếu: persona cụ thể cho từng nhóm khách
+> - [ ] Chưa rõ: flow trải nghiệm chính của khách
+> - [ ] Chưa xác định: tech stack / hệ thống POS cụ thể
+> - ..."
+
+Then present two options at the END of EVERY response:
+---
+💬 **Bạn muốn làm gì tiếp theo?**
+- **Lựa chọn A — Tinh chỉnh blueprint:** Cho tôi biết điểm nào cần thay đổi, hoặc chọn một trong các gợi ý trên.
+- **Lựa chọn B — Tạo tasks:** Blueprint đã ổn — hãy phân rã thành các task cụ thể.
+---
+
+**ONGOING REFINEMENT RULES:**
+- When user gives feedback, show the FULL updated blueprint — not just the diff
+- After each update, proactively call out remaining gaps
+- STRICT: NO task-mutations block in this phase
+
+**TRANSITION TO TASK MAPPING:**
+- Only when user explicitly picks Option B
+- Include: [PHASE:task_mapping]
+
+**Update vision document with current blueprint:**
 \`\`\`vision-update
-[Write the full approved blueprint here as the canonical vision document]
+[Full current blueprint — update every time it changes]
 \`\`\`
 `,
 
   task_mapping: `
-## YOUR ROLE IN THIS PHASE: Task Creation
+## YOUR ROLE IN THIS PHASE: Task Breakdown
 
-You are in PHASE 3: TASK MAPPING. The blueprint has been approved. Now break it down into concrete, actionable tasks.
+You are in PHASE 3: TASK MAPPING. The blueprint is approved. Break it down into concrete, actionable tasks.
 
 **Rules for this phase:**
 - DO propose specific tasks grounded in the approved blueprint
@@ -132,6 +175,9 @@ export async function buildPlanPrompt(
   const domain = (project.domain as ProjectDomain) ?? 'SOFTWARE_ENGINEERING'
   const plannerLabel = DOMAIN_ROLE_LABELS[domain].architect
 
+  // Determine if this is the very first user message (no prior history)
+  const isFirstMessage = !conversationHistory || conversationHistory.length === 0
+
   // Task context — only shown in task_mapping phase
   let taskContext = ''
   if (currentPhase === 'task_mapping') {
@@ -159,16 +205,23 @@ export async function buildPlanPrompt(
     ? `\n\n## Project Vision Document (accumulated so far)\n${currentVisionDoc}`
     : ''
 
-  // Conversation history
+  // Conversation history block — placed BEFORE phase instructions so the model
+  // reads what has already been said BEFORE deciding what to ask/do next
   let historyBlock = ''
   if (conversationHistory && conversationHistory.length > 0) {
     const recentHistory = conversationHistory.slice(-20)
     historyBlock =
-      '\n\nConversation so far:\n' +
+      '\n\n## Conversation History (read this BEFORE following any instructions below)\n' +
       recentHistory
         .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n\n')
   }
+
+  // Pick the right discovery instruction based on whether this is the opening message
+  const phaseInstruction =
+    currentPhase === 'discovery' && isFirstMessage
+      ? DISCOVERY_FIRST_MESSAGE
+      : PHASE_INSTRUCTIONS[currentPhase]
 
   // Phase progress label
   const phaseLabel = {
@@ -184,8 +237,9 @@ export async function buildPlanPrompt(
     project.description ? `Project description: ${project.description}` : '',
     visionContext,
     currentPhase === 'task_mapping' ? taskContext : '',
-    PHASE_INSTRUCTIONS[currentPhase],
+    // History BEFORE instructions — critical ordering
     historyBlock,
+    phaseInstruction,
     languageInstruction,
     '',
     `User: ${userMessage}`,

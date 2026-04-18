@@ -103,12 +103,12 @@ export function KanbanBoard({
         })}
 
         {/* Add Column Ghost */}
-        <div className="w-80 h-full border-2 border-dashed border-gray-100 rounded-[2.5rem] flex items-center justify-center hover:bg-white hover:border-[#0a192f]/20 transition-all cursor-pointer group shrink-0">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gray-50 text-gray-300 border border-gray-100 flex items-center justify-center group-hover:bg-[#0a192f] group-hover:text-white group-hover:scale-110 group-hover:rotate-90 transition-all shadow-sm">
-              <Plus className="w-6 h-6" />
+        <div className="w-80 h-full border-2 border-dashed border-gray-200 rounded-[3rem] flex items-center justify-center hover:bg-white hover:border-blue-400/50 transition-all cursor-pointer group shrink-0">
+          <div className="flex flex-col items-center gap-5">
+            <div className="w-16 h-16 rounded-[24px] bg-white text-gray-300 flex items-center justify-center group-hover:bg-[#0a192f] group-hover:text-white group-hover:scale-110 group-hover:rotate-90 transition-all shadow-xl shadow-slate-200/50">
+              <Plus className="w-7 h-7" />
             </div>
-            <span className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] group-hover:text-[#0a192f] transition-colors">Add Column</span>
+            <span className="text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] group-hover:text-[#0a192f] transition-colors">Add Column</span>
           </div>
         </div>
       </div>

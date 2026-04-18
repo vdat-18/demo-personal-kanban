@@ -86,10 +86,15 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
             <p className="text-xs text-gray-400 mt-3">Loading tasks…</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="py-20 flex flex-col items-center justify-center border-4 border-dashed border-slate-100 rounded-[40px] bg-white/50">
-            <Sparkles className="w-10 h-10 text-slate-200 mb-4" />
-            <p className="text-sm font-black text-slate-300 uppercase tracking-widest text-center">
-              Chat with the AI to generate tasks
+          <div className="py-20 flex flex-col items-center justify-center bg-slate-50/50 rounded-[48px] border border-slate-100 shadow-inner">
+            <div className="w-20 h-20 rounded-[32px] bg-white shadow-xl shadow-slate-200/50 flex items-center justify-center mb-6">
+              <Sparkles className="w-10 h-10 text-blue-400" />
+            </div>
+            <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-2">
+              Your task list is empty
+            </p>
+            <p className="text-xs text-slate-400 text-center max-w-[200px] leading-relaxed">
+              Trò chuyện với AI để lên danh sách công việc nhé!
             </p>
           </div>
         ) : (
