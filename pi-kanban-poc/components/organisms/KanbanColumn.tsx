@@ -9,6 +9,16 @@ import type { UITaskStatus } from '@/types/domain'
 import { AUTO_MODE_COLUMNS } from '@/lib/auto-mode/constants'
 import type { AutoModeColumnState } from '@/lib/auto-mode/constants'
 
+/**
+ * Kanban column.
+ *
+ * After Tier 1.4 / 4.13 the TODO column no longer exposes a column-level
+ * "Auto mode" toggle — the breakdown agent is now triggered per-card via the
+ * "✨ Break down" button on each TaskCard. The IN_PROGRESS / IN_REVIEW
+ * columns still use the legacy column-level auto-mode flow, so we keep the
+ * toggle + status bar conditional on `AUTO_MODE_COLUMNS` (which excludes TODO).
+ */
+
 interface Task {
   id: string
   title: string
@@ -24,7 +34,6 @@ export interface KanbanColumnProps {
   label: string
   tasks: Task[]
   autoModeState?: AutoModeColumnState
-  autoProcessingTaskIds: Set<string>
   isValidDropTarget: boolean
   isDragging: boolean
   isHovering: boolean
@@ -45,7 +54,6 @@ export function KanbanColumn({
   label,
   tasks,
   autoModeState,
-  autoProcessingTaskIds,
   isValidDropTarget: isValid,
   isDragging,
   isHovering,
@@ -60,7 +68,7 @@ export function KanbanColumn({
   onDismissAutoModeError,
   getNextStatus,
 }: KanbanColumnProps) {
-  const isAutoModeColumn = AUTO_MODE_COLUMNS.includes(columnId as any)
+  const isLegacyAutoModeColumn = AUTO_MODE_COLUMNS.includes(columnId)
 
   return (
     <div
@@ -84,7 +92,7 @@ export function KanbanColumn({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {isAutoModeColumn && autoModeState && (
+          {isLegacyAutoModeColumn && autoModeState && (
             <AutoModeToggle
               enabled={autoModeState.enabled}
               status={autoModeState.status}
@@ -97,8 +105,8 @@ export function KanbanColumn({
         </div>
       </div>
 
-      {/* Auto-mode status bar */}
-      {isAutoModeColumn && autoModeState && autoModeState.enabled && (
+      {/* Auto-mode status bar (legacy columns only) */}
+      {isLegacyAutoModeColumn && autoModeState && autoModeState.enabled && (
         <AutoModeStatusBar
           status={autoModeState.status}
           activeTaskTitle={
@@ -110,7 +118,7 @@ export function KanbanColumn({
           onDismissError={onDismissAutoModeError}
         />
       )}
-      {isAutoModeColumn && autoModeState && autoModeState.status === 'error' && !autoModeState.enabled && (
+      {isLegacyAutoModeColumn && autoModeState && autoModeState.status === 'error' && !autoModeState.enabled && (
         <AutoModeStatusBar
           status={autoModeState.status}
           activeTaskTitle={null}
@@ -127,7 +135,6 @@ export function KanbanColumn({
             title={task.title}
             description={task.description}
             status={task.status}
-            isAutoProcessing={autoProcessingTaskIds.has(task.id)}
             onDragStart={onDragStart}
             onClick={() => onTaskClick(task.id, task.status)}
             onUpdateStatus={onUpdateStatus}

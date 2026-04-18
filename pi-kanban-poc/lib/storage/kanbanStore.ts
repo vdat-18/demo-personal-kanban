@@ -27,6 +27,11 @@ import type {
   QuestionBatchSubmission,
   VisionVersion,
   VisionChangeType,
+  SubtaskType,
+  BreakdownEnvelope,
+  TaskActivityEntry,
+  TaskActivityType,
+  CachedBreakdown,
 } from '@/types/domain'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,6 +48,18 @@ function now(): string {
   return new Date().toISOString()
 }
 
+/** Friendly status labels for activity log lines. */
+function formatStatusLabel(status: TaskStatus): string {
+  const map: Record<TaskStatus, string> = {
+    TODO: 'TODO',
+    IN_PROGRESS: 'In Progress',
+    IN_REVIEW: 'In Review',
+    DONE: 'Done',
+    BLOCKED: 'Blocked',
+  }
+  return map[status]
+}
+
 // ─── State shape ──────────────────────────────────────────────────────────────
 
 interface KanbanState {
@@ -53,6 +70,10 @@ interface KanbanState {
   planningThreads: PlanningThread[]
   planningMessages: PlanningMessage[]
   visionVersions: VisionVersion[]
+  /** Per-task activity timeline (Tier 3.10). */
+  activities: TaskActivityEntry[]
+  /** AI breakdown suggestions cache (Tier 4.15). */
+  cachedBreakdowns: CachedBreakdown[]
 
   // Project ops
   createProject: (input: { name: string; description?: string; domain?: ProjectDomain }) => Project
@@ -75,8 +96,21 @@ interface KanbanState {
   deleteTask: (id: string) => void
 
   // Subtask ops
-  createSubtasks: (taskId: string, items: Array<{ title: string }>) => Subtask[]
-  updateSubtask: (id: string, patch: Partial<Pick<Subtask, 'title' | 'completed' | 'output'>>) => Subtask | null
+  createSubtasks: (
+    taskId: string,
+    items: Array<{
+      title: string
+      description?: string | null
+      estimatedEffort?: string | null
+      type?: SubtaskType | null
+      aiGenerated?: boolean
+    }>,
+  ) => Subtask[]
+  updateSubtask: (
+    id: string,
+    patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output'>>,
+  ) => Subtask | null
+  deleteSubtask: (id: string) => void
 
   // Conversation ops
   createConversation: (input: {
@@ -135,6 +169,35 @@ interface KanbanState {
 
   // Bulk reset (useful for dev / settings)
   reset: () => void
+
+  // ─── Activity log (Tier 3.10) ──────────────────────────────────────────────
+  logActivity: (entry: {
+    taskId: string
+    type: TaskActivityType
+    actor: 'user' | 'ai' | 'system'
+    summary: string
+    metadata?: Record<string, unknown> | null
+    resourceLink?: TaskActivityEntry['resourceLink']
+  }) => TaskActivityEntry
+  getActivitiesForTask: (taskId: string) => TaskActivityEntry[]
+
+  // ─── Cached AI breakdown (Tier 4.15) ───────────────────────────────────────
+  saveCachedBreakdown: (input: {
+    taskId: string
+    envelope: BreakdownEnvelope
+    taskTitleAtGeneration: string
+    taskDescriptionAtGeneration: string | null
+  }) => CachedBreakdown
+  getCachedBreakdownForTask: (taskId: string) => CachedBreakdown | null
+  markCachedBreakdownDismissed: (taskId: string) => void
+  markCachedBreakdownApproved: (taskId: string, approvedSubtaskIds: string[]) => void
+  invalidateCachedBreakdown: (taskId: string) => void
+
+  // ─── Hint dismissal (Tier 4.16) ────────────────────────────────────────────
+  dismissTaskHint: (taskId: string) => void
+  /** Dismiss the onboarding hint for ALL tasks (global flag, single toggle). */
+  dismissGlobalBreakdownHint: () => void
+  isGlobalBreakdownHintDismissed: () => boolean
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -149,6 +212,8 @@ export const useKanbanStore = create<KanbanState>()(
       planningThreads: [],
       planningMessages: [],
       visionVersions: [],
+      activities: [],
+      cachedBreakdowns: [],
 
       createProject: ({ name, description, domain = 'GENERAL' }) => {
         const project: Project = {
@@ -203,7 +268,20 @@ export const useKanbanStore = create<KanbanState>()(
           createdAt: now(),
           updatedAt: now(),
         }
-        set((s) => ({ tasks: [...s.tasks, task] }))
+        const activity: TaskActivityEntry = {
+          id: uid('act'),
+          taskId: task.id,
+          timestamp: task.createdAt,
+          type: 'created',
+          actor: 'user',
+          summary: 'Task created',
+          metadata: null,
+          resourceLink: null,
+        }
+        set((s) => ({
+          tasks: [...s.tasks, task],
+          activities: [...s.activities, activity],
+        }))
         return task
       },
 
@@ -218,20 +296,75 @@ export const useKanbanStore = create<KanbanState>()(
           createdAt: now(),
           updatedAt: now(),
         }))
-        set((s) => ({ tasks: [...s.tasks, ...created] }))
+        const newActivities: TaskActivityEntry[] = created.map((t) => ({
+          id: uid('act'),
+          taskId: t.id,
+          timestamp: t.createdAt,
+          type: 'created',
+          actor: 'user',
+          summary: 'Task created',
+          metadata: null,
+          resourceLink: null,
+        }))
+        set((s) => ({
+          tasks: [...s.tasks, ...created],
+          activities: [...s.activities, ...newActivities],
+        }))
         return created
       },
 
       updateTask: (id, patch) => {
         let updated: Task | null = null
+        let prevTask: Task | null = null
         set((s) => ({
           tasks: s.tasks.map((t) => {
             if (t.id !== id) return t
-            updated = { ...t, ...patch, updatedAt: now() }
+            prevTask = t as Task
+            updated = { ...t, ...patch, updatedAt: now() } as Task
             return updated
           }),
         }))
-        return updated
+        const finalUpdated = updated as Task | null
+        const finalPrev = prevTask as Task | null
+        if (!finalUpdated || !finalPrev) return finalUpdated
+
+        // Auto-log status changes (Tier 3.10)
+        if (patch.status && patch.status !== finalPrev.status) {
+          const statusActivity: TaskActivityEntry = {
+            id: uid('act'),
+            taskId: id,
+            timestamp: now(),
+            type: 'status_changed',
+            actor: 'user',
+            summary: `Moved from ${formatStatusLabel(finalPrev.status)} to ${formatStatusLabel(patch.status)}`,
+            metadata: { fromStatus: finalPrev.status, toStatus: patch.status },
+            resourceLink: null,
+          }
+          set((s) => ({ activities: [...s.activities, statusActivity] }))
+        }
+
+        // Invalidate cached breakdown if title/description changed (Tier 4.15)
+        const titleChanged = patch.title != null && patch.title !== finalPrev.title
+        const descChanged =
+          patch.description !== undefined && patch.description !== finalPrev.description
+        if (titleChanged || descChanged) {
+          set((s) => ({
+            cachedBreakdowns: s.cachedBreakdowns.filter((c) => c.taskId !== id),
+          }))
+          const editActivity: TaskActivityEntry = {
+            id: uid('act'),
+            taskId: id,
+            timestamp: now(),
+            type: 'user_edited_task',
+            actor: 'user',
+            summary: titleChanged ? 'You edited the task title' : 'You edited the task description',
+            metadata: null,
+            resourceLink: null,
+          }
+          set((s) => ({ activities: [...s.activities, editActivity] }))
+        }
+
+        return finalUpdated
       },
 
       deleteTask: (id) => {
@@ -239,6 +372,8 @@ export const useKanbanStore = create<KanbanState>()(
           tasks: s.tasks.filter((t) => t.id !== id),
           subtasks: s.subtasks.filter((sub) => sub.taskId !== id),
           conversations: s.conversations.filter((c) => c.taskId !== id),
+          activities: s.activities.filter((a) => a.taskId !== id),
+          cachedBreakdowns: s.cachedBreakdowns.filter((c) => c.taskId !== id),
         }))
       },
 
@@ -248,6 +383,10 @@ export const useKanbanStore = create<KanbanState>()(
           id: uid('sub'),
           taskId,
           title: it.title,
+          description: it.description ?? null,
+          estimatedEffort: it.estimatedEffort ?? null,
+          type: it.type ?? null,
+          aiGenerated: it.aiGenerated ?? false,
           completed: false,
           output: null,
           order: existingCount + i,
@@ -266,6 +405,12 @@ export const useKanbanStore = create<KanbanState>()(
           }),
         }))
         return updated
+      },
+
+      deleteSubtask: (id) => {
+        set((s) => ({
+          subtasks: s.subtasks.filter((sub) => sub.id !== id),
+        }))
       },
 
       createConversation: ({ taskId, messages, result = null, tokenUsage = null }) => {
@@ -470,6 +615,143 @@ export const useKanbanStore = create<KanbanState>()(
         return restored
       },
 
+      // ─── Activity log (Tier 3.10) ──────────────────────────────────────────
+      logActivity: ({ taskId, type, actor, summary, metadata = null, resourceLink = null }) => {
+        const entry: TaskActivityEntry = {
+          id: uid('act'),
+          taskId,
+          timestamp: now(),
+          type,
+          actor,
+          summary,
+          metadata,
+          resourceLink,
+        }
+        set((s) => {
+          // Cap at 100 entries per task: keep 'created' + most recent 99.
+          const forTask = s.activities.filter((a) => a.taskId === taskId)
+          const others = s.activities.filter((a) => a.taskId !== taskId)
+          const combined = [...forTask, entry]
+          if (combined.length <= 100) {
+            return { activities: [...others, ...combined] }
+          }
+          // Always preserve the 'created' entry so timeline stays anchored
+          const createdEntry = combined.find((a) => a.type === 'created')
+          const recent = combined
+            .filter((a) => a.type !== 'created')
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+            .slice(0, createdEntry ? 99 : 100)
+          return {
+            activities: [
+              ...others,
+              ...(createdEntry ? [createdEntry] : []),
+              ...recent,
+            ],
+          }
+        })
+        return entry
+      },
+
+      getActivitiesForTask: (taskId) => {
+        return get()
+          .activities.filter((a) => a.taskId === taskId)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      },
+
+      // ─── Cached breakdown (Tier 4.15) ──────────────────────────────────────
+      saveCachedBreakdown: ({
+        taskId,
+        envelope,
+        taskTitleAtGeneration,
+        taskDescriptionAtGeneration,
+      }) => {
+        const entry: CachedBreakdown = {
+          id: uid('cbd'),
+          taskId,
+          envelope,
+          generatedAt: now(),
+          taskTitleAtGeneration,
+          taskDescriptionAtGeneration,
+          dismissedAt: null,
+          approvedAt: null,
+          approvedSubtaskIds: [],
+        }
+        set((s) => {
+          // Replace any existing cache entry for this task — only one active
+          // suggestion lives at a time. The replaced entry is dropped (its
+          // activity log entry still references the snapshot via its id if
+          // needed, but at cache layer we keep things simple).
+          const others = s.cachedBreakdowns.filter((c) => c.taskId !== taskId)
+          // Soft cap: 500 entries total
+          const trimmed =
+            others.length >= 500
+              ? others
+                  .sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime())
+                  .slice(0, 499)
+              : others
+          return { cachedBreakdowns: [...trimmed, entry] }
+        })
+        return entry
+      },
+
+      getCachedBreakdownForTask: (taskId) => {
+        const entries = get().cachedBreakdowns.filter((c) => c.taskId === taskId)
+        if (entries.length === 0) return null
+        // Latest non-expired entry. 7-day TTL.
+        const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+        const valid = entries.filter((c) => new Date(c.generatedAt).getTime() >= cutoff)
+        if (valid.length === 0) return null
+        return valid.sort(
+          (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime(),
+        )[0]
+      },
+
+      markCachedBreakdownDismissed: (taskId) => {
+        set((s) => ({
+          cachedBreakdowns: s.cachedBreakdowns.map((c) =>
+            c.taskId === taskId && c.dismissedAt == null && c.approvedAt == null
+              ? { ...c, dismissedAt: now() }
+              : c,
+          ),
+        }))
+      },
+
+      markCachedBreakdownApproved: (taskId, approvedSubtaskIds) => {
+        set((s) => ({
+          cachedBreakdowns: s.cachedBreakdowns.map((c) =>
+            c.taskId === taskId && c.approvedAt == null
+              ? { ...c, approvedAt: now(), approvedSubtaskIds }
+              : c,
+          ),
+        }))
+      },
+
+      invalidateCachedBreakdown: (taskId) => {
+        set((s) => ({
+          cachedBreakdowns: s.cachedBreakdowns.filter((c) => c.taskId !== taskId),
+        }))
+      },
+
+      // ─── Hint dismissal (Tier 4.16) ────────────────────────────────────────
+      dismissTaskHint: (taskId) => {
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === taskId ? { ...t, hintDismissed: true, updatedAt: now() } : t,
+          ),
+        }))
+      },
+
+      dismissGlobalBreakdownHint: () => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('pi-kanban-poc:breakdown-hint-dismissed', '1')
+        }
+      },
+
+      isGlobalBreakdownHintDismissed: () => {
+        if (typeof window === 'undefined') return true
+        return window.localStorage.getItem('pi-kanban-poc:breakdown-hint-dismissed') === '1'
+      },
+
       reset: () => {
         set({
           projects: [],
@@ -479,11 +761,13 @@ export const useKanbanStore = create<KanbanState>()(
           planningThreads: [],
           planningMessages: [],
           visionVersions: [],
+          activities: [],
+          cachedBreakdowns: [],
         })
       },
     }),
     {
-      name: 'pi-kanban-poc:store-v2',
+      name: 'pi-kanban-poc:store-v3',
       storage: createJSONStorage(() => {
         // SSR-safe: return a no-op storage during server render.
         if (typeof window === 'undefined') {
@@ -495,14 +779,18 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown) => {
-        // From v1 we added: visionVersions, envelope/batchSubmission fields on
-        // messages, whyProbesUsed on threads, GENERAL domain. Backfill safely.
+        // v1 → v2 added vision versioning + envelope fields.
+        // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
+        //         (description, estimatedEffort, type, aiGenerated). All optional;
+        //         legacy subtasks render fine without them.
         const s = (persistedState ?? {}) as Record<string, unknown>
         return {
           ...s,
           visionVersions: Array.isArray(s.visionVersions) ? s.visionVersions : [],
+          activities: Array.isArray(s.activities) ? s.activities : [],
+          cachedBreakdowns: Array.isArray(s.cachedBreakdowns) ? s.cachedBreakdowns : [],
           planningMessages: Array.isArray(s.planningMessages)
             ? (s.planningMessages as PlanningMessage[]).map((m) => ({
                 envelope: null,
@@ -517,6 +805,9 @@ export const useKanbanStore = create<KanbanState>()(
                 whyProbesUsed: 0,
                 ...t,
               }))
+            : [],
+          tasks: Array.isArray(s.tasks)
+            ? (s.tasks as Task[]).map((t) => ({ hintDismissed: false, ...t }))
             : [],
         } as KanbanState
       },

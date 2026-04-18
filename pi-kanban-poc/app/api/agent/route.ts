@@ -127,7 +127,7 @@ setInterval(gcSessions, 5 * 60 * 1000).unref?.()
 // ─── Request shape ────────────────────────────────────────────────────────────
 
 interface BaseRequest {
-  mode: 'plan' | 'chat'
+  mode: 'plan' | 'chat' | 'breakdown'
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
 }
 
@@ -156,7 +156,40 @@ interface ChatRequest extends BaseRequest {
   systemPromptOverride?: string
 }
 
-type AgentRequest = PlanRequest | ChatRequest
+// ─── Breakdown agent (Tier 2.5) ──────────────────────────────────────────────
+// Used by the per-task "✨ Break down" flow on the Mission Control board.
+// Stateless (no session cache reuse) — each call is a one-shot. Fed structured
+// project context up front so subtasks are personalised.
+
+interface BreakdownRequest extends BaseRequest {
+  mode: 'breakdown'
+  taskId: string
+  taskTitle: string
+  taskDescription?: string | null
+  taskPriority?: string | null
+  taskKind?: 'research' | 'create' | 'communicate' | 'decide' | 'generic'
+  projectContext?: {
+    name: string
+    description: string | null
+    visionDocument: string | null
+    otherTasks?: Array<{ title: string; status: string }>
+  } | null
+  /** When the user already answered a clarification question, the answer is
+   *  appended here so the agent can re-generate without losing context. */
+  additionalContext?: string | null
+  /** Refine mode (Tier 3.12): pass existing subtasks + user's refine request,
+   *  agent returns a FULL updated subtask list for diff/merge. */
+  refineMode?: boolean
+  existingSubtasks?: Array<{
+    id: string
+    title: string
+    description?: string | null
+    completed?: boolean
+  }>
+  userRefineRequest?: string
+}
+
+type AgentRequest = PlanRequest | ChatRequest | BreakdownRequest
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
@@ -614,6 +647,339 @@ async function handleChat(req: ChatRequest): Promise<Response> {
   })
 }
 
+// ─── Breakdown agent ─────────────────────────────────────────────────────────
+// Separate system-prompt builder + schema so the breakdown contract is
+// documented right next to the handler. The main structural difference vs
+// the planning envelope is: one task → subtasks, no phase transitions.
+
+const BREAKDOWN_SCHEMA_DESCRIPTION = `
+Respond with a SINGLE JSON object (no surrounding text, no markdown fences)
+matching this TypeScript type EXACTLY:
+
+{
+  "taskUnderstanding": string,
+  "subtasks": Array<{
+    "id": string,
+    "title": string,
+    "description": string | null,
+    "estimatedEffort": string | null,
+    "type": "research" | "create" | "communicate" | "decide"
+  }>,
+  "prerequisites": string[],
+  "risks": string[],
+  "needsHumanInput": { "question": string } | null,
+  "confidence": "high" | "medium" | "low"
+}
+
+Rules:
+- "taskUnderstanding" is ONE short sentence confirming you understood the
+  task. Example: "Got it — this is a venue selection task with budget and
+  accessibility as the main constraints."
+- "subtasks" contains 3–7 ACTIONABLE items. Each title begins with an action
+  verb. Each id is stable ("st_<short_slug>"). Effort estimates are in
+  natural units ("30 min", "2 hours", "1 day", "1 week").
+- If the task is too vague or lacks critical information to break down
+  meaningfully, DO NOT fabricate subtasks. Return:
+    subtasks: [], needsHumanInput: { question: "<specific question>" }
+  The question MUST ask for the single most important missing piece. If it
+  has a closed set of answers, end it with "Options: A / B / C".
+- "prerequisites" lists prep the user must do BEFORE starting any subtask
+  (e.g. "Confirm guest count with family"). Empty array if none.
+- "risks" lists pitfalls or time-critical notes. Empty array if none.
+- Output ONLY the JSON object. No prose before/after. No code fences.
+`
+
+// Type-specific prompt sections (Tier 2.6)
+const KIND_GUIDANCE: Record<string, string> = {
+  research: `
+This task is RESEARCH-oriented. Breakdown pattern:
+1. Define criteria / requirements (what "good" looks like)
+2. Gather candidates (where to search, how many)
+3. Evaluate against criteria (comparison matrix or shortlist)
+4. Narrow down (top 3 → top 1)
+5. Final verification (visit, demo, interview, test)
+
+Each subtask must be measurable and time-bounded. Avoid vague verbs like
+"explore" without an endpoint. Do not mix execution steps here.
+`,
+  create: `
+This task is CREATE-oriented. Breakdown pattern:
+1. Clarify requirements (format, length, audience, purpose)
+2. Research references / inspiration (if creative)
+3. Outline / wireframe / skeleton
+4. First draft
+5. Review & iterate
+6. Finalize & publish/submit
+
+Each subtask should be execution-focused and produce an artifact.
+`,
+  communicate: `
+This task is COMMUNICATION-oriented. Breakdown pattern:
+1. Identify audience (exact recipients, how many, segments)
+2. Draft core message (key points, tone, call-to-action)
+3. Choose channel & timing (email / WhatsApp / in-person; when)
+4. Personalize for segments if needed (VIP vs general)
+5. Send + track responses
+6. Follow up on non-responders (if applicable)
+
+Always include specific recipient counts / lists and timing recommendations.
+Avoid generic "notify people" without channel/audience.
+`,
+  decide: `
+This task is DECISION-oriented. Breakdown pattern:
+1. Define decision criteria (what matters, with weights if possible)
+2. List options with pros/cons
+3. Consult stakeholders (if any)
+4. Weigh tradeoffs
+5. Make & document the decision
+6. Communicate decision to affected parties
+
+Each subtask supports analysis and choice, not execution of the chosen path.
+`,
+  generic: `
+Break the task into sequential, actionable steps. Aim for 3–7 subtasks,
+each with a specific action verb and an effort estimate. Do not invent
+subtasks just to fill the list.
+`,
+}
+
+function buildBreakdownSystemPrompt(req: BreakdownRequest): string {
+  const kind = req.taskKind ?? 'generic'
+  const guidance = KIND_GUIDANCE[kind] ?? KIND_GUIDANCE.generic
+
+  const lines: string[] = [
+    'You are a "Step Planner" — a friendly planning partner for non-technical',
+    'users. Your ONLY job is to take ONE task and break it into 3–7 smaller,',
+    'actionable steps. You do NOT execute the task. You do NOT chat beyond the',
+    'JSON response. You do NOT use jargon.',
+    '',
+    '── PROJECT CONTEXT ──────────────────────────────────',
+  ]
+
+  if (req.projectContext) {
+    const ctx = req.projectContext
+    lines.push(`Project: ${ctx.name}`)
+    if (ctx.description) lines.push(`Description: ${ctx.description}`)
+    if (ctx.visionDocument) {
+      const truncated =
+        ctx.visionDocument.length > 2000
+          ? ctx.visionDocument.slice(0, 2000) + '\n…[truncated]'
+          : ctx.visionDocument
+      lines.push('', 'Vision document (what the user is planning):')
+      lines.push('---')
+      lines.push(truncated)
+      lines.push('---')
+    }
+    if (ctx.otherTasks && ctx.otherTasks.length > 0) {
+      lines.push('', 'Other tasks in this project:')
+      for (const t of ctx.otherTasks.slice(0, 20)) {
+        lines.push(`  [${t.status.padEnd(12)}] ${t.title}`)
+      }
+    }
+  } else {
+    lines.push('(No project context provided — break down using task info only.)')
+  }
+
+  lines.push('', '── CURRENT TASK ─────────────────────────────────────')
+  lines.push(`Title: ${req.taskTitle}`)
+  if (req.taskDescription) lines.push(`Description: ${req.taskDescription}`)
+  if (req.taskPriority) lines.push(`Priority: ${req.taskPriority}`)
+
+  lines.push('', '── TASK KIND ────────────────────────────────────────')
+  lines.push(`Detected kind: ${kind}.`)
+  lines.push(guidance.trim())
+
+  if (req.additionalContext) {
+    lines.push('', '── USER CLARIFICATION ───────────────────────────────')
+    lines.push(req.additionalContext)
+    lines.push('')
+    lines.push(
+      'This extra info should FULLY UNBLOCK you. Do NOT return',
+      '"needsHumanInput" again unless something new is missing.',
+    )
+  }
+
+  if (req.refineMode && req.existingSubtasks && req.existingSubtasks.length > 0) {
+    lines.push('', '── REFINEMENT MODE ──────────────────────────────────')
+    lines.push('The user already has these subtasks approved:')
+    lines.push('')
+    for (const st of req.existingSubtasks) {
+      const checkbox = st.completed ? '[✓ DONE]' : '[ TODO ]'
+      lines.push(`  ${checkbox} ${st.id} — ${st.title}`)
+      if (st.description) lines.push(`      ${st.description}`)
+    }
+    if (req.userRefineRequest) {
+      lines.push('', `User request: "${req.userRefineRequest}"`)
+    }
+    lines.push('')
+    lines.push(
+      'Return the FULL updated subtask list. For each subtask:',
+      '- If unchanged, keep same id and content.',
+      '- If modified, keep same id but update fields.',
+      '- If new, assign a new "st_..." id.',
+      '- If removed, OMIT from the list.',
+      '',
+      'Rules:',
+      '- DO NOT modify or remove subtasks marked [✓ DONE] unless the user',
+      '  explicitly requested it in plain language above.',
+      '- DO NOT return "needsHumanInput" in refine mode — if the request is',
+      '  unclear, make your best interpretation and note it in',
+      '  "taskUnderstanding".',
+    )
+  }
+
+  lines.push('', '── OUTPUT FORMAT ────────────────────────────────────')
+  lines.push(BREAKDOWN_SCHEMA_DESCRIPTION)
+
+  return lines.join('\n')
+}
+
+function normalizeBreakdownEnvelope(obj: unknown): {
+  taskUnderstanding: string
+  subtasks: Array<{
+    id: string
+    title: string
+    description: string | null
+    estimatedEffort: string | null
+    type: 'research' | 'create' | 'communicate' | 'decide'
+  }>
+  prerequisites: string[]
+  risks: string[]
+  needsHumanInput: { question: string } | null
+  confidence: 'high' | 'medium' | 'low'
+} {
+  const o = (obj ?? {}) as Record<string, unknown>
+
+  const subtasks = Array.isArray(o.subtasks)
+    ? (o.subtasks as unknown[])
+        .map((raw) => {
+          const s = (raw ?? {}) as Record<string, unknown>
+          if (typeof s.title !== 'string' || s.title.length === 0) return null
+          const type: 'research' | 'create' | 'communicate' | 'decide' =
+            s.type === 'research' || s.type === 'create'
+              || s.type === 'communicate' || s.type === 'decide'
+              ? s.type
+              : 'research'
+          return {
+            id: typeof s.id === 'string' ? s.id : `st_${Math.random().toString(36).slice(2, 10)}`,
+            title: s.title,
+            description: typeof s.description === 'string' ? s.description : null,
+            estimatedEffort: typeof s.estimatedEffort === 'string' ? s.estimatedEffort : null,
+            type,
+          }
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null)
+    : []
+
+  const needsHuman = (() => {
+    const nhi = o.needsHumanInput as Record<string, unknown> | undefined | null
+    if (!nhi || typeof nhi !== 'object') return null
+    const q = (nhi as Record<string, unknown>).question
+    if (typeof q !== 'string' || q.length === 0) return null
+    return { question: q }
+  })()
+
+  const confidence =
+    o.confidence === 'high' || o.confidence === 'medium' || o.confidence === 'low'
+      ? o.confidence
+      : 'medium'
+
+  return {
+    taskUnderstanding:
+      typeof o.taskUnderstanding === 'string' ? o.taskUnderstanding : '',
+    subtasks,
+    prerequisites: Array.isArray(o.prerequisites)
+      ? (o.prerequisites as unknown[]).filter((s): s is string => typeof s === 'string')
+      : [],
+    risks: Array.isArray(o.risks)
+      ? (o.risks as unknown[]).filter((s): s is string => typeof s === 'string')
+      : [],
+    needsHumanInput: needsHuman,
+    confidence,
+  }
+}
+
+async function handleBreakdown(req: BreakdownRequest): Promise<Response> {
+  if (!req.taskTitle?.trim()) {
+    return Response.json({ error: 'taskTitle is required' }, { status: 400 })
+  }
+
+  const systemPrompt = buildBreakdownSystemPrompt(req)
+
+  // Build the user-facing instruction: mostly re-iterate the task for the
+  // model (the real info lives in the system prompt).
+  const userMessage = req.refineMode
+    ? `Refine the subtask list for the task "${req.taskTitle}" based on the instruction above. Output the JSON envelope.`
+    : `Break down the task "${req.taskTitle}" into actionable subtasks. Output the JSON envelope.`
+
+  const session = await buildFreshSession(systemPrompt)
+
+  let assistantText = ''
+  let inputTokens = 0
+  let outputTokens = 0
+
+  const unsubscribe = session.subscribe((event: any) => {
+    if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+      assistantText += event.assistantMessageEvent.delta as string
+    }
+    if (event.type === 'turn_end' && event.message?.usage) {
+      inputTokens += event.message.usage.input ?? 0
+      outputTokens += event.message.usage.output ?? 0
+    }
+  })
+
+  try {
+    await session.prompt(userMessage)
+  } finally {
+    unsubscribe()
+    session.dispose()
+  }
+
+  // Parse (reuse helper from plan envelope path)
+  let parsedRaw: unknown = null
+  let text = assistantText.trim()
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '').trim()
+  }
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      parsedRaw = JSON.parse(text.slice(start, end + 1))
+    } catch {
+      parsedRaw = null
+    }
+  }
+
+  let envelope = parsedRaw
+    ? normalizeBreakdownEnvelope(parsedRaw)
+    : {
+        taskUnderstanding: '',
+        subtasks: [],
+        prerequisites: [],
+        risks: [],
+        needsHumanInput: {
+          question:
+            "Something went wrong parsing the AI response. Can you describe this task in more detail so I can try again?",
+        },
+        confidence: 'low' as const,
+      }
+
+  // Safety: if refineMode, never bubble up needsHumanInput (prompt already
+  // instructs against it but guard anyway — user explicitly asked to refine,
+  // not re-clarify).
+  if (req.refineMode && envelope.needsHumanInput) {
+    envelope = { ...envelope, needsHumanInput: null }
+  }
+
+  return Response.json({
+    envelope,
+    taskId: req.taskId,
+    taskKind: req.taskKind ?? 'generic',
+    tokenUsage: { input: inputTokens, output: outputTokens },
+  })
+}
+
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -627,13 +993,16 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== 'object') {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+  // Breakdown is stateless + doesn't need a messages thread; other modes do.
+  if (body.mode !== 'breakdown'
+      && (!Array.isArray(body.messages) || body.messages.length === 0)) {
     return Response.json({ error: 'messages[] is required' }, { status: 400 })
   }
 
   try {
     if (body.mode === 'plan') return await handlePlan(body)
     if (body.mode === 'chat') return await handleChat(body)
+    if (body.mode === 'breakdown') return await handleBreakdown(body)
     return Response.json(
       { error: `Unknown mode: ${(body as { mode: string }).mode}` },
       { status: 400 },

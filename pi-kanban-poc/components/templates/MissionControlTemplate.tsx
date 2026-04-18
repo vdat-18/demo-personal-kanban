@@ -92,7 +92,6 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
     columnStates: autoModeStates,
     toggle: toggleAutoMode,
     dismissError: dismissAutoModeError,
-    autoProcessingTaskIds,
   } = useColumnAutoMode({ tasks, updateTaskStatus })
 
   const handleDragStart = (e: React.DragEvent, taskId: string, taskStatus: UITaskStatus) => {
@@ -136,7 +135,6 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <KanbanBoard
         tasks={tasks}
         autoModeStates={autoModeStates}
-        autoProcessingTaskIds={autoProcessingTaskIds}
         dragOverColumn={dragOverColumn}
         draggingTaskId={draggingTaskId}
         draggingTaskStatus={draggingTaskStatus}

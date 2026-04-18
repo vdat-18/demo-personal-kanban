@@ -6,7 +6,7 @@ export interface AgentOption {
 }
 
 export const AGENT_OPTIONS: AgentOption[] = [
-  { label: 'Planner Agent', role: 'architect' },
+  { label: 'Step Planner', role: 'breakdown' },
   { label: 'Doer Agent', role: 'developer' },
   { label: 'Reviewer Agent', role: 'reviewer' },
 ]
