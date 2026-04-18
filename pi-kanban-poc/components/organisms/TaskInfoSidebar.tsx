@@ -16,7 +16,18 @@ export interface TaskInfoSidebarProps {
     title: string
     completed: boolean
     description?: string | null
+    output?: string | null
+    doerResult?: {
+      summary: string
+      artifact: string
+      nextAction: string | null
+    } | null
   }>
+  currentStep?: {
+    id: string
+    title: string
+    description?: string | null
+  } | null
   conversations: UIConversation[]
   isStreaming: boolean
   activeAgentLabel: string
@@ -31,6 +42,7 @@ export function TaskInfoSidebar({
   taskStatus,
   taskPriority,
   subtasks = [],
+  currentStep,
   conversations,
   isStreaming,
   activeAgentLabel,
@@ -39,7 +51,7 @@ export function TaskInfoSidebar({
   activityTimeline,
 }: TaskInfoSidebarProps) {
   return (
-    <div className="w-80 overflow-y-auto p-6 flex flex-col gap-6 shrink-0">
+    <div className="w-full h-full overflow-y-auto p-6 flex flex-col gap-6 shrink-0">
       {/* Status Controls */}
       <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
@@ -84,6 +96,19 @@ export function TaskInfoSidebar({
         </div>
       </div>
 
+      {/* Current step */}
+      {currentStep && (
+        <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-sm">
+          <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">
+            Current Step
+          </h3>
+          <p className="font-bold text-sm text-[#0a192f] mb-1">{currentStep.title}</p>
+          {currentStep.description && (
+            <p className="text-xs text-slate-500 leading-relaxed">{currentStep.description}</p>
+          )}
+        </div>
+      )}
+
       {/* Subtasks */}
       {subtasks.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
@@ -100,6 +125,14 @@ export function TaskInfoSidebar({
                   </div>
                   {sub.description && (
                     <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
+                  )}
+                  {sub.doerResult?.summary && (
+                    <div className="mt-1.5 rounded-lg bg-blue-50 border border-blue-100 px-2 py-1.5">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-blue-500 mb-0.5">
+                        AI Output
+                      </div>
+                      <div className="text-[10px] text-blue-900 leading-relaxed">{sub.doerResult.summary}</div>
+                    </div>
                   )}
                 </div>
               </div>

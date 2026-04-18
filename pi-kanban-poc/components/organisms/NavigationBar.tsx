@@ -15,7 +15,7 @@ export function Navigation() {
   const pathname = usePathname()
 
   return (
-    <header className="h-20 px-10 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between sticky top-0 z-50 transition-all">
+    <header className="h-20 px-6 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between sticky top-0 z-50 transition-all">
       <div className="flex items-center gap-12 h-full">
         <Link
           href="/"

@@ -128,7 +128,7 @@ export function ChatPanel({
         {isStreaming && (
           <div className="flex justify-start">
             <AiAvatar className="mr-3 mt-1" />
-            <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-[80%]">
+            <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-[90%]">
               {streamingContent ? (
                 <div className="prose prose-sm max-w-none text-[#0a192f]">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>

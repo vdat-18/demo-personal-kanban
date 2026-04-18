@@ -1,18 +1,19 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChatPanel } from '@/components/organisms/ChatPanel'
 import { TaskInfoSidebar } from '@/components/organisms/TaskInfoSidebar'
 import { TodoStepPlannerPanel } from '@/components/task-chat/TodoStepPlannerPanel'
 import { TaskActivityTimeline } from '@/components/molecules/TaskActivityTimeline'
 import { AGENT_OPTIONS } from '@/components/molecules/AgentSelector'
-import type { UITaskStatus, UIConversation, ChatMsg } from '@/types/domain'
+import type { UITaskStatus, UIConversation, ChatMsg, Subtask } from '@/types/domain'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
 import type { StreamEvent } from '@/lib/hooks/useAgentStream'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import { validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
+import { getNextPendingSubtaskContext, useDoerAgent } from '@/lib/hooks/useDoerAgent'
 
 interface Task {
   id: string
@@ -40,6 +41,8 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   const createConversationInStore = useKanbanStore((s) => s.createConversation)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const allSubtasks = useKanbanStore((s) => s.subtasks)
+  const allTasks = useKanbanStore((s) => s.tasks)
+  const getNextPendingSubtask = useKanbanStore((s) => s.getNextPendingSubtask)
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
     const last = initialTask.conversations[initialTask.conversations.length - 1]
     if (last?.messages?.length) {
@@ -47,6 +50,14 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         role: m.role as 'user' | 'assistant',
         content: m.content,
       }))
+    }
+    if (initialTask.status === 'IN_PROGRESS') {
+      return [
+        {
+          role: 'assistant',
+          content: `You're now in **Doer mode** for task: **${initialTask.title}**.\n\nI'll work through one step at a time and draft the actual output for the current step. When you're happy with it, accept the step and I'll move on.`,
+        },
+      ]
     }
     return [
       {
@@ -60,6 +71,13 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
 
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
+
+  // Keep the selected agent aligned with the task status even when the status
+  // changes after mount (e.g. TODO -> IN_PROGRESS after the user clicks
+  // "Start working"). Without this the selector would stay on Step Planner.
+  useEffect(() => {
+    setActiveAgentIdx(getDefaultAgentIndex(task.status))
+  }, [task.status])
 
   const { startStream, abort, isStreaming, streamingContent, error: streamError } = useAgentStream({
     onProgress: (ev) => {
@@ -135,6 +153,23 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     [allSubtasks, task.id],
   )
 
+  const liveTask = useMemo(
+    () => allTasks.find((t) => t.id === task.id) ?? null,
+    [allTasks, task.id],
+  )
+
+  const doer = useDoerAgent({
+    taskId: task.id,
+    taskTitle: task.title,
+    taskDescription: task.description,
+    taskStatus: task.status,
+  })
+
+  const nextPendingSubtask = useMemo(
+    () => getNextPendingSubtask(task.id),
+    [getNextPendingSubtask, task.id, taskSubtasks],
+  )
+
   const topPanel =
     task.status === 'TODO' ? (
       <TodoStepPlannerPanel
@@ -143,10 +178,19 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         taskStatus={task.status}
         onMoveToInProgress={() => updateTaskStatus('IN_PROGRESS')}
       />
+    ) : task.status === 'IN_PROGRESS' ? (
+      <DoerExecutionPanel
+        taskId={task.id}
+        taskTitle={task.title}
+        subtasks={taskSubtasks}
+        nextPendingSubtask={nextPendingSubtask}
+        doer={doer}
+        onMoveToReview={() => updateTaskStatus('IN_REVIEW')}
+      />
     ) : null
 
   return (
-    <div className="flex h-full w-full bg-[#f8f9fa] font-sans">
+    <div className="flex h-full w-full bg-white font-sans overflow-hidden">
       <ChatPanel
         taskTitle={task.title}
         taskStatus={task.status}
@@ -172,19 +216,215 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         isDone={task.status === 'DONE'}
       />
 
-      <TaskInfoSidebar
-        taskTitle={task.title}
-        taskDescription={task.description}
-        taskStatus={task.status}
-        taskPriority={task.priority}
-        subtasks={taskSubtasks}
-        conversations={task.conversations}
-        isStreaming={isStreaming}
-        activeAgentLabel={activeOption.label}
-        onUpdateStatus={updateTaskStatus}
-        onAbort={abort}
-        activityTimeline={<TaskActivityTimeline taskId={task.id} />}
-      />
+      <div className="w-96 border-l border-gray-100 bg-[#f8f9fa] overflow-hidden flex flex-col">
+        <TaskInfoSidebar
+          taskTitle={task.title}
+          taskDescription={task.description}
+          taskStatus={task.status}
+          taskPriority={task.priority}
+          subtasks={taskSubtasks}
+          currentStep={nextPendingSubtask}
+          conversations={task.conversations}
+          isStreaming={isStreaming}
+          activeAgentLabel={activeOption.label}
+          onUpdateStatus={updateTaskStatus}
+          onAbort={abort}
+          activityTimeline={<TaskActivityTimeline taskId={task.id} />}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Doer execution panel ───────────────────────────────────────────────────
+// Lives in the chat workspace for IN_PROGRESS tasks. This is the primary UI
+// for non-tech users to let the Doer work through the next pending step.
+
+interface DoerExecutionPanelProps {
+  taskId: string
+  taskTitle: string
+  subtasks: Subtask[]
+  nextPendingSubtask: Subtask | null
+  doer: ReturnType<typeof useDoerAgent>
+  onMoveToReview: () => void
+}
+
+function DoerExecutionPanel({
+  taskId,
+  taskTitle,
+  subtasks,
+  nextPendingSubtask,
+  doer,
+  onMoveToReview,
+}: DoerExecutionPanelProps) {
+  const [clarifyAnswer, setClarifyAnswer] = useState('')
+
+  const allDone = subtasks.length > 0 && subtasks.every((s) => s.completed)
+
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 shadow-sm overflow-hidden mb-6">
+      <div className="px-6 py-5 border-b border-blue-100 bg-white/50 flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 mb-1">
+            Doer Workspace
+          </div>
+          <h3 className="text-base font-bold text-[#0a192f] leading-snug">
+            Work through this task one step at a time.
+          </h3>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            The Doer focuses on the next unfinished step, drafts the actual output, and you decide when it is done.
+          </p>
+        </div>
+        {nextPendingSubtask && doer.state === 'idle' && (
+          <button
+            onClick={() => doer.start(nextPendingSubtask.id)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+          >
+            🤖 Do next step
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 space-y-4">
+        {nextPendingSubtask ? (
+          <div className="rounded-2xl bg-white border border-slate-100 p-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">
+              Current step
+            </div>
+            <div className="text-sm font-semibold text-[#0a192f] leading-snug">
+              {nextPendingSubtask.title}
+            </div>
+            {nextPendingSubtask.description && (
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                {nextPendingSubtask.description}
+              </p>
+            )}
+            {nextPendingSubtask.doerResult?.summary && (
+              <div className="mt-3 rounded-xl bg-blue-50/60 border border-blue-100 px-3 py-2">
+                <div className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
+                  Latest AI output
+                </div>
+                <p className="text-[11px] text-blue-900 leading-relaxed">
+                  {nextPendingSubtask.doerResult.summary}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-green-50/60 border border-green-100 px-4 py-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-green-700 mb-1">
+              All steps complete
+            </div>
+            <div className="text-sm font-semibold text-[#0a192f] leading-snug">
+              This task is ready to send to review.
+            </div>
+          </div>
+        )}
+
+        {doer.state === 'working' && (
+          <div className="rounded-2xl bg-violet-50/60 border border-violet-100 px-4 py-3 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse shrink-0" />
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-violet-700">
+                Doer is working
+              </div>
+              <div className="text-[11px] text-violet-600">Drafting output for the current step…</div>
+            </div>
+          </div>
+        )}
+
+        {doer.state === 'needs-input' && doer.envelope?.needsHumanInput && (
+          <div className="rounded-2xl bg-amber-50/70 border border-amber-100 p-4 space-y-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1">
+                The Doer needs one thing
+              </div>
+              <p className="text-[11px] text-amber-900 leading-relaxed">
+                {doer.envelope.needsHumanInput.question}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={clarifyAnswer}
+                onChange={(e) => setClarifyAnswer(e.target.value)}
+                placeholder="Type your answer…"
+                className="flex-1 min-w-0 bg-white border border-amber-200 rounded-xl px-3 py-2 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-amber-400"
+              />
+              <button
+                onClick={() => {
+                  if (!clarifyAnswer.trim()) return
+                  void doer.answerClarification(clarifyAnswer.trim())
+                  setClarifyAnswer('')
+                }}
+                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+
+        {doer.state === 'result' && doer.envelope?.result && nextPendingSubtask && (
+          <div className="rounded-2xl bg-white border border-blue-100 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-blue-100 bg-blue-50/50">
+              <div className="text-[10px] font-black uppercase tracking-wider text-blue-700">
+                Draft output for this step
+              </div>
+            </div>
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-[11px] italic text-slate-600 leading-relaxed">
+                “{doer.envelope.stepUnderstanding}”
+              </p>
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Summary
+                </div>
+                <p className="text-[11px] text-[#0a192f] leading-relaxed">
+                  {doer.envelope.result.summary}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Deliverable
+                </div>
+                <div className="prose prose-sm max-w-none text-[#0a192f] whitespace-pre-wrap">
+                  {doer.envelope.result.artifact}
+                </div>
+              </div>
+              {doer.envelope.result.nextAction && (
+                <div className="text-[11px] text-blue-700 font-medium">
+                  Next: {doer.envelope.result.nextAction}
+                </div>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => doer.acceptCurrentStep()}
+                  className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors"
+                >
+                  Accept step
+                </button>
+                <button
+                  onClick={() => doer.retryCurrentStep()}
+                  className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {allDone && (
+          <div className="flex items-center justify-end">
+            <button
+              onClick={onMoveToReview}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors active:scale-95 shadow-sm"
+            >
+              Send to review
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

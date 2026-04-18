@@ -84,15 +84,11 @@ export function useColumnAutoMode({
       const taskId = activeTaskIdRef.current
       if (!columnId || !taskId) return
 
-      // Local-only verification: read the task from the tasks prop. Since the
-      // agent cannot mutate the store directly (no tools wired), we always
-      // advance to the next status as a heuristic — same behavior as the
-      // previous fallback path when DB verification was unavailable.
-      const localTask = tasksRef.current.find((t) => t.id === taskId)
-      if (localTask) {
-        const nextStatus = getNextStatus(localTask.status)
-        if (nextStatus) await updateTaskStatus(taskId, nextStatus)
-      }
+      // Do NOT blindly advance the task anymore. The legacy heuristic used to
+      // move IN_PROGRESS → IN_REVIEW whenever the stream ended, which was
+      // misleading because the Doer had no tool persistence. Keep the task in
+      // place and let the explicit doer workspace / user action drive the
+      // transition.
 
       activeTaskIdRef.current = null
       activeColumnRef.current = null
