@@ -15,7 +15,7 @@ export function ChatMessageBubble({ role, content, className }: ChatMessageBubbl
     <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'} ${className || ''}`}>
       {role === 'assistant' && <AiAvatar className="mr-3 mt-1" />}
       <div
-        className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
+        className={`max-w-[90%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
           role === 'user'
             ? 'bg-[#0a192f] text-white rounded-br-lg'
             : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'

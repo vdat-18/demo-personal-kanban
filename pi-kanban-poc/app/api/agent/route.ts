@@ -30,6 +30,7 @@ import {
 } from '@mariozechner/pi-coding-agent'
 import type {
   AgentEnvelope,
+  DoerEnvelope,
   PlanningPhase,
   StructuredQuestion,
   StructuredTaskProposal,
@@ -127,7 +128,7 @@ setInterval(gcSessions, 5 * 60 * 1000).unref?.()
 // ─── Request shape ────────────────────────────────────────────────────────────
 
 interface BaseRequest {
-  mode: 'plan' | 'chat' | 'breakdown'
+  mode: 'plan' | 'chat' | 'breakdown' | 'doer'
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
 }
 
@@ -151,6 +152,14 @@ interface PlanRequest extends BaseRequest {
 
 interface ChatRequest extends BaseRequest {
   mode: 'chat'
+  taskTitle?: string
+  taskDescription?: string | null
+  systemPromptOverride?: string
+}
+
+interface DoerRequest extends BaseRequest {
+  mode: 'doer'
+  taskId: string
   taskTitle?: string
   taskDescription?: string | null
   systemPromptOverride?: string
@@ -189,7 +198,7 @@ interface BreakdownRequest extends BaseRequest {
   userRefineRequest?: string
 }
 
-type AgentRequest = PlanRequest | ChatRequest | BreakdownRequest
+type AgentRequest = PlanRequest | ChatRequest | BreakdownRequest | DoerRequest
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
@@ -330,6 +339,29 @@ function buildChatSystemPrompt(req: ChatRequest): string {
   if (req.taskTitle) lines.push('', `Task: ${req.taskTitle}`)
   if (req.taskDescription) lines.push(`Details: ${req.taskDescription}`)
   return lines.join('\n')
+}
+
+function normalizeDoerEnvelope(obj: unknown): DoerEnvelope {
+  const o = (obj ?? {}) as Record<string, unknown>
+  const result = o.result as Record<string, unknown> | null | undefined
+  return {
+    stepUnderstanding: typeof o.stepUnderstanding === 'string' ? o.stepUnderstanding : '',
+    targetSubtaskId: typeof o.targetSubtaskId === 'string' ? o.targetSubtaskId : null,
+    result: result
+      ? {
+          summary: typeof result.summary === 'string' ? result.summary : '',
+          artifact: typeof result.artifact === 'string' ? result.artifact : '',
+          nextAction: typeof result.nextAction === 'string' ? result.nextAction : null,
+        }
+      : null,
+    needsHumanInput:
+      o.needsHumanInput && typeof (o.needsHumanInput as Record<string, unknown>).question === 'string'
+        ? { question: (o.needsHumanInput as Record<string, unknown>).question as string }
+        : null,
+    markSubtaskCompleted: o.markSubtaskCompleted === true,
+    readyForReview: o.readyForReview === true,
+    taskSummary: typeof o.taskSummary === 'string' ? o.taskSummary : null,
+  }
 }
 
 // ─── Envelope parsing & validation ───────────────────────────────────────────
@@ -644,6 +676,73 @@ async function handleChat(req: ChatRequest): Promise<Response> {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
     },
+  })
+}
+
+async function handleDoer(req: DoerRequest): Promise<Response> {
+  const systemPrompt = req.systemPromptOverride ?? [
+    'You are the Doer Agent for a single kanban subtask.',
+    'Return structured JSON only.',
+    req.taskTitle ? `Task: ${req.taskTitle}` : '',
+    req.taskDescription ? `Details: ${req.taskDescription}` : '',
+  ].filter(Boolean).join('\n')
+  const session = await buildFreshSession(systemPrompt)
+
+  const transcript = serializeTranscript(req.messages)
+
+  let assistantText = ''
+  let inputTokens = 0
+  let outputTokens = 0
+
+  const unsubscribe = session.subscribe((event: any) => {
+    if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+      assistantText += event.assistantMessageEvent.delta as string
+    }
+    if (event.type === 'turn_end' && event.message?.usage) {
+      inputTokens += event.message.usage.input ?? 0
+      outputTokens += event.message.usage.output ?? 0
+    }
+  })
+
+  try {
+    await session.prompt(transcript)
+  } finally {
+    unsubscribe()
+    session.dispose()
+  }
+
+  let text = assistantText.trim()
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '').trim()
+  }
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  let envelope: DoerEnvelope | null = null
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      envelope = normalizeDoerEnvelope(JSON.parse(text.slice(start, end + 1)))
+    } catch {
+      envelope = null
+    }
+  }
+
+  if (!envelope) {
+    envelope = {
+      stepUnderstanding: '',
+      targetSubtaskId: null,
+      result: null,
+      needsHumanInput: {
+        question: 'I could not format the work result correctly. Please tell me exactly what kind of deliverable you want from this step.',
+      },
+      markSubtaskCompleted: false,
+      readyForReview: false,
+      taskSummary: null,
+    }
+  }
+
+  return Response.json({
+    envelope,
+    tokenUsage: { input: inputTokens, output: outputTokens },
   })
 }
 
@@ -993,8 +1092,10 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== 'object') {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
-  // Breakdown is stateless + doesn't need a messages thread; other modes do.
+  // Breakdown and doer modes are stateless + don't need a rich messages
+  // thread from the client; other modes do.
   if (body.mode !== 'breakdown'
+      && body.mode !== 'doer'
       && (!Array.isArray(body.messages) || body.messages.length === 0)) {
     return Response.json({ error: 'messages[] is required' }, { status: 400 })
   }
@@ -1003,6 +1104,7 @@ export async function POST(req: NextRequest) {
     if (body.mode === 'plan') return await handlePlan(body)
     if (body.mode === 'chat') return await handleChat(body)
     if (body.mode === 'breakdown') return await handleBreakdown(body)
+    if (body.mode === 'doer') return await handleDoer(body)
     return Response.json(
       { error: `Unknown mode: ${(body as { mode: string }).mode}` },
       { status: 400 },

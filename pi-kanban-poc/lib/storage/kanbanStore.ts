@@ -29,6 +29,7 @@ import type {
   VisionChangeType,
   SubtaskType,
   BreakdownEnvelope,
+  DoerResult,
   TaskActivityEntry,
   TaskActivityType,
   CachedBreakdown,
@@ -108,7 +109,7 @@ interface KanbanState {
   ) => Subtask[]
   updateSubtask: (
     id: string,
-    patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output'>>,
+    patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output' | 'doerResult'>>,
   ) => Subtask | null
   deleteSubtask: (id: string) => void
 
@@ -180,6 +181,11 @@ interface KanbanState {
     resourceLink?: TaskActivityEntry['resourceLink']
   }) => TaskActivityEntry
   getActivitiesForTask: (taskId: string) => TaskActivityEntry[]
+
+  // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────────
+  getNextPendingSubtask: (taskId: string) => Subtask | null
+  saveDoerResult: (taskId: string, subtaskId: string, result: DoerResult) => Subtask | null
+  markSubtaskCompletedByDoer: (taskId: string, subtaskId: string) => Subtask | null
 
   // ─── Cached AI breakdown (Tier 4.15) ───────────────────────────────────────
   saveCachedBreakdown: (input: {
@@ -656,6 +662,70 @@ export const useKanbanStore = create<KanbanState>()(
         return get()
           .activities.filter((a) => a.taskId === taskId)
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      },
+
+      // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────
+      getNextPendingSubtask: (taskId) => {
+        return get()
+          .subtasks
+          .filter((s) => s.taskId === taskId && !s.completed)
+          .sort((a, b) => a.order - b.order)[0] ?? null
+      },
+
+      saveDoerResult: (taskId, subtaskId, result) => {
+        let updated: Subtask | null = null
+        set((s) => ({
+          subtasks: s.subtasks.map((sub) => {
+            if (sub.id !== subtaskId || sub.taskId !== taskId) return sub
+            updated = {
+              ...sub,
+              output: result.artifact,
+              doerResult: result,
+            }
+            return updated
+          }),
+        }))
+        const finalUpdated = updated as Subtask | null
+        if (finalUpdated) {
+          const activity: TaskActivityEntry = {
+            id: uid('act'),
+            taskId,
+            timestamp: now(),
+            type: 'doer_saved_result',
+            actor: 'ai',
+            summary: `AI drafted output for: ${finalUpdated.title}`,
+            metadata: { subtaskId },
+            resourceLink: { type: 'subtask', id: subtaskId },
+          }
+          set((s) => ({ activities: [...s.activities, activity] }))
+        }
+        return finalUpdated
+      },
+
+      markSubtaskCompletedByDoer: (taskId, subtaskId) => {
+        let updated: Subtask | null = null
+        set((s) => ({
+          subtasks: s.subtasks.map((sub) => {
+            if (sub.id !== subtaskId || sub.taskId !== taskId) return sub
+            updated = { ...sub, completed: true }
+            return updated
+          }),
+        }))
+        const finalUpdated = updated as Subtask | null
+        if (finalUpdated) {
+          const activity: TaskActivityEntry = {
+            id: uid('act'),
+            taskId,
+            timestamp: now(),
+            type: 'doer_marked_subtask_complete',
+            actor: 'ai',
+            summary: `AI completed: ${finalUpdated.title}`,
+            metadata: { subtaskId },
+            resourceLink: { type: 'subtask', id: subtaskId },
+          }
+          set((s) => ({ activities: [...s.activities, activity] }))
+        }
+        return finalUpdated
       },
 
       // ─── Cached breakdown (Tier 4.15) ──────────────────────────────────────

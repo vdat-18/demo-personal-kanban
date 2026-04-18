@@ -52,6 +52,13 @@ export interface Subtask {
   completed: boolean
   output: string | null
   order: number
+  /**
+   * Richer artifact produced by the Doer Agent while executing this subtask.
+   * `output` is kept as the plain-text quick path for backwards compatibility,
+   * but the doer flow stores a structured record here so the UI can render a
+   * proper "deliverable" card later (summary + full artifact + next step).
+   */
+  doerResult?: DoerResult | null
 }
 
 export interface Task {
@@ -262,6 +269,44 @@ export interface ChatMsg {
   content: string
 }
 
+// ─── Doer agent (IN_PROGRESS execution) ──────────────────────────────────────
+// The Doer works at the granularity of a single active subtask. It returns a
+// structured envelope so the client can persist artifacts into Subtask.output
+// / Subtask.doerResult and advance the flow without brittle regex parsing.
+
+export interface DoerResult {
+  /** One-sentence summary shown inline in the step list / sidebar. */
+  summary: string
+  /** The actual deliverable artifact (draft, comparison notes, email copy,
+   *  plan, etc.). Markdown allowed. */
+  artifact: string
+  /** Optional natural-language recommendation for what to do next. */
+  nextAction: string | null
+}
+
+export interface DoerEnvelope {
+  /** Short confirmation that the agent understood the current step. */
+  stepUnderstanding: string
+  /** Which subtask this result applies to. */
+  targetSubtaskId: string | null
+  /** Deliverable generated for that subtask. Null when blocked/clarifying. */
+  result: DoerResult | null
+  /**
+   * When the agent lacks critical context, it should ask exactly one focused
+   * question rather than hallucinating a deliverable.
+   */
+  needsHumanInput: { question: string } | null
+  /** Whether the agent believes the current subtask is done well enough to be
+   *  marked completed. The UI still lets the user confirm. */
+  markSubtaskCompleted: boolean
+  /** Whether all subtasks are now complete and the task is ready for review.
+   *  The UI uses this to surface a clear "Send to review" CTA instead of
+   *  auto-advancing status behind the user's back. */
+  readyForReview: boolean
+  /** Optional short summary spanning the whole task when all steps are done. */
+  taskSummary: string | null
+}
+
 // ─── TODO breakdown agent (Tier 2.5) ─────────────────────────────────────────
 // Separate envelope from the planning-phase agent because the shape + rules
 // are different: one task in, structured subtasks out. Reusing the planning
@@ -305,6 +350,11 @@ export type TaskActivityType =
   | 'ai_needed_human_input'
   | 'ai_clarification_answered'
   | 'ai_refined'
+  | 'doer_started_subtask'
+  | 'doer_saved_result'
+  | 'doer_marked_subtask_complete'
+  | 'doer_ready_for_review'
+  | 'doer_needed_human_input'
   | 'subtask_completed'
   | 'subtask_added_manually'
   | 'subtask_removed'
@@ -347,4 +397,3 @@ export interface CachedBreakdown {
    *  rebuilding state from scratch. */
   approvedSubtaskIds: string[]
 }
-
