@@ -1,20 +1,19 @@
 'use client'
 
 import { useMemo } from 'react'
-import { ArrowRight, XCircle, RotateCcw, CheckCircle2, Circle, Sparkles, MessageSquare } from 'lucide-react'
+import { ArrowRight, XCircle, RotateCcw, Sparkles, MessageSquare } from 'lucide-react'
 import { StatusPill } from '@/components/atoms/StatusPill'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { UITaskStatus, Subtask } from '@/types/domain'
+import type { UITaskStatus } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
 /**
- * Task card.
+ * Task card for Kanban board.
  *
- * TODO breakdown logic was intentionally moved out of the card and into the
- * task chat screen so the mental model stays simple: click the task → plan the
- * steps in the main chat workspace. The card now only advertises that workflow
- * (hint / badge) and shows approved subtasks once they exist.
+ * Displays task title and status. Description is visible on hover.
+ * Subtasks and detailed planning are accessible by clicking the task
+ * to open the task chat/detail view.
  */
 
 export interface TaskCardProps {
@@ -40,46 +39,12 @@ export function TaskCard({
   onCancelRequest,
   getNextStatus,
 }: TaskCardProps) {
-  const allSubtasks = useKanbanStore((s) => s.subtasks)
   const allTasks = useKanbanStore((s) => s.tasks)
-  const updateSubtask = useKanbanStore((s) => s.updateSubtask)
-  const logActivity = useKanbanStore((s) => s.logActivity)
-  const allCachedBreakdowns = useKanbanStore((s) => s.cachedBreakdowns)
 
-  const subtasks = useMemo(
-    () => allSubtasks.filter((sub) => sub.taskId === id),
-    [allSubtasks, id],
-  )
   const hintDismissedOnTask = useMemo(
     () => allTasks.find((t) => t.id === id)?.hintDismissed ?? false,
     [allTasks, id],
   )
-
-  const hasSubtasks = subtasks.length > 0
-  const completedCount = subtasks.filter((s) => s.completed).length
-
-  // Check for a cached suggestion only when we don't already have approved subtasks
-  const cached = useMemo(
-    () =>
-      allCachedBreakdowns.find(
-        (c) => c.taskId === id && c.approvedAt == null && c.dismissedAt == null,
-      ) ?? null,
-    [allCachedBreakdowns, id],
-  )
-
-  const handleToggleSubtask = (sub: Subtask) => {
-    const nextCompleted = !sub.completed
-    updateSubtask(sub.id, { completed: nextCompleted })
-    if (nextCompleted) {
-      logActivity({
-        taskId: id,
-        type: 'subtask_completed',
-        actor: 'user',
-        summary: `Completed: ${sub.title}`,
-        resourceLink: { type: 'subtask', id: sub.id },
-      })
-    }
-  }
 
   const isCardActive = status === 'IN_PROGRESS'
   const isBusyUI = false
@@ -119,20 +84,10 @@ export function TaskCard({
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <StatusPill status={status} />
-          {hasSubtasks && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100">
-              {completedCount}/{subtasks.length}
-            </span>
-          )}
-          {!hasSubtasks && status === 'TODO' && (
+          {status === 'TODO' && (
             <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5" />
               Plan in chat
-            </span>
-          )}
-          {!hasSubtasks && cached && status === 'TODO' && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100">
-              AI suggestion ready
             </span>
           )}
         </div>
@@ -185,80 +140,11 @@ export function TaskCard({
         </div>
 
         {description && status !== 'BLOCKED' && (
-          <p className="text-xs text-slate-400 leading-relaxed font-medium line-clamp-2">
+          <p className="text-xs text-slate-400 leading-relaxed font-medium max-h-0 overflow-hidden group-hover:max-h-96 transition-all duration-300">
             {description}
           </p>
         )}
-
-        {!hasSubtasks && status === 'TODO' && !hintDismissedOnTask && (
-          <div className="rounded-xl bg-blue-50/60 border border-blue-100 px-3 py-2 flex items-center gap-2">
-            <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-            <span className="text-[11px] text-blue-700 font-semibold leading-snug">
-              Kanban is generating steps for this task automatically. Open it to review or refine.
-            </span>
-          </div>
-        )}
-
-        {/* ── Subtask checklist (after approval) ───────────────────── */}
-        {hasSubtasks && status !== 'BLOCKED' && (
-          <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-            {subtasks.slice(0, 6).map((sub) => (
-              <SubtaskRow
-                key={sub.id}
-                sub={sub}
-                onToggle={() => handleToggleSubtask(sub)}
-              />
-            ))}
-            {subtasks.length > 6 && (
-              <p className="text-[10px] text-slate-400 pl-4">+ {subtasks.length - 6} more…</p>
-            )}
-            {status === 'TODO' && (
-              <div className="flex items-center gap-1.5 pt-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onUpdateStatus(id, 'IN_PROGRESS')
-                  }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
-                >
-                  🚀 Start working
-                </button>
-                <div className="text-[10px] text-slate-400 font-medium">
-                  Need changes? Open chat to refine.
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
-  )
-}
-
-// ─── Subtask row (checkbox line) ─────────────────────────────────────────────
-
-function SubtaskRow({ sub, onToggle }: { sub: Subtask; onToggle: () => void }) {
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation()
-        onToggle()
-      }}
-      className={`w-full text-left flex items-start gap-1.5 rounded-lg px-1.5 py-1 text-[11px] transition-colors ${
-        sub.completed ? 'text-slate-400 hover:bg-slate-50' : 'text-slate-700 hover:bg-blue-50'
-      }`}
-    >
-      {sub.completed ? (
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-px" />
-      ) : (
-        <Circle className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-px" />
-      )}
-      <span className={`flex-1 min-w-0 leading-snug ${sub.completed ? 'line-through' : 'font-semibold'}`}>
-        {sub.title}
-      </span>
-      {sub.aiGenerated && (
-        <Sparkles className="w-2.5 h-2.5 text-indigo-400 shrink-0 mt-0.5" />
-      )}
-    </button>
   )
 }

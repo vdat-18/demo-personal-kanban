@@ -115,47 +115,50 @@ export function ChatPanel({
         disabled={isStreaming}
       />
 
-      {/* Optional task-specific panel (e.g. TODO step planning) */}
-      {topPanel && <div className="px-6 pt-4 shrink-0">{topPanel}</div>}
+      {/* Main content area (Scrollable) */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Optional task-specific panel (e.g. TODO step planning) */}
+        {topPanel && <div className="px-6 pt-6">{topPanel}</div>}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.map((msg, i) => (
-          <ChatMessageBubble key={i} role={msg.role} content={msg.content} />
-        ))}
+        {/* Messages */}
+        <div className="p-6 space-y-4">
+          {messages.map((msg, i) => (
+            <ChatMessageBubble key={i} role={msg.role} content={msg.content} />
+          ))}
 
-        {/* Live streaming bubble */}
-        {isStreaming && (
-          <div className="flex justify-start">
-            <AiAvatar className="mr-3 mt-1" />
-            <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-[90%]">
-              {streamingContent ? (
-                <div className="prose prose-sm max-w-none text-[#0a192f]">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
-                </div>
-              ) : (
-                <TypingDots />
-              )}
-              {progressEvents.length > 0 && (
-                <div className="flex flex-col gap-1 mt-1">
-                  {progressEvents.map((ev, i) => (
-                    <StreamEventPill key={i} event={ev} />
-                  ))}
-                </div>
-              )}
+          {/* Live streaming bubble */}
+          {isStreaming && (
+            <div className="flex justify-start">
+              <AiAvatar className="mr-3 mt-1" />
+              <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4 flex flex-col gap-2 max-w-[90%]">
+                {streamingContent ? (
+                  <div className="prose prose-sm max-w-none text-[#0a192f]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <TypingDots />
+                )}
+                {progressEvents.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    {progressEvents.map((ev, i) => (
+                      <StreamEventPill key={i} event={ev} />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Stream error banner */}
-        {streamError && !isStreaming && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-xs text-red-600 font-medium">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{streamError}</span>
-          </div>
-        )}
+          {/* Stream error banner */}
+          {streamError && !isStreaming && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-xs text-red-600 font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{streamError}</span>
+            </div>
+          )}
 
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Input bar */}

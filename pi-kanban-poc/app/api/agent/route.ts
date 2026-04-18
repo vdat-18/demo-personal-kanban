@@ -31,6 +31,7 @@ import {
 import type {
   AgentEnvelope,
   DoerEnvelope,
+  ReviewerEnvelope,
   PlanningPhase,
   StructuredQuestion,
   StructuredTaskProposal,
@@ -128,7 +129,7 @@ setInterval(gcSessions, 5 * 60 * 1000).unref?.()
 // ─── Request shape ────────────────────────────────────────────────────────────
 
 interface BaseRequest {
-  mode: 'plan' | 'chat' | 'breakdown' | 'doer'
+  mode: 'plan' | 'chat' | 'breakdown' | 'doer' | 'reviewer'
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
 }
 
@@ -159,6 +160,14 @@ interface ChatRequest extends BaseRequest {
 
 interface DoerRequest extends BaseRequest {
   mode: 'doer'
+  taskId: string
+  taskTitle?: string
+  taskDescription?: string | null
+  systemPromptOverride?: string
+}
+
+interface ReviewerRequest extends BaseRequest {
+  mode: 'reviewer'
   taskId: string
   taskTitle?: string
   taskDescription?: string | null
@@ -198,7 +207,7 @@ interface BreakdownRequest extends BaseRequest {
   userRefineRequest?: string
 }
 
-type AgentRequest = PlanRequest | ChatRequest | BreakdownRequest | DoerRequest
+type AgentRequest = PlanRequest | ChatRequest | BreakdownRequest | DoerRequest | ReviewerRequest
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
@@ -361,6 +370,46 @@ function normalizeDoerEnvelope(obj: unknown): DoerEnvelope {
     markSubtaskCompleted: o.markSubtaskCompleted === true,
     readyForReview: o.readyForReview === true,
     taskSummary: typeof o.taskSummary === 'string' ? o.taskSummary : null,
+  }
+}
+
+function normalizeReviewerEnvelope(obj: unknown): ReviewerEnvelope {
+  const o = (obj ?? {}) as Record<string, unknown>
+  const taskReview = o.taskReview as Record<string, unknown> | null | undefined
+  const stepReviewsRaw = Array.isArray(o.stepReviews) ? o.stepReviews : []
+  return {
+    reviewUnderstanding:
+      typeof o.reviewUnderstanding === 'string' ? o.reviewUnderstanding : '',
+    taskReview: taskReview
+      ? {
+          summary: typeof taskReview.summary === 'string' ? taskReview.summary : '',
+          findings: Array.isArray(taskReview.findings)
+            ? taskReview.findings.filter((f): f is string => typeof f === 'string')
+            : [],
+          recommendation:
+            typeof taskReview.recommendation === 'string'
+              ? taskReview.recommendation
+              : null,
+        }
+      : null,
+    stepReviews: stepReviewsRaw.map((raw) => {
+      const s = raw as Record<string, unknown>
+      return {
+        subtaskId: typeof s.subtaskId === 'string' ? s.subtaskId : '',
+        summary: typeof s.summary === 'string' ? s.summary : '',
+        findings: Array.isArray(s.findings)
+          ? s.findings.filter((f): f is string => typeof f === 'string')
+          : [],
+        recommendation:
+          typeof s.recommendation === 'string' ? s.recommendation : null,
+      }
+    }).filter((r) => r.subtaskId.length > 0),
+    needsHumanInput:
+      o.needsHumanInput && typeof (o.needsHumanInput as Record<string, unknown>).question === 'string'
+        ? { question: (o.needsHumanInput as Record<string, unknown>).question as string }
+        : null,
+    approveTask: o.approveTask === true,
+    changeRequest: typeof o.changeRequest === 'string' ? o.changeRequest : null,
   }
 }
 
@@ -746,6 +795,72 @@ async function handleDoer(req: DoerRequest): Promise<Response> {
   })
 }
 
+async function handleReviewer(req: ReviewerRequest): Promise<Response> {
+  const systemPrompt = req.systemPromptOverride ?? [
+    'You are the Reviewer Agent for a kanban task.',
+    'Return structured JSON only.',
+    req.taskTitle ? `Task: ${req.taskTitle}` : '',
+    req.taskDescription ? `Details: ${req.taskDescription}` : '',
+  ].filter(Boolean).join('\n')
+  const session = await buildFreshSession(systemPrompt)
+
+  const transcript = serializeTranscript(req.messages)
+
+  let assistantText = ''
+  let inputTokens = 0
+  let outputTokens = 0
+
+  const unsubscribe = session.subscribe((event: any) => {
+    if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+      assistantText += event.assistantMessageEvent.delta as string
+    }
+    if (event.type === 'turn_end' && event.message?.usage) {
+      inputTokens += event.message.usage.input ?? 0
+      outputTokens += event.message.usage.output ?? 0
+    }
+  })
+
+  try {
+    await session.prompt(transcript)
+  } finally {
+    unsubscribe()
+    session.dispose()
+  }
+
+  let text = assistantText.trim()
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '').trim()
+  }
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  let envelope: ReviewerEnvelope | null = null
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      envelope = normalizeReviewerEnvelope(JSON.parse(text.slice(start, end + 1)))
+    } catch {
+      envelope = null
+    }
+  }
+
+  if (!envelope) {
+    envelope = {
+      reviewUnderstanding: '',
+      taskReview: null,
+      stepReviews: [],
+      needsHumanInput: {
+        question: 'I could not format the review result correctly. Please tell me what quality standard you want me to review against.',
+      },
+      approveTask: false,
+      changeRequest: null,
+    }
+  }
+
+  return Response.json({
+    envelope,
+    tokenUsage: { input: inputTokens, output: outputTokens },
+  })
+}
+
 // ─── Breakdown agent ─────────────────────────────────────────────────────────
 // Separate system-prompt builder + schema so the breakdown contract is
 // documented right next to the handler. The main structural difference vs
@@ -1096,6 +1211,7 @@ export async function POST(req: NextRequest) {
   // thread from the client; other modes do.
   if (body.mode !== 'breakdown'
       && body.mode !== 'doer'
+      && body.mode !== 'reviewer'
       && (!Array.isArray(body.messages) || body.messages.length === 0)) {
     return Response.json({ error: 'messages[] is required' }, { status: 400 })
   }
@@ -1105,6 +1221,7 @@ export async function POST(req: NextRequest) {
     if (body.mode === 'chat') return await handleChat(body)
     if (body.mode === 'breakdown') return await handleBreakdown(body)
     if (body.mode === 'doer') return await handleDoer(body)
+    if (body.mode === 'reviewer') return await handleReviewer(body)
     return Response.json(
       { error: `Unknown mode: ${(body as { mode: string }).mode}` },
       { status: 400 },

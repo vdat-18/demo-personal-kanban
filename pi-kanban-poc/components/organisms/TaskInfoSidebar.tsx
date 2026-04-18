@@ -2,7 +2,7 @@
 
 import { StopCircle } from 'lucide-react'
 import { ConversationHistoryPanel } from '@/components/molecules/ConversationHistoryPanel'
-import type { UITaskStatus, UIConversation } from '@/types/domain'
+import type { UITaskStatus, UIConversation, SubtaskApprovalStatus } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
@@ -11,12 +11,13 @@ export interface TaskInfoSidebarProps {
   taskDescription: string | null
   taskStatus: UITaskStatus
   taskPriority: string
-  subtasks?: Array<{
+subtasks?: Array<{
     id: string
     title: string
     completed: boolean
     description?: string | null
     output?: string | null
+    approvalStatus?: SubtaskApprovalStatus | null
     doerResult?: {
       summary: string
       artifact: string
@@ -109,16 +110,16 @@ export function TaskInfoSidebar({
         </div>
       )}
 
-      {/* Subtasks */}
-      {subtasks.length > 0 && (
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+{/* Subtasks - Steps (approved) */}
+      {subtasks.filter(s => s.approvalStatus === 'approved').length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-green-100 shadow-sm">
+          <h3 className="text-xs font-black text-green-600 uppercase tracking-widest mb-3">
             Steps
           </h3>
           <div className="space-y-1.5">
-            {subtasks.map((sub) => (
-              <div key={sub.id} className={`flex items-start gap-2 rounded-xl px-2 py-1 ${sub.completed ? 'bg-slate-50' : 'bg-indigo-50/40'}`}>
-                <span className="mt-0.5 text-[11px]">{sub.completed ? '☑' : '☐'}</span>
+            {subtasks.filter(s => s.approvalStatus === 'approved').map((sub) => (
+              <div key={sub.id} className={`flex items-start gap-2 rounded-xl px-2 py-1 ${sub.completed ? 'bg-slate-50' : 'bg-green-50/40'}`}>
+                <span className="mt-0.5 text-[11px] text-green-600">{sub.completed ? '☑' : '☐'}</span>
                 <div className="min-w-0 flex-1">
                   <div className={`text-xs font-semibold leading-snug ${sub.completed ? 'line-through text-slate-400' : 'text-[#0a192f]'}`}>
                     {sub.title}
@@ -133,6 +134,30 @@ export function TaskInfoSidebar({
                       </div>
                       <div className="text-[10px] text-blue-900 leading-relaxed">{sub.doerResult.summary}</div>
                     </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Subtasks - Denied */}
+      {subtasks.filter(s => s.approvalStatus === 'denied').length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-red-100 shadow-sm">
+          <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-3">
+            Denied
+          </h3>
+          <div className="space-y-1.5">
+            {subtasks.filter(s => s.approvalStatus === 'denied').map((sub) => (
+              <div key={sub.id} className="flex items-start gap-2 rounded-xl px-2 py-1 bg-red-50/40">
+                <span className="mt-0.5 text-[11px] text-red-500">✗</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold leading-snug text-[#0a192f]">
+                    {sub.title}
+                  </div>
+                  {sub.description && (
+                    <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
                   )}
                 </div>
               </div>

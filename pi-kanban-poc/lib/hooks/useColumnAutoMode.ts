@@ -84,11 +84,16 @@ export function useColumnAutoMode({
       const taskId = activeTaskIdRef.current
       if (!columnId || !taskId) return
 
-      // Do NOT blindly advance the task anymore. The legacy heuristic used to
-      // move IN_PROGRESS → IN_REVIEW whenever the stream ended, which was
-      // misleading because the Doer had no tool persistence. Keep the task in
-      // place and let the explicit doer workspace / user action drive the
-      // transition.
+      // Do NOT blindly advance the task anymore.
+      //
+      // Historical behavior was:
+      //   IN_PROGRESS -> IN_REVIEW when stream ended
+      //   IN_REVIEW   -> DONE      when stream ended
+      //
+      // That created false expectations because neither Doer nor Reviewer had
+      // persisted artifacts / human checkpoints. We now keep the task in its
+      // current column and let the dedicated workspace + explicit human action
+      // decide the transition.
 
       activeTaskIdRef.current = null
       activeColumnRef.current = null
