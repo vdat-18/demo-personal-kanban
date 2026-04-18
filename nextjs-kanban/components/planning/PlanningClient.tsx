@@ -22,6 +22,7 @@ import {
 import type { PlanningPhase } from '@/lib/hooks/usePlanningThreads'
 import { usePlanningMessages, useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import type { PlanningMessage } from '@/lib/hooks/usePlanningMessages'
+import { FetchError } from '@/lib/hooks/usePlanningMessages'
 
 interface Task {
   id: string
@@ -159,6 +160,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [currentVisionDoc, setCurrentVisionDoc] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([])
+  const [badThreads, setBadThreads] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -191,6 +193,18 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     }
   }, [activeThread?.id, activeThread?.phase, activeThread?.visionDocument])
 
+  // ─── Reset stale thread ID only when the thread no longer exists in the current list ─
+  useEffect(() => {
+    if (!messagesError || !activeThreadId) return
+
+    const threadExists = threads.some((thread) => thread.id === activeThreadId)
+    if (threadExists) return
+
+    setActiveThreadId(null)
+    isCreatingThread.current = false
+    qc.invalidateQueries({ queryKey: ['planning-threads', initialProject.id] })
+  }, [messagesError, activeThreadId, threads, initialProject.id, qc])
+
   // ─── Auto-select or auto-create first thread ──────────────────────────────
   const isCreatingThread = useRef(false)
   useEffect(() => {
@@ -199,8 +213,19 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     // where an old cached thread ID no longer exists in the DB.
     if (threadsLoading || threadsFetching) return
 
-    if (threads.length > 0 && !activeThreadId) {
-      setActiveThreadId(threads[0].id)
+    const availableThreads = threads.filter(t => !badThreads.includes(t.id))
+    if (availableThreads.length > 0 && !activeThreadId) {
+      setActiveThreadId(availableThreads[0].id)
+    } else if (availableThreads.length === 0 && threads.length > 0 && !isCreatingThread.current) {
+      // All threads are bad, create a new one
+      isCreatingThread.current = true
+      createThread.mutate(
+        { projectId: initialProject.id },
+        {
+          onSuccess: (thread) => setActiveThreadId(thread.id),
+          onError: () => { isCreatingThread.current = false },
+        },
+      )
     } else if (threads.length === 0 && !isCreatingThread.current) {
       isCreatingThread.current = true
       createThread.mutate(
@@ -212,11 +237,14 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       )
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threads, threadsLoading, threadsFetching, activeThreadId, initialProject.id])
+  }, [threads, threadsLoading, threadsFetching, activeThreadId, initialProject.id, badThreads])
 
   // ─── Reset stale thread ID if it no longer exists in DB (e.g. after restart) ─
   useEffect(() => {
     if (messagesError && activeThreadId) {
+      if (messagesError instanceof FetchError && messagesError.status === 404) {
+        setBadThreads(prev => prev.includes(activeThreadId) ? prev : [...prev, activeThreadId])
+      }
       // Thread ID is invalid (404 or gone) — clear it so the effect above
       // will either select another thread or create a fresh one.
       setActiveThreadId(null)
