@@ -1,35 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { ArrowRight, XCircle, RotateCcw, CheckCircle2, Circle, Sparkles } from 'lucide-react'
+import { useMemo } from 'react'
+import { ArrowRight, XCircle, RotateCcw, CheckCircle2, Circle, Sparkles, MessageSquare } from 'lucide-react'
 import { StatusPill } from '@/components/atoms/StatusPill'
-import {
-  BreakdownEmptyHint,
-  BreakdownActionButton,
-  BreakdownLoadingCard,
-  BreakdownErrorCard,
-  CachedSuggestionBanner,
-} from '@/components/molecules/BreakdownPrimitives'
-import { BreakdownPreviewCard } from '@/components/molecules/BreakdownPreviewCard'
-import { BreakdownNeedInputCard } from '@/components/molecules/BreakdownNeedInputCard'
-import { BreakdownRefineDialog } from '@/components/molecules/BreakdownRefineDialog'
-import { useBreakdownAgent } from '@/lib/hooks/useBreakdownAgent'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { UITaskStatus, Subtask, SubtaskProposal } from '@/types/domain'
+import type { UITaskStatus, Subtask } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 
 /**
- * Task card with inline breakdown flow (Tier 1.4).
+ * Task card.
  *
- * State sources:
- *   - Task fields (title, status, priority) from props.
- *   - Subtasks + activities + cached breakdown from the store directly.
- *   - Breakdown agent transient state from useBreakdownAgent hook.
- *
- * We render UI states in priority order (loading > error > need-input > preview
- *   > cached-banner > has-subtasks > empty-hint).
- * Only ONE card-attached UI state is visible at a time to avoid visual noise.
+ * TODO breakdown logic was intentionally moved out of the card and into the
+ * task chat screen so the mental model stays simple: click the task → plan the
+ * steps in the main chat workspace. The card now only advertises that workflow
+ * (hint / badge) and shows approved subtasks once they exist.
  */
 
 export interface TaskCardProps {
@@ -55,68 +40,32 @@ export function TaskCard({
   onCancelRequest,
   getNextStatus,
 }: TaskCardProps) {
-  const subtasks = useKanbanStore((s) => s.subtasks.filter((sub) => sub.taskId === id))
-  const hintDismissedOnTask = useKanbanStore((s) => s.tasks.find((t) => t.id === id)?.hintDismissed ?? false)
-  const dismissTaskHint = useKanbanStore((s) => s.dismissTaskHint)
-  const getCachedBreakdownForTask = useKanbanStore((s) => s.getCachedBreakdownForTask)
-  const markCachedBreakdownDismissed = useKanbanStore((s) => s.markCachedBreakdownDismissed)
+  const allSubtasks = useKanbanStore((s) => s.subtasks)
+  const allTasks = useKanbanStore((s) => s.tasks)
   const updateSubtask = useKanbanStore((s) => s.updateSubtask)
   const logActivity = useKanbanStore((s) => s.logActivity)
+  const allCachedBreakdowns = useKanbanStore((s) => s.cachedBreakdowns)
 
-  const breakdown = useBreakdownAgent(id)
-  const [showRefineDialog, setShowRefineDialog] = useState(false)
+  const subtasks = useMemo(
+    () => allSubtasks.filter((sub) => sub.taskId === id),
+    [allSubtasks, id],
+  )
+  const hintDismissedOnTask = useMemo(
+    () => allTasks.find((t) => t.id === id)?.hintDismissed ?? false,
+    [allTasks, id],
+  )
 
   const hasSubtasks = subtasks.length > 0
   const completedCount = subtasks.filter((s) => s.completed).length
 
   // Check for a cached suggestion only when we don't already have approved subtasks
-  const cached = useKanbanStore((s) => s.cachedBreakdowns.find((c) => c.taskId === id && c.approvedAt == null && c.dismissedAt == null))
-
-  const showCachedBanner =
-    breakdown.state === 'idle'
-    && !hasSubtasks
-    && cached != null
-    && !!cached
-
-  // Empty hint — only when no subtasks, no cached suggestion, not dismissed,
-  // and the breakdown hook is idle (no in-flight flow).
-  const showEmptyHint =
-    breakdown.state === 'idle'
-    && !hasSubtasks
-    && !cached
-    && !hintDismissedOnTask
-    && status === 'TODO'
-
-  const pulseHint = useMemo(() => {
-    // Pulse only if the user has never completed a breakdown for ANY task yet.
-    // Cheap heuristic: no subtasks exist anywhere.
-    // We intentionally don't subscribe — check once per render at component
-    // level. The worst case is a stale pulse after the first approve, fine.
-    if (typeof window === 'undefined') return false
-    const globallyDismissed = window.localStorage.getItem('pi-kanban-poc:breakdown-hint-dismissed') === '1'
-    return !globallyDismissed
-  }, [])
-
-  const handleStartBreakdown = async () => {
-    await breakdown.startBreakdown()
-  }
-
-  const handleOpenRefine = () => {
-    setShowRefineDialog(true)
-  }
-
-  const handleSubmitRefine = async (request: string) => {
-    setShowRefineDialog(false)
-    // Convert current store subtasks → SubtaskProposal-ish shape for the hook.
-    const existing: SubtaskProposal[] = subtasks.map((s) => ({
-      id: s.id,
-      title: s.title,
-      description: s.description ?? null,
-      estimatedEffort: s.estimatedEffort ?? null,
-      type: (s.type ?? 'custom') as SubtaskProposal['type'],
-    }))
-    await breakdown.refine({ userRefineRequest: request, existingSubtasks: existing })
-  }
+  const cached = useMemo(
+    () =>
+      allCachedBreakdowns.find(
+        (c) => c.taskId === id && c.approvedAt == null && c.dismissedAt == null,
+      ) ?? null,
+    [allCachedBreakdowns, id],
+  )
 
   const handleToggleSubtask = (sub: Subtask) => {
     const nextCompleted = !sub.completed
@@ -133,7 +82,7 @@ export function TaskCard({
   }
 
   const isCardActive = status === 'IN_PROGRESS'
-  const isBusyUI = breakdown.isBusy
+  const isBusyUI = false
 
   return (
     <div
@@ -170,14 +119,20 @@ export function TaskCard({
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <StatusPill status={status} />
-          {isBusyUI && (
-            <span className="text-[9px] font-black px-2.5 py-1 rounded-[0.5rem] tracking-[0.15em] uppercase bg-violet-50 text-violet-600 border border-violet-200 animate-pulse">
-              Thinking
-            </span>
-          )}
           {hasSubtasks && (
             <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100">
               {completedCount}/{subtasks.length}
+            </span>
+          )}
+          {!hasSubtasks && status === 'TODO' && (
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5" />
+              Plan in chat
+            </span>
+          )}
+          {!hasSubtasks && cached && status === 'TODO' && (
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100">
+              AI suggestion ready
             </span>
           )}
         </div>
@@ -235,6 +190,15 @@ export function TaskCard({
           </p>
         )}
 
+        {!hasSubtasks && status === 'TODO' && !hintDismissedOnTask && (
+          <div className="rounded-xl bg-blue-50/60 border border-blue-100 px-3 py-2 flex items-center gap-2">
+            <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="text-[11px] text-blue-700 font-semibold leading-snug">
+              Kanban is generating steps for this task automatically. Open it to review or refine.
+            </span>
+          </div>
+        )}
+
         {/* ── Subtask checklist (after approval) ───────────────────── */}
         {hasSubtasks && status !== 'BLOCKED' && (
           <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
@@ -259,112 +223,13 @@ export function TaskCard({
                 >
                   🚀 Start working
                 </button>
-                <BreakdownActionButton
-                  label="Refine"
-                  variant="secondary"
-                  onClick={handleOpenRefine}
-                  disabled={breakdown.isBusy}
-                />
+                <div className="text-[10px] text-slate-400 font-medium">
+                  Need changes? Open chat to refine.
+                </div>
               </div>
             )}
           </div>
         )}
-
-        {/* ── Refine dialog ───────────────────────────────────────── */}
-        {showRefineDialog && (
-          <BreakdownRefineDialog
-            subtaskCount={subtasks.length}
-            onSubmit={handleSubmitRefine}
-            onCancel={() => setShowRefineDialog(false)}
-            disabled={breakdown.isBusy}
-          />
-        )}
-
-        {/* ── Breakdown agent states (mutually exclusive) ─────────── */}
-        {breakdown.state === 'loading' && (
-          <BreakdownLoadingCard
-            queueLabel={
-              breakdown.queuePosition > 0
-                ? `Queued — ${breakdown.queuePosition} ahead`
-                : null
-            }
-            onCancel={() => breakdown.resetLocal()}
-          />
-        )}
-        {breakdown.state === 'queued' && (
-          <BreakdownLoadingCard
-            queueLabel={`Queued — ${Math.max(breakdown.queuePosition, 0)} ahead`}
-            onCancel={() => breakdown.resetLocal()}
-          />
-        )}
-        {breakdown.state === 'error' && breakdown.error && (
-          <BreakdownErrorCard
-            error={breakdown.error}
-            onRetry={() => breakdown.startBreakdown()}
-            onDismiss={() => breakdown.resetLocal()}
-          />
-        )}
-        {breakdown.state === 'needs-input' && breakdown.envelope?.needsHumanInput && (
-          <BreakdownNeedInputCard
-            question={breakdown.envelope.needsHumanInput.question}
-            onAnswer={(a) => breakdown.answerClarification(a)}
-            onSkip={() =>
-              breakdown.answerClarification(
-                'User opted to skip this question — proceed with best-effort assumptions.',
-              )
-            }
-            onDismiss={() => breakdown.dismiss()}
-            disabled={breakdown.isBusy}
-          />
-        )}
-        {breakdown.state === 'preview' && breakdown.envelope && (
-          <BreakdownPreviewCard
-            envelope={breakdown.envelope}
-            onApprove={breakdown.approve}
-            onDismiss={() => breakdown.dismiss()}
-            onRefineRequest={hasSubtasks ? handleOpenRefine : undefined}
-            hideRefine={!hasSubtasks}
-            disabled={breakdown.isBusy}
-          />
-        )}
-
-        {/* ── Cached suggestion banner (no current flow, no subtasks yet) */}
-        {showCachedBanner && cached && (
-          <CachedSuggestionBanner
-            generatedAt={cached.generatedAt}
-            count={cached.envelope.subtasks.length}
-            onReview={() => breakdown.loadFromCacheIfAvailable()}
-            onRefresh={() => breakdown.startBreakdown()}
-            onDismiss={() => {
-              markCachedBreakdownDismissed(id)
-            }}
-          />
-        )}
-
-        {/* ── Empty-state hint (TODO + no subtasks + no cache) ─────── */}
-        {showEmptyHint && (
-          <BreakdownEmptyHint
-            onStart={handleStartBreakdown}
-            onDismissHint={() => dismissTaskHint(id)}
-            showPulse={pulseHint}
-          />
-        )}
-
-        {/* ── Fallback button for non-TODO columns with no subtasks ── */}
-        {!hasSubtasks
-          && !showEmptyHint
-          && !showCachedBanner
-          && breakdown.state === 'idle'
-          && status !== 'BLOCKED'
-          && status !== 'DONE' && (
-            <div className="pt-1">
-              <BreakdownActionButton
-                label="Break into steps"
-                variant="secondary"
-                onClick={handleStartBreakdown}
-              />
-            </div>
-          )}
       </div>
     </div>
   )

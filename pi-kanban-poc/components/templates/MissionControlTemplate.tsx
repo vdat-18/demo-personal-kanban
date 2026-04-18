@@ -6,6 +6,7 @@ import { KanbanBoard } from '@/components/organisms/KanbanBoard'
 import { KanbanHeader } from '@/components/organisms/KanbanHeader'
 import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
+import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
 import type { UITaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -121,6 +122,8 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
 
   return (
     <div className="flex flex-col h-full w-full bg-[#f0f2f5] overflow-hidden font-sans">
+      <TodoBreakdownAutoRunner projectId={project.id} tasks={tasks} />
+
       <KanbanHeader
         projectName={project.name}
         projectDescription={project.description}
