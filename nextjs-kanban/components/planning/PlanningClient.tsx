@@ -114,47 +114,45 @@ function VisionDocumentPanel({ visionDocument }: { visionDocument: string | null
 
 // ── Phase Progress Bar ───────────────────────────────────────────────────────
 
-function PhaseProgressBar({ phase }: { phase: PlanningPhase }) {
+function PhaseStepper({ phase }: { phase: PlanningPhase }) {
   const phases: PlanningPhase[] = ['discovery', 'blueprint', 'task_mapping']
   const currentStep = PHASE_CONFIG[phase].step
 
   return (
-    <div className="flex items-center justify-center gap-0 px-8 py-6 border-b border-gray-100 bg-white/50 backdrop-blur-sm shrink-0">
-      <div className="flex items-center gap-2 max-w-4xl w-full">
-        {phases.map((p, idx) => {
-          const cfg = PHASE_CONFIG[p]
-          const Icon = cfg.icon
-          const isActive = p === phase
-          const isDone = cfg.step < currentStep
+    <div className="flex items-center gap-0">
+      {phases.map((p, idx) => {
+        const cfg = PHASE_CONFIG[p]
+        const Icon = cfg.icon
+        const isActive = p === phase
+        const isDone = cfg.step < currentStep
 
-          return (
-            <div key={p} className="flex items-center gap-2 flex-1">
-              <div className={`flex items-center gap-2.5 px-5 py-2.5 rounded-3xl text-[11px] font-black transition-all duration-300 ${
-                isActive
-                  ? `${cfg.bg} ${cfg.color} shadow-lg shadow-blue-500/10 border ${cfg.border} scale-105`
-                  : isDone
-                    ? 'bg-green-50 text-green-600 border border-green-100 opacity-80'
-                    : 'bg-gray-50 text-gray-400 border border-transparent opacity-50'
-              }`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isActive ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? cfg.color : isDone ? 'text-green-500' : 'text-gray-400'}`} />
-                </div>
-                <span className="uppercase tracking-[0.1em]">{cfg.label}</span>
-                {isDone && (
-                  <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                    <span className="text-[8px] text-white">✓</span>
-                  </div>
-                )}
+        return (
+          <div key={p} className="flex items-center">
+            <div className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-[10px] font-black transition-all duration-300 ${
+              isActive
+                ? `${cfg.bg} ${cfg.color} shadow-sm border ${cfg.border} scale-105`
+                : isDone
+                  ? 'bg-green-50 text-green-600 border border-green-100 opacity-80'
+                  : 'bg-transparent text-gray-400 opacity-40'
+            }`}>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isActive ? 'bg-white shadow-sm' : 'bg-transparent'}`}>
+                <Icon className={`w-3 h-3 ${isActive ? cfg.color : isDone ? 'text-green-500' : 'text-gray-400'}`} />
               </div>
-              {idx < phases.length - 1 && (
-                <div className="flex-1 px-2">
-                  <div className={`h-[2px] w-full rounded-full transition-all duration-500 ${isDone ? 'bg-green-200' : 'bg-gray-100'}`} />
+              <span className="uppercase tracking-[0.1em]">{cfg.label}</span>
+              {isDone && (
+                <div className="ml-1 w-3.5 h-3.5 rounded-full bg-green-500 flex items-center justify-center">
+                  <span className="text-[7px] text-white">✓</span>
                 </div>
               )}
             </div>
-          )
-        })}
-      </div>
+            {idx < phases.length - 1 && (
+              <div className="px-4">
+                <div className={`h-[1px] w-12 rounded-full transition-all duration-500 ${isDone ? 'bg-green-200' : 'bg-gray-100'}`} />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -410,38 +408,42 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       {/* Center: Chat Panel */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
         {/* Header */}
-        <header className="h-20 px-8 border-b border-gray-100 flex items-center gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/')}
-              className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
-              title="Back to Projects"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            {!isSidebarOpen && (
+        <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsSidebarOpen(true)}
+                onClick={() => router.push('/')}
                 className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
-                title="Expand Sidebar"
+                title="Back to Projects"
               >
-                <PanelLeftOpen className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
               </button>
-            )}
+              {!isSidebarOpen && (
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
+                  title="Expand Sidebar"
+                >
+                  <PanelLeftOpen className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-black text-sm text-[#0a192f] tracking-tight">{initialProject.name}</h1>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Planning Intelligence</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-black text-sm text-[#0a192f] tracking-tight">{initialProject.name}</h1>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Planning Intelligence</p>
+
+          <div className="hidden md:block">
+            <PhaseStepper phase={currentPhase} />
           </div>
+
           {/* Phase badge in header */}
           <div className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-[10px] font-black ${phaseConfig.bg} ${phaseConfig.color} border ${phaseConfig.border} shadow-sm transition-all animate-in fade-in zoom-in duration-500`}>
             <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
             <span className="uppercase tracking-[0.15em]">{phaseConfig.label}</span>
           </div>
         </header>
-
-        {/* Phase Progress Bar */}
-        <PhaseProgressBar phase={currentPhase} />
 
         {/* Vision Document Panel */}
         <VisionDocumentPanel visionDocument={currentVisionDoc} />
