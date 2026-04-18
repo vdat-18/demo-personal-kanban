@@ -18,9 +18,21 @@ export interface PlanningMessage {
   mutationActions?: MutationActionState[]
 }
 
+class FetchError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'FetchError'
+    this.status = status
+  }
+}
+
+export { FetchError }
+
 async function fetchMessages(threadId: string): Promise<PlanningMessage[]> {
   const res = await fetch(`/api/planning-threads/${threadId}/messages`)
-  if (!res.ok) throw new Error('Failed to fetch messages')
+  if (!res.ok) throw new FetchError('Failed to fetch messages', res.status)
   return res.json()
 }
 
