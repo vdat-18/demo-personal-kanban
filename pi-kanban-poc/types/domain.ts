@@ -35,6 +35,8 @@ export interface Project {
 
 export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
 
+export type SubtaskApprovalStatus = 'pending' | 'approved' | 'denied'
+
 export interface Subtask {
   id: string
   taskId: string
@@ -52,6 +54,8 @@ export interface Subtask {
   completed: boolean
   output: string | null
   order: number
+  /** Approval status for subtask workflow - pending/approved/denied */
+  approvalStatus?: SubtaskApprovalStatus | null
   /**
    * Richer artifact produced by the Doer Agent while executing this subtask.
    * `output` is kept as the plain-text quick path for backwards compatibility,
@@ -59,6 +63,10 @@ export interface Subtask {
    * proper "deliverable" card later (summary + full artifact + next step).
    */
   doerResult?: DoerResult | null
+  /** Structured review artifact for this step once the Reviewer Agent has
+   *  inspected it. Separate from doerResult so the UI can show both "what was
+   *  produced" and "what quality concerns were found" side by side. */
+  reviewResult?: ReviewerStepResult | null
 }
 
 export interface Task {
@@ -307,6 +315,42 @@ export interface DoerEnvelope {
   taskSummary: string | null
 }
 
+// ─── Reviewer agent (IN_REVIEW quality check) ────────────────────────────────
+
+export interface ReviewerStepResult {
+  summary: string
+  /** Concrete problems / checks discovered for the step. Empty when the step
+   *  looks good. */
+  findings: string[]
+  /** Short recommendation to improve or keep as-is. */
+  recommendation: string | null
+}
+
+export interface ReviewerEnvelope {
+  /** Brief confirmation of what the reviewer thinks this task is meant to achieve. */
+  reviewUnderstanding: string
+  /** Review result for the whole task. */
+  taskReview: {
+    summary: string
+    findings: string[]
+    recommendation: string | null
+  } | null
+  /** Optional per-step review details, keyed by subtask. */
+  stepReviews: Array<{
+    subtaskId: string
+    summary: string
+    findings: string[]
+    recommendation: string | null
+  }>
+  /** If the reviewer is missing critical context, ask one focused question. */
+  needsHumanInput: { question: string } | null
+  /** True when the reviewer believes the task is good enough for DONE. The UI
+   *  still requires a human click to approve. */
+  approveTask: boolean
+  /** If changes are needed, provide a human-readable explanation. */
+  changeRequest: string | null
+}
+
 // ─── TODO breakdown agent (Tier 2.5) ─────────────────────────────────────────
 // Separate envelope from the planning-phase agent because the shape + rules
 // are different: one task in, structured subtasks out. Reusing the planning
@@ -355,6 +399,11 @@ export type TaskActivityType =
   | 'doer_marked_subtask_complete'
   | 'doer_ready_for_review'
   | 'doer_needed_human_input'
+  | 'reviewer_started'
+  | 'reviewer_saved_report'
+  | 'reviewer_requested_changes'
+  | 'reviewer_ready_for_done'
+  | 'reviewer_needed_human_input'
   | 'subtask_completed'
   | 'subtask_added_manually'
   | 'subtask_removed'

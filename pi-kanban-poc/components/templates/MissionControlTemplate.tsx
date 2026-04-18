@@ -11,6 +11,7 @@ import type { UITaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { useColumnAutoMode } from '@/lib/hooks/useColumnAutoMode'
+import { useBreakdownConcurrency } from '@/lib/hooks/useBreakdownConcurrency'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 
 interface Task {
@@ -51,6 +52,9 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const storeTasks = useKanbanStore((s) => s.tasks)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const createTaskInStore = useKanbanStore((s) => s.createTask)
+
+  const concurrency = useBreakdownConcurrency()
+  const isProcessing = concurrency.active.length > 0 || concurrency.queue.length > 0
 
   // Live tasks for this project (always reflect store state)
   const tasks = storeTasks
@@ -127,6 +131,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <KanbanHeader
         projectName={project.name}
         projectDescription={project.description}
+        isProcessing={isProcessing}
         onBack={() => router.push('/')}
         onAddTask={async () => {
           const title = window.prompt('Task title:')

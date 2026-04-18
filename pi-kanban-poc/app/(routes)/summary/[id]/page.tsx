@@ -14,10 +14,15 @@ export default function TaskSummaryPage({ params }: Props) {
   const hydrated = useStoreHydrated()
   const tasks = useKanbanStore((s) => s.tasks)
   const allConversations = useKanbanStore((s) => s.conversations)
+  const allSubtasks = useKanbanStore((s) => s.subtasks)
   const task = useMemo(() => tasks.find((t) => t.id === id), [tasks, id])
   const conversations = useMemo(
     () => allConversations.filter((c) => c.taskId === id),
     [allConversations, id],
+  )
+  const subtasks = useMemo(
+    () => allSubtasks.filter((s) => s.taskId === id),
+    [allSubtasks, id],
   )
 
   const serialized = useMemo(() => {
@@ -36,8 +41,17 @@ export default function TaskSummaryPage({ params }: Props) {
         tokenUsage: c.tokenUsage,
         createdAt: c.createdAt,
       })),
+      subtasks: subtasks.map((s) => ({
+        id: s.id,
+        title: s.title,
+        description: s.description ?? null,
+        completed: s.completed,
+        approvalStatus: s.approvalStatus ?? null,
+        doerResult: s.doerResult ?? null,
+        reviewResult: s.reviewResult ?? null,
+      })),
     }
-  }, [task, conversations])
+  }, [task, conversations, subtasks])
 
   useEffect(() => {
     if (hydrated && !task) notFound()

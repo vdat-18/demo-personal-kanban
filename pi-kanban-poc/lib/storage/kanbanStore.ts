@@ -13,6 +13,7 @@ import type {
   Project,
   Task,
   Subtask,
+  SubtaskApprovalStatus,
   Conversation,
   ConversationMessage,
   TokenUsage,
@@ -30,6 +31,7 @@ import type {
   SubtaskType,
   BreakdownEnvelope,
   DoerResult,
+  ReviewerStepResult,
   TaskActivityEntry,
   TaskActivityType,
   CachedBreakdown,
@@ -109,7 +111,7 @@ interface KanbanState {
   ) => Subtask[]
   updateSubtask: (
     id: string,
-    patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output' | 'doerResult'>>,
+    patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output' | 'doerResult' | 'approvalStatus'>>,
   ) => Subtask | null
   deleteSubtask: (id: string) => void
 
@@ -186,6 +188,7 @@ interface KanbanState {
   getNextPendingSubtask: (taskId: string) => Subtask | null
   saveDoerResult: (taskId: string, subtaskId: string, result: DoerResult) => Subtask | null
   markSubtaskCompletedByDoer: (taskId: string, subtaskId: string) => Subtask | null
+  saveReviewerStepResult: (taskId: string, subtaskId: string, result: ReviewerStepResult) => Subtask | null
 
   // ─── Cached AI breakdown (Tier 4.15) ───────────────────────────────────────
   saveCachedBreakdown: (input: {
@@ -396,6 +399,7 @@ export const useKanbanStore = create<KanbanState>()(
           completed: false,
           output: null,
           order: existingCount + i,
+          approvalStatus: 'pending' as SubtaskApprovalStatus,
         }))
         set((s) => ({ subtasks: [...s.subtasks, ...created] }))
         return created
@@ -668,7 +672,7 @@ export const useKanbanStore = create<KanbanState>()(
       getNextPendingSubtask: (taskId) => {
         return get()
           .subtasks
-          .filter((s) => s.taskId === taskId && !s.completed)
+          .filter((s) => s.taskId === taskId && !s.completed && s.approvalStatus === 'approved')
           .sort((a, b) => a.order - b.order)[0] ?? null
       },
 
@@ -720,6 +724,35 @@ export const useKanbanStore = create<KanbanState>()(
             type: 'doer_marked_subtask_complete',
             actor: 'ai',
             summary: `AI completed: ${finalUpdated.title}`,
+            metadata: { subtaskId },
+            resourceLink: { type: 'subtask', id: subtaskId },
+          }
+          set((s) => ({ activities: [...s.activities, activity] }))
+        }
+        return finalUpdated
+      },
+
+      saveReviewerStepResult: (taskId, subtaskId, result) => {
+        let updated: Subtask | null = null
+        set((s) => ({
+          subtasks: s.subtasks.map((sub) => {
+            if (sub.id !== subtaskId || sub.taskId !== taskId) return sub
+            updated = {
+              ...sub,
+              reviewResult: result,
+            }
+            return updated
+          }),
+        }))
+        const finalUpdated = updated as Subtask | null
+        if (finalUpdated) {
+          const activity: TaskActivityEntry = {
+            id: uid('act'),
+            taskId,
+            timestamp: now(),
+            type: 'reviewer_saved_report',
+            actor: 'ai',
+            summary: `AI reviewed: ${finalUpdated.title}`,
             metadata: { subtaskId },
             resourceLink: { type: 'subtask', id: subtaskId },
           }

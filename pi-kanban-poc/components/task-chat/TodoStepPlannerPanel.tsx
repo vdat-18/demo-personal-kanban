@@ -12,13 +12,14 @@ import { BreakdownNeedInputCard } from '@/components/molecules/BreakdownNeedInpu
 import { BreakdownRefineDialog } from '@/components/molecules/BreakdownRefineDialog'
 import { useBreakdownAgent } from '@/lib/hooks/useBreakdownAgent'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { SubtaskProposal, UITaskStatus } from '@/types/domain'
+import type { SubtaskProposal, UITaskStatus, SubtaskApprovalStatus } from '@/types/domain'
 
 interface TodoStepPlannerPanelProps {
   taskId: string
   taskTitle: string
   taskStatus: UITaskStatus
   onMoveToInProgress: () => void
+  onMoveToDenied?: () => void
 }
 
 /**
@@ -31,6 +32,7 @@ export function TodoStepPlannerPanel({
   taskTitle,
   taskStatus,
   onMoveToInProgress,
+  onMoveToDenied,
 }: TodoStepPlannerPanelProps) {
   const allSubtasks = useKanbanStore((s) => s.subtasks)
   const allCachedBreakdowns = useKanbanStore((s) => s.cachedBreakdowns)
@@ -56,6 +58,13 @@ export function TodoStepPlannerPanel({
   const hasSubtasks = subtasks.length > 0
   const completedCount = subtasks.filter((s) => s.completed).length
 
+  const pendingSubtasks = subtasks.filter((s) => s.approvalStatus === 'pending')
+  const approvedSubtasks = subtasks.filter((s) => s.approvalStatus === 'approved')
+  const deniedSubtasks = subtasks.filter((s) => s.approvalStatus === 'denied')
+
+  const hasApproved = approvedSubtasks.length > 0
+  const hasDenied = deniedSubtasks.length > 0
+
   const handleSubmitRefine = async (request: string) => {
     setShowRefineDialog(false)
     const existing: SubtaskProposal[] = subtasks.map((s) => ({
@@ -68,20 +77,36 @@ export function TodoStepPlannerPanel({
     await breakdown.refine({ userRefineRequest: request, existingSubtasks: existing })
   }
 
-  const handleToggleSubtask = (subtaskId: string) => {
+  const handleApproveSubtask = (subtaskId: string) => {
     const sub = subtasks.find((s) => s.id === subtaskId)
     if (!sub) return
-    const nextCompleted = !sub.completed
-    updateSubtask(sub.id, { completed: nextCompleted })
-    if (nextCompleted) {
-      logActivity({
-        taskId,
-        type: 'subtask_completed',
-        actor: 'user',
-        summary: `Completed: ${sub.title}`,
-        resourceLink: { type: 'subtask', id: sub.id },
-      })
-    }
+    updateSubtask(sub.id, { approvalStatus: 'approved' })
+    logActivity({
+      taskId,
+      type: 'ai_suggestion_approved',
+      actor: 'user',
+      summary: `Approved subtask: ${sub.title}`,
+      resourceLink: { type: 'subtask', id: sub.id },
+    })
+  }
+
+  const handleDenySubtask = (subtaskId: string) => {
+    const sub = subtasks.find((s) => s.id === subtaskId)
+    if (!sub) return
+    updateSubtask(sub.id, { approvalStatus: 'denied' })
+    logActivity({
+      taskId,
+      type: 'ai_suggestion_dismissed',
+      actor: 'user',
+      summary: `Denied subtask: ${sub.title}`,
+      resourceLink: { type: 'subtask', id: sub.id },
+    })
+  }
+
+  const handleResetSubtask = (subtaskId: string) => {
+    const sub = subtasks.find((s) => s.id === subtaskId)
+    if (!sub) return
+    updateSubtask(sub.id, { approvalStatus: 'pending' })
   }
 
   const showCachedBanner =
@@ -119,54 +144,65 @@ export function TodoStepPlannerPanel({
             Mission Control auto-generates steps in the background. If something is missing, you can refine it here.
           </p>
         </div>
+        {taskStatus === 'TODO' && hasApproved && (
+          <button
+            onClick={onMoveToInProgress}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+          >
+            🚀 Start working
+          </button>
+        )}
         {breakdown.state === 'idle' && !hasSubtasks && !showCachedBanner && (
           <BreakdownActionButton onClick={() => breakdown.startBreakdown()} label="Break into steps" />
         )}
       </div>
 
       <div className="p-5 space-y-4">
-        {hasSubtasks && (
+        {/* Section 1: Pending subtasks - chờ duyệt */}
+        {pendingSubtasks.length > 0 && (
           <div className="rounded-2xl bg-white border border-slate-100 p-4">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-                  Approved steps
+                  Pending approval
                 </div>
                 <div className="text-xs font-semibold text-[#0a192f] mt-0.5">
-                  {completedCount}/{subtasks.length} completed
+                  {pendingSubtasks.length} step{pendingSubtasks.length === 1 ? '' : 's'} waiting
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <BreakdownActionButton label="Refine" variant="secondary" onClick={() => setShowRefineDialog(true)} />
-                {taskStatus === 'TODO' && (
-                  <button
-                    onClick={onMoveToInProgress}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
-                  >
-                    🚀 Start working
-                  </button>
-                )}
               </div>
             </div>
             <div className="space-y-1.5">
-              {subtasks.map((sub) => (
-                <button
+              {pendingSubtasks.map((sub) => (
+                <div
                   key={sub.id}
-                  onClick={() => handleToggleSubtask(sub.id)}
-                  className={`w-full text-left flex items-start gap-2 rounded-xl px-3 py-2 transition-colors ${
-                    sub.completed ? 'bg-slate-50 text-slate-400' : 'bg-indigo-50/50 text-slate-700 hover:bg-indigo-50'
-                  }`}
+                  className="w-full flex items-start gap-2 rounded-xl px-3 py-2 bg-indigo-50/50 text-slate-700 hover:bg-indigo-50 transition-colors"
                 >
-                  <span className="mt-0.5">{sub.completed ? '☑' : '☐'}</span>
                   <div className="min-w-0 flex-1">
-                    <div className={`text-xs font-semibold leading-snug ${sub.completed ? 'line-through' : ''}`}>
+                    <div className="text-xs font-semibold leading-snug">
                       {sub.title}
                     </div>
                     {sub.description && (
                       <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
                     )}
                   </div>
-                </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleApproveSubtask(sub.id)}
+                      className="px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-200 transition-colors"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => handleDenySubtask(sub.id)}
+                      className="px-2 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider hover:bg-red-200 transition-colors"
+                    >
+                      ✗
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

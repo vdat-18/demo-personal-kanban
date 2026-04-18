@@ -11,6 +11,8 @@ import {
   Download,
   Copy,
   Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -94,18 +96,25 @@ export function VisionPanel({
         <button
           onClick={() => !isEditing && setIsExpanded((v) => !v)}
           disabled={isEditing}
-          className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 text-left hover:bg-white/40 p-1 -m-1 rounded-xl transition-all"
         >
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
             <FileText className="w-3.5 h-3.5 text-blue-600" />
           </div>
-          <div>
-            <div className="text-[10px] font-black text-blue-700 uppercase tracking-[0.15em]">
-              {title ?? 'Your plan'}
+          <div className="flex items-center gap-2">
+            <div>
+              <div className="text-[10px] font-black text-blue-700 uppercase tracking-[0.15em]">
+                {title ?? 'Your plan'}
+              </div>
+              {!isEditing && (
+                <div className="text-[9px] text-blue-400 font-semibold">
+                  {versionCount > 0 ? `${versionCount} revision${versionCount > 1 ? 's' : ''}` : 'Draft'}
+                </div>
+              )}
             </div>
             {!isEditing && (
-              <div className="text-[9px] text-blue-400 font-semibold">
-                {versionCount > 0 ? `${versionCount} revision${versionCount > 1 ? 's' : ''}` : 'Draft'}
+              <div className="text-blue-300">
+                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </div>
             )}
           </div>
@@ -176,7 +185,9 @@ export function VisionPanel({
 
       {/* Content */}
       {(isExpanded || isEditing) && (
-        <div className="px-6 py-5 border-t border-blue-100">
+        <div 
+          className="px-6 py-5 border-t border-blue-100 max-h-[450px] overflow-y-auto scroll-smooth"
+        >
           {isEditing ? (
             <textarea
               ref={textareaRef}

@@ -14,6 +14,7 @@ import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import { validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { getNextPendingSubtaskContext, useDoerAgent } from '@/lib/hooks/useDoerAgent'
+import { useReviewerAgent } from '@/lib/hooks/useReviewerAgent'
 
 interface Task {
   id: string
@@ -170,13 +171,21 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     [getNextPendingSubtask, task.id, taskSubtasks],
   )
 
-  const topPanel =
+  const reviewer = useReviewerAgent({
+    taskId: task.id,
+    taskTitle: task.title,
+    taskDescription: task.description,
+    taskStatus: task.status,
+  })
+
+const topPanel =
     task.status === 'TODO' ? (
       <TodoStepPlannerPanel
         taskId={task.id}
         taskTitle={task.title}
         taskStatus={task.status}
         onMoveToInProgress={() => updateTaskStatus('IN_PROGRESS')}
+        onMoveToDenied={() => updateTaskStatus('BLOCKED')}
       />
     ) : task.status === 'IN_PROGRESS' ? (
       <DoerExecutionPanel
@@ -186,6 +195,15 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         nextPendingSubtask={nextPendingSubtask}
         doer={doer}
         onMoveToReview={() => updateTaskStatus('IN_REVIEW')}
+      />
+    ) : task.status === 'IN_REVIEW' ? (
+      <ReviewerWorkspacePanel
+        taskId={task.id}
+        taskTitle={task.title}
+        subtasks={taskSubtasks}
+        reviewer={reviewer}
+        onApproveDone={() => updateTaskStatus('DONE')}
+        onRequestChanges={() => updateTaskStatus('IN_PROGRESS')}
       />
     ) : null
 
@@ -231,6 +249,198 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
           onAbort={abort}
           activityTimeline={<TaskActivityTimeline taskId={task.id} />}
         />
+      </div>
+    </div>
+  )
+}
+
+interface ReviewerWorkspacePanelProps {
+  taskId: string
+  taskTitle: string
+  subtasks: Subtask[]
+  reviewer: ReturnType<typeof useReviewerAgent>
+  onApproveDone: () => void
+  onRequestChanges: () => void
+}
+
+function ReviewerWorkspacePanel({
+  taskId,
+  taskTitle,
+  subtasks,
+  reviewer,
+  onApproveDone,
+  onRequestChanges,
+}: ReviewerWorkspacePanelProps) {
+  const [clarifyAnswer, setClarifyAnswer] = useState('')
+
+  return (
+    <div className="rounded-3xl border border-amber-100 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-sm overflow-hidden mb-6">
+      <div className="px-6 py-5 border-b border-amber-100 bg-white/50 flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 mb-1">
+            Reviewer Workspace
+          </div>
+          <h3 className="text-base font-bold text-[#0a192f] leading-snug">
+            Check the quality before marking this task done.
+          </h3>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            The reviewer looks at the work already produced, surfaces issues, and suggests whether the task is ready for done. A human still decides.
+          </p>
+        </div>
+        {reviewer.state === 'idle' && (
+          <button
+            onClick={() => reviewer.start()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition-colors active:scale-95 shadow-sm"
+          >
+            🔎 Review task
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 space-y-4">
+        <div className="rounded-2xl bg-white border border-slate-100 p-4">
+          <div className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">
+            Review scope
+          </div>
+          <div className="text-sm font-semibold text-[#0a192f] leading-snug">
+            {subtasks.length} step{subtasks.length === 1 ? '' : 's'} to review
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+            The reviewer checks AI outputs, completed steps, and any missing work before you approve the task.
+          </p>
+        </div>
+
+        {reviewer.state === 'reviewing' && (
+          <div className="rounded-2xl bg-amber-50/60 border border-amber-100 px-4 py-3 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                Reviewer is checking the work
+              </div>
+              <div className="text-[11px] text-amber-600">Looking for gaps, quality issues, and missing deliverables…</div>
+            </div>
+          </div>
+        )}
+
+        {reviewer.state === 'needs-input' && reviewer.envelope?.needsHumanInput && (
+          <div className="rounded-2xl bg-amber-50/70 border border-amber-100 p-4 space-y-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1">
+                The Reviewer needs one thing
+              </div>
+              <p className="text-[11px] text-amber-900 leading-relaxed">
+                {reviewer.envelope.needsHumanInput.question}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={clarifyAnswer}
+                onChange={(e) => setClarifyAnswer(e.target.value)}
+                placeholder="Type your answer…"
+                className="flex-1 min-w-0 bg-white border border-amber-200 rounded-xl px-3 py-2 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-amber-400"
+              />
+              <button
+                onClick={() => {
+                  if (!clarifyAnswer.trim()) return
+                  void reviewer.answerClarification(clarifyAnswer.trim())
+                  setClarifyAnswer('')
+                }}
+                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+
+        {reviewer.state === 'result' && reviewer.envelope && (
+          <div className="rounded-2xl bg-white border border-amber-100 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-amber-100 bg-amber-50/50">
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                Review result
+              </div>
+            </div>
+            <div className="px-4 py-4 space-y-4">
+              <p className="text-[11px] italic text-slate-600 leading-relaxed">
+                “{reviewer.envelope.reviewUnderstanding}”
+              </p>
+
+              {reviewer.envelope.taskReview && (
+                <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Task summary
+                  </div>
+                  <p className="text-[11px] text-[#0a192f] leading-relaxed">
+                    {reviewer.envelope.taskReview.summary}
+                  </p>
+                  {reviewer.envelope.taskReview.findings.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-[11px] text-rose-700 leading-relaxed">
+                      {reviewer.envelope.taskReview.findings.map((f, i) => (
+                        <li key={i}>• {f}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {reviewer.envelope.stepReviews.length > 0 && (
+                <div className="space-y-2">
+                  {reviewer.envelope.stepReviews.map((sr) => {
+                    const step = subtasks.find((s) => s.id === sr.subtaskId)
+                    return (
+                      <div key={sr.subtaskId} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                          {step?.title ?? sr.subtaskId}
+                        </div>
+                        <p className="text-[11px] text-[#0a192f] leading-relaxed">{sr.summary}</p>
+                        {sr.findings.length > 0 && (
+                          <ul className="mt-2 space-y-1 text-[11px] text-rose-700 leading-relaxed">
+                            {sr.findings.map((f, i) => (
+                              <li key={i}>• {f}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {reviewer.envelope.changeRequest && (
+                <div className="rounded-xl bg-rose-50 border border-rose-100 p-3">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-rose-600 mb-1">
+                    Recommended changes
+                  </div>
+                  <p className="text-[11px] text-rose-900 leading-relaxed">{reviewer.envelope.changeRequest}</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {reviewer.envelope.approveTask ? (
+                  <button
+                    onClick={onApproveDone}
+                    className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors"
+                  >
+                    Approve task
+                  </button>
+                ) : (
+                  <button
+                    onClick={onRequestChanges}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors"
+                  >
+                    Send back to doer
+                  </button>
+                )}
+                <button
+                  onClick={() => reviewer.reset()}
+                  className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
+                >
+                  Review again
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
