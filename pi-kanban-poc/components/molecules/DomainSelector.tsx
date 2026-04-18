@@ -53,6 +53,7 @@ export function getDomainPlaceholder(domain: ProjectDomain): string {
     MARKETING: 'e.g., Q3 Product Launch Campaign',
     SALES: 'e.g., Enterprise Pipeline Expansion',
     LOGISTICS: 'e.g., Warehouse Fulfillment Optimization',
+    GENERAL: 'e.g., Spring wedding, learning Spanish, team offsite',
   }
   return map[domain]
 }
