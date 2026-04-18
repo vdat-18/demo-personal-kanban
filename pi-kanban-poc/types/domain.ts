@@ -18,7 +18,7 @@ export type LegacyTaskStatus =
   | 'cancelled'
 
 export type AgentHint =
-  | 'Planner Agent'
+  | 'Step Planner'
   | 'Doer Agent'
   | 'Reviewer Agent'
   | 'Reporter Agent'
@@ -33,10 +33,22 @@ export interface Project {
   updatedAt: string
 }
 
+export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
+
 export interface Subtask {
   id: string
   taskId: string
   title: string
+  description?: string | null
+  estimatedEffort?: string | null
+  /** Category used by the UI to render a color chip. AI-suggested subtasks
+   *  get one of research/create/communicate/decide; user-added ones default
+   *  to 'custom'. Optional for legacy subtasks persisted before the Tier 2
+   *  breakdown rework. */
+  type?: SubtaskType | null
+  /** True when the subtask originated from an AI breakdown suggestion that
+   *  the user approved. Drives the "✨" badge in the UI. */
+  aiGenerated?: boolean
   completed: boolean
   output: string | null
   order: number
@@ -51,6 +63,9 @@ export interface Task {
   priority: TaskPriority
   createdAt: string
   updatedAt: string
+  /** Set to true when the user explicitly dismissed the breakdown hint for
+   *  this task (separate from the global dismiss flag). */
+  hintDismissed?: boolean
 }
 
 export interface ConversationMessage {
@@ -246,3 +261,90 @@ export interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
 }
+
+// ─── TODO breakdown agent (Tier 2.5) ─────────────────────────────────────────
+// Separate envelope from the planning-phase agent because the shape + rules
+// are different: one task in, structured subtasks out. Reusing the planning
+// envelope would bloat it with fields the breakdown agent never uses.
+
+export type TaskKind = 'research' | 'create' | 'communicate' | 'decide' | 'generic'
+
+export interface SubtaskProposal {
+  /** Stable id so the UI can reconcile between preview → store + refine diff. */
+  id: string
+  title: string
+  description: string | null
+  estimatedEffort: string | null
+  type: SubtaskType
+}
+
+export interface BreakdownEnvelope {
+  /** One-sentence confirmation the AI understood the task. Shown as italic
+   *  preamble above the subtask list so the user can catch misunderstandings
+   *  immediately. */
+  taskUnderstanding: string
+  subtasks: SubtaskProposal[]
+  prerequisites: string[]
+  risks: string[]
+  /** When non-null, the UI renders a question card instead of the preview.
+   *  Limited to one clarification round per task (enforced client-side). */
+  needsHumanInput: { question: string } | null
+  /** Self-reported confidence. Kept off the UI (Tier 4.14 principle) but
+   *  available for telemetry / debug. */
+  confidence: 'high' | 'medium' | 'low'
+}
+
+// ─── Activity log (Tier 3.10) ────────────────────────────────────────────────
+
+export type TaskActivityType =
+  | 'created'
+  | 'status_changed'
+  | 'ai_suggested_breakdown'
+  | 'ai_suggestion_approved'
+  | 'ai_suggestion_dismissed'
+  | 'ai_needed_human_input'
+  | 'ai_clarification_answered'
+  | 'ai_refined'
+  | 'subtask_completed'
+  | 'subtask_added_manually'
+  | 'subtask_removed'
+  | 'user_edited_task'
+
+export interface TaskActivityEntry {
+  id: string
+  taskId: string
+  timestamp: string
+  type: TaskActivityType
+  actor: 'user' | 'ai' | 'system'
+  /** Plain-language summary shown in the timeline row. Keep non-technical. */
+  summary: string
+  metadata: Record<string, unknown> | null
+  /** Optional pointer to related resource (e.g. the cached breakdown snapshot
+   *  so "View original suggestions" works even after approve/dismiss). */
+  resourceLink: {
+    type: 'subtask' | 'cached_breakdown'
+    id: string
+  } | null
+}
+
+// ─── Cached AI breakdown (Tier 4.15) ─────────────────────────────────────────
+
+export interface CachedBreakdown {
+  id: string
+  taskId: string
+  envelope: BreakdownEnvelope
+  generatedAt: string
+  /** Snapshots of the inputs at generation time. Used to detect staleness —
+   *  when the user edits the task title/description, the cache is invalidated
+   *  because the suggestion no longer reflects the task. */
+  taskTitleAtGeneration: string
+  taskDescriptionAtGeneration: string | null
+  /** User decision tracking — null while the suggestion is still pending. */
+  dismissedAt: string | null
+  approvedAt: string | null
+  /** IDs of subtasks actually created in the store from this suggestion.
+   *  Lets us render "you approved 3 of 5" in the activity log without
+   *  rebuilding state from scratch. */
+  approvedSubtaskIds: string[]
+}
+

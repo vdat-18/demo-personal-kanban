@@ -26,7 +26,6 @@ interface Task {
 export interface KanbanBoardProps {
   tasks: Task[]
   autoModeStates: Record<string, AutoModeColumnState>
-  autoProcessingTaskIds: Set<string>
   dragOverColumn: UITaskStatus | null
   draggingTaskId: string | null
   draggingTaskStatus: UITaskStatus | null
@@ -46,7 +45,6 @@ export interface KanbanBoardProps {
 export function KanbanBoard({
   tasks,
   autoModeStates,
-  autoProcessingTaskIds,
   dragOverColumn,
   draggingTaskId,
   draggingTaskStatus,
@@ -79,7 +77,6 @@ export function KanbanBoard({
               label={column.label}
               tasks={tasks.filter((t) => t.status === column.id)}
               autoModeState={autoModeStates[column.id]}
-              autoProcessingTaskIds={autoProcessingTaskIds}
               isValidDropTarget={isValid}
               isDragging={isDragging}
               isHovering={isHovering}

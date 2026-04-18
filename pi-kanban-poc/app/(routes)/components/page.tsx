@@ -169,15 +169,15 @@ export default function ComponentShowcase() {
 
       {/* ── AgentBadge ─────────────────────────────────────────────────────── */}
       <Section title="AgentBadge (shared)">
-        {['Planner Agent', 'Doer Agent', 'Reviewer Agent', 'Reporter Agent'].map(
+        {['Step Planner', 'Doer Agent', 'Reviewer Agent', 'Reporter Agent'].map(
           (agent) => (
             <AgentBadge key={agent} agentType={agent} />
           ),
         )}
-        {['Planner Agent', 'Doer Agent'].map((agent) => (
+        {['Step Planner', 'Doer Agent'].map((agent) => (
           <AgentBadge key={`${agent}-md`} agentType={agent} size="md" />
         ))}
-        <AgentBadge agentType="Planner Agent" showIcon={false} />
+        <AgentBadge agentType="Step Planner" showIcon={false} />
       </Section>
 
       {/* ── ChatBubble ─────────────────────────────────────────────────────── */}
