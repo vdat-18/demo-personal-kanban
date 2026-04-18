@@ -34,7 +34,8 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: sh -c "rm -rf /app/.next && npm run dev"
+      - /app/.next
+    command: sh -c "rm -rf /app/.next/* /app/.next/.* 2>/dev/null; npm run dev"
     depends_on:
       db:
         condition: service_healthy
