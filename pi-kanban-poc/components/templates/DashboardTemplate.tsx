@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sparkles } from 'lucide-react'
 import { HeroSection } from '@/components/organisms/HeroSection'
 import { ProjectGrid } from '@/components/organisms/ProjectGrid'
 import { CreateProjectModal } from '@/components/molecules/CreateProjectModal'
 import { useProjects, useCreateProject, useDeleteProject } from '@/lib/hooks/useProjects'
-import type { ProjectDomain } from '@/types/domain'
+import {
+  ensureOnboardingProject,
+  isOnboardingSeen,
+  markOnboardingSeen,
+  ONBOARDING_PROJECT_NAME,
+} from '@/lib/onboarding'
 
 export function DashboardTemplate() {
   const router = useRouter()
@@ -17,9 +23,29 @@ export function DashboardTemplate() {
 
   const [showModal, setShowModal] = useState(false)
   const [projectName, setProjectName] = useState('')
-  const [selectedDomain, setSelectedDomain] = useState<ProjectDomain>('SOFTWARE_ENGINEERING')
   const [importMode, setImportMode] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [showOnboardingHint, setShowOnboardingHint] = useState(false)
+
+  // ─── Onboarding example (Tier 4.16) ───────────────────────────────────────
+  // Surface the example as a dismissible hint card on first visit. We do not
+  // auto-create the project — the user opts in by clicking the card.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setShowOnboardingHint(!isOnboardingSeen())
+  }, [])
+
+  const openOnboardingExample = () => {
+    const id = ensureOnboardingProject()
+    markOnboardingSeen()
+    setShowOnboardingHint(false)
+    router.push(`/planning/${id}`)
+  }
+
+  const dismissOnboarding = () => {
+    markOnboardingSeen()
+    setShowOnboardingHint(false)
+  }
 
   const handleStartProject = useCallback(async () => {
     if (!projectName.trim()) return
@@ -27,8 +53,8 @@ export function DashboardTemplate() {
     try {
       const project = await createProject({
         name: projectName,
-        description: `Drafting project vision for ${projectName}...`,
-        domain: selectedDomain,
+        description: `Drafting plan for ${projectName}…`,
+        domain: 'GENERAL',
       })
       setShowModal(false)
       setProjectName('')
@@ -38,7 +64,7 @@ export function DashboardTemplate() {
     } finally {
       setIsCreating(false)
     }
-  }, [projectName, selectedDomain, router, createProject])
+  }, [projectName, router, createProject])
 
   const handleDeleteProject = useCallback(
     async (e: React.MouseEvent, id: string) => {
@@ -90,6 +116,36 @@ export function DashboardTemplate() {
             }}
           />
 
+          {showOnboardingHint && (
+            <div className="rounded-[3rem] border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60 p-8 shadow-md shadow-indigo-100/40 flex items-start gap-5 animate-in fade-in slide-in-from-top-4 duration-700">
+              <div className="w-14 h-14 rounded-3xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-[#0a192f] mb-1">New here?</h3>
+                <p className="text-sm text-slate-500 leading-relaxed mb-4">
+                  See a complete walkthrough — discovery questions, drafted plan,
+                  and approved tasks — based on a real-life event:{' '}
+                  <strong className="text-[#0a192f]">{ONBOARDING_PROJECT_NAME}</strong>.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={openOnboardingExample}
+                    className="px-5 py-2.5 rounded-2xl bg-[#0a192f] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-700 transition-colors shadow-md shadow-blue-900/20"
+                  >
+                    👀 Open example
+                  </button>
+                  <button
+                    onClick={dismissOnboarding}
+                    className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <ProjectGrid
             projects={gridProjects}
             onProjectClick={(id) => router.push(`/planning/${id}`)}
@@ -103,8 +159,6 @@ export function DashboardTemplate() {
         onClose={() => setShowModal(false)}
         projectName={projectName}
         onProjectNameChange={setProjectName}
-        selectedDomain={selectedDomain}
-        onDomainChange={setSelectedDomain}
         importMode={importMode}
         isCreating={isCreating}
         onSubmit={handleStartProject}

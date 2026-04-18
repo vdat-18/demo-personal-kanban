@@ -23,6 +23,10 @@ import type {
   TaskStatus,
   TaskPriority,
   PlanningPhase,
+  AgentEnvelope,
+  QuestionBatchSubmission,
+  VisionVersion,
+  VisionChangeType,
 } from '@/types/domain'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -48,6 +52,7 @@ interface KanbanState {
   conversations: Conversation[]
   planningThreads: PlanningThread[]
   planningMessages: PlanningMessage[]
+  visionVersions: VisionVersion[]
 
   // Project ops
   createProject: (input: { name: string; description?: string; domain?: ProjectDomain }) => Project
@@ -86,7 +91,7 @@ interface KanbanState {
   createPlanningThread: (input: { projectId: string; title?: string }) => PlanningThread
   updatePlanningThread: (
     id: string,
-    patch: Partial<Pick<PlanningThread, 'title' | 'phase' | 'visionDocument'>>,
+    patch: Partial<Pick<PlanningThread, 'title' | 'phase' | 'visionDocument' | 'whyProbesUsed'>>,
   ) => PlanningThread | null
   deletePlanningThread: (id: string) => void
 
@@ -97,12 +102,36 @@ interface KanbanState {
     content: string
     tokenUsage?: TokenUsage | null
     mutationActions?: MutationActionState[]
+    envelope?: AgentEnvelope | null
+    batchSubmission?: QuestionBatchSubmission | null
   }) => PlanningMessage
   setMessageMutationAction: (
     messageId: string,
     mutationIndex: number,
     action: 'approved' | 'dismissed',
   ) => PlanningMessage | null
+  setPhaseTransitionResponse: (
+    messageId: string,
+    response: 'accepted' | 'rejected',
+  ) => PlanningMessage | null
+  setTaskProposalAction: (
+    messageId: string,
+    taskId: string,
+    action: 'approved' | 'dismissed',
+  ) => PlanningMessage | null
+
+  // Vision versioning (Tier 3.11)
+  createVisionVersion: (input: {
+    threadId: string
+    content: string
+    createdBy: 'user' | 'ai'
+    changeType: VisionChangeType
+    summary?: string | null
+    diffFromPrevious?: string[] | null
+    triggerMessage?: string | null
+  }) => VisionVersion
+  getVisionVersionsForThread: (threadId: string) => VisionVersion[]
+  restoreVisionVersion: (versionId: string) => VisionVersion | null
 
   // Bulk reset (useful for dev / settings)
   reset: () => void
@@ -119,8 +148,9 @@ export const useKanbanStore = create<KanbanState>()(
       conversations: [],
       planningThreads: [],
       planningMessages: [],
+      visionVersions: [],
 
-      createProject: ({ name, description, domain = 'SOFTWARE_ENGINEERING' }) => {
+      createProject: ({ name, description, domain = 'GENERAL' }) => {
         const project: Project = {
           id: uid('proj'),
           name,
@@ -297,6 +327,8 @@ export const useKanbanStore = create<KanbanState>()(
         content,
         tokenUsage = null,
         mutationActions = [],
+        envelope = null,
+        batchSubmission = null,
       }) => {
         const msg: PlanningMessage = {
           id: uid('pmsg'),
@@ -306,6 +338,10 @@ export const useKanbanStore = create<KanbanState>()(
           tokenUsage,
           createdAt: now(),
           mutationActions,
+          envelope,
+          batchSubmission,
+          phaseTransitionResponse: null,
+          taskProposalActions: [],
         }
         set((s) => ({
           planningMessages: [...s.planningMessages, msg],
@@ -332,6 +368,108 @@ export const useKanbanStore = create<KanbanState>()(
         return updated
       },
 
+      setPhaseTransitionResponse: (messageId, response) => {
+        let updated: PlanningMessage | null = null
+        set((s) => ({
+          planningMessages: s.planningMessages.map((m) => {
+            if (m.id !== messageId) return m
+            updated = { ...m, phaseTransitionResponse: response }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      setTaskProposalAction: (messageId, taskId, action) => {
+        let updated: PlanningMessage | null = null
+        set((s) => ({
+          planningMessages: s.planningMessages.map((m) => {
+            if (m.id !== messageId) return m
+            const prev = m.taskProposalActions ?? []
+            const next = prev.filter((a) => a.taskId !== taskId)
+            next.push({ taskId, action })
+            updated = { ...m, taskProposalActions: next }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      createVisionVersion: ({
+        threadId,
+        content,
+        createdBy,
+        changeType,
+        summary = null,
+        diffFromPrevious = null,
+        triggerMessage = null,
+      }) => {
+        const version: VisionVersion = {
+          id: uid('vver'),
+          threadId,
+          content,
+          createdAt: now(),
+          createdBy,
+          changeType,
+          summary,
+          diffFromPrevious,
+          triggerMessage,
+        }
+        set((s) => {
+          // Cap at 50 versions per thread — keep initial + phase_transition, trim oldest otherwise
+          const existing = s.visionVersions.filter((v) => v.threadId === threadId)
+          const others = s.visionVersions.filter((v) => v.threadId !== threadId)
+          const combined = [...existing, version]
+          if (combined.length > 50) {
+            // Protected versions always kept
+            const protectedVers = combined.filter(
+              (v) => v.changeType === 'initial' || v.changeType === 'phase_transition',
+            )
+            const rest = combined
+              .filter(
+                (v) => v.changeType !== 'initial' && v.changeType !== 'phase_transition',
+              )
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, Math.max(0, 50 - protectedVers.length))
+            return {
+              visionVersions: [...others, ...protectedVers, ...rest],
+            }
+          }
+          return { visionVersions: [...others, ...combined] }
+        })
+        return version
+      },
+
+      getVisionVersionsForThread: (threadId) => {
+        return get()
+          .visionVersions.filter((v) => v.threadId === threadId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      },
+
+      restoreVisionVersion: (versionId) => {
+        const ver = get().visionVersions.find((v) => v.id === versionId)
+        if (!ver) return null
+        // Create a forward-only restored snapshot + update thread vision
+        const restored: VisionVersion = {
+          id: uid('vver'),
+          threadId: ver.threadId,
+          content: ver.content,
+          createdAt: now(),
+          createdBy: 'user',
+          changeType: 'restored',
+          summary: `Restored from version ${ver.id}`,
+          diffFromPrevious: null,
+          triggerMessage: null,
+        }
+        set((s) => ({
+          visionVersions: [...s.visionVersions, restored],
+          planningThreads: s.planningThreads.map((t) =>
+            t.id === ver.threadId ? { ...t, visionDocument: ver.content, updatedAt: now() } : t,
+          ),
+        }))
+        return restored
+      },
+
       reset: () => {
         set({
           projects: [],
@@ -340,11 +478,12 @@ export const useKanbanStore = create<KanbanState>()(
           conversations: [],
           planningThreads: [],
           planningMessages: [],
+          visionVersions: [],
         })
       },
     }),
     {
-      name: 'pi-kanban-poc:store-v1',
+      name: 'pi-kanban-poc:store-v2',
       storage: createJSONStorage(() => {
         // SSR-safe: return a no-op storage during server render.
         if (typeof window === 'undefined') {
@@ -356,7 +495,31 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 1,
+      version: 2,
+      migrate: (persistedState: unknown) => {
+        // From v1 we added: visionVersions, envelope/batchSubmission fields on
+        // messages, whyProbesUsed on threads, GENERAL domain. Backfill safely.
+        const s = (persistedState ?? {}) as Record<string, unknown>
+        return {
+          ...s,
+          visionVersions: Array.isArray(s.visionVersions) ? s.visionVersions : [],
+          planningMessages: Array.isArray(s.planningMessages)
+            ? (s.planningMessages as PlanningMessage[]).map((m) => ({
+                envelope: null,
+                batchSubmission: null,
+                phaseTransitionResponse: null,
+                taskProposalActions: [],
+                ...m,
+              }))
+            : [],
+          planningThreads: Array.isArray(s.planningThreads)
+            ? (s.planningThreads as PlanningThread[]).map((t) => ({
+                whyProbesUsed: 0,
+                ...t,
+              }))
+            : [],
+        } as KanbanState
+      },
     },
   ),
 )
