@@ -112,7 +112,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8f9fa] overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full bg-[#f0f2f5] overflow-hidden font-sans">
       <KanbanHeader
         projectName={project.name}
         projectDescription={project.description}

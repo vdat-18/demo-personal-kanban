@@ -39,19 +39,19 @@ export function CreateProjectModal({
         className="absolute inset-0 bg-[#0a192f]/80 backdrop-blur-md animate-in fade-in duration-500"
         onClick={onClose}
       />
-      <div className="bg-white w-full max-w-xl rounded-[48px] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="p-12 flex flex-col items-center">
+      <div className="bg-white w-full max-w-xl rounded-[64px] shadow-2xl shadow-blue-900/10 relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="p-16 flex flex-col items-center">
           <button
             onClick={onClose}
             className="absolute top-8 right-10 p-4 text-slate-300 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-all"
           >
             <X className="w-6 h-6" />
           </button>
-          <div className="w-20 h-20 rounded-[32px] bg-blue-50 text-blue-600 flex items-center justify-center mb-8 shadow-inner">
-            <Plus className="w-10 h-10" />
+          <div className="w-24 h-24 rounded-[40px] bg-blue-50 text-blue-600 flex items-center justify-center mb-10 shadow-inner">
+            <Plus className="w-12 h-12" />
           </div>
-          <h3 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Project Identity</h3>
-          <p className="text-slate-400 font-medium mb-8 text-center text-lg">
+          <h3 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">Project Identity</h3>
+          <p className="text-slate-400 font-medium mb-10 text-center text-xl">
             Choose a domain and name your project.
           </p>
 
@@ -65,7 +65,7 @@ export function CreateProjectModal({
               type="text"
               placeholder={getDomainPlaceholder(selectedDomain)}
               autoFocus
-              className="w-full bg-slate-50 border-4 border-slate-50 rounded-3xl px-8 py-6 text-xl text-slate-800 font-bold placeholder:text-slate-300 focus:border-blue-500/20 focus:bg-white outline-none transition-all shadow-inner"
+              className="w-full bg-slate-50 border-4 border-slate-50 rounded-[32px] px-10 py-8 text-2xl text-slate-800 font-black placeholder:text-slate-300 focus:border-blue-500/20 focus:bg-white outline-none transition-all shadow-inner"
               value={projectName}
               onChange={(e) => onProjectNameChange(e.target.value)}
               onKeyDown={(e) => {

@@ -64,22 +64,22 @@ export function KanbanColumn({
 
   return (
     <div
-      className={`w-80 flex flex-col rounded-[2.5rem] border transition-all duration-200 shrink-0 ${
+      className={`w-80 flex flex-col rounded-[3rem] border transition-all duration-300 shrink-0 ${
         isHovering && isValid
-          ? 'border-blue-300 bg-blue-50/50'
+          ? 'border-blue-300 bg-blue-50/50 shadow-lg shadow-blue-500/5'
           : isDragging && !isValid
-          ? 'border-gray-200 bg-gray-50/30 opacity-50 cursor-not-allowed'
-          : 'border-gray-100 bg-white/80'
+          ? 'border-gray-200 bg-gray-100/30 opacity-50 cursor-not-allowed'
+          : 'border-white/50 bg-white/60 backdrop-blur-sm shadow-sm shadow-gray-200/50'
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
       {/* Column Header */}
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between shrink-0">
+      <div className="px-8 pt-8 pb-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="font-black text-sm text-[#0a192f] uppercase tracking-widest">{label}</h2>
-          <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+          <h2 className="font-black text-[11px] text-[#0a192f] uppercase tracking-[0.2em]">{label}</h2>
+          <span className="text-[10px] font-black text-gray-400 bg-white/80 px-3 py-1 rounded-xl shadow-sm border border-gray-50">
             {tasks.length}
           </span>
         </div>

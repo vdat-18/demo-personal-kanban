@@ -57,7 +57,7 @@ export function ThreadListSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f1f3f5] border-r border-gray-200">
+    <div className="flex flex-col h-full bg-[#f8f9fa] border-r border-gray-200">
       {/* Header */}
       <div className="h-16 px-4 border-b border-gray-200 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
@@ -108,14 +108,17 @@ export function ThreadListSidebar({
                     onSelectThread(thread.id)
                   }
                 }}
-                className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
+                className={`w-full text-left px-4 py-4 transition-all cursor-pointer relative ${
                   activeThreadId === thread.id
-                    ? 'bg-white border-r-2 border-blue-600'
-                    : 'hover:bg-gray-100'
+                    ? 'bg-white shadow-sm z-10'
+                    : 'hover:bg-gray-100/80'
                 }`}
               >
+                {activeThreadId === thread.id && (
+                  <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-600 rounded-r-full" />
+                )}
                 <div
-                  className={`text-sm font-semibold truncate ${
+                  className={`text-sm font-black truncate ${
                     activeThreadId === thread.id ? 'text-blue-600' : 'text-[#0a192f]'
                   }`}
                 >
