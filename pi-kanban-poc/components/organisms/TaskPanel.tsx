@@ -2,8 +2,9 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ListTodo, Sparkles, Plus, CheckCircle2, RefreshCw, Trash2 } from 'lucide-react'
+import { ListTodo, Sparkles, Plus, CheckCircle2, RefreshCw, Trash2, Rocket } from 'lucide-react'
 import { useTasks, useCreateTask, useDeleteTask, useUpdateTask } from '@/lib/hooks/useTasks'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { Task } from '@/lib/hooks/useTasks'
 
 interface TaskPanelProps {
@@ -21,6 +22,7 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
   const createTask = useCreateTask()
   const deleteTask = useDeleteTask()
   const updateTask = useUpdateTask()
+  const updateProjectFn = useKanbanStore((s) => s.updateProject)
 
   const handleAddTask = useCallback(() => {
     const title = window.prompt('Task title:')
@@ -29,17 +31,19 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
     }
   }, [createTask, projectId])
 
-  const handleGenerateTasks = useCallback(async () => {
-    // Now handled by approving mutation cards inline in the planning chat.
-    // Keeping the prop for backward compat; the button is hidden below.
-    console.warn('handleGenerateTasks is deprecated — approve tasks via chat mutations instead.')
-  }, [])
+  const handleStartExecution = useCallback(() => {
+    // Lock-in the planning status so Recent Journey routes future visits
+    // straight to the Kanban board instead of dropping the user back into
+    // planning (which is now done).
+    updateProjectFn(projectId, { planningStatus: 'completed' })
+    router.push(`/mission-control/${projectId}`)
+  }, [router, projectId, updateProjectFn])
 
   const hasMessages = messages && messages.some((m) => m.role === 'user')
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-6">
+    <div className="flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto p-6 pb-32">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -144,18 +148,28 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
             ))}
           </div>
         )}
-
-        {tasks.length > 0 && (
-          <div className="mt-8">
-            <button
-              onClick={() => router.push(`/mission-control/${projectId}`)}
-              className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-3xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-opacity shadow-xl shadow-blue-500/20"
-            >
-              Start Execution →
-            </button>
-          </div>
-        )}
       </div>
+
+      {/*
+        Sticky Start Execution bar — pinned to the bottom of the TaskPanel so
+        the user never has to scroll to find it once they have ≥1 approved
+        task. Pulse animation draws the eye after the first approval.
+      */}
+      {tasks.length > 0 && (
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/80 backdrop-blur border-t border-slate-100">
+          <button
+            onClick={handleStartExecution}
+            className="group w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-blue-500/30 hover:shadow-2xl hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+          >
+            <Rocket className="w-4 h-4 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
+            Start Execution
+            <span className="ml-1 text-xs opacity-80">({tasks.length} task{tasks.length === 1 ? '' : 's'})</span>
+          </button>
+          <p className="text-[10px] text-slate-400 text-center mt-2 font-medium">
+            You can still add or remove tasks later in Kanban.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

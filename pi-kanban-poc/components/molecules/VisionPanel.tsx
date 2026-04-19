@@ -8,9 +8,6 @@ import {
   Save,
   XCircle,
   Clock,
-  Download,
-  Copy,
-  Check,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -96,6 +93,7 @@ export function VisionPanel({
         <button
           onClick={() => !isEditing && setIsExpanded((v) => !v)}
           disabled={isEditing}
+          aria-expanded={isExpanded}
           className="flex items-center gap-2.5 text-left hover:bg-white/40 p-1 -m-1 rounded-xl transition-all"
         >
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
@@ -109,6 +107,7 @@ export function VisionPanel({
               {!isEditing && (
                 <div className="text-[9px] text-blue-400 font-semibold">
                   {versionCount > 0 ? `${versionCount} revision${versionCount > 1 ? 's' : ''}` : 'Draft'}
+                  {!isExpanded && content && ` · click to ${isExpanded ? 'collapse' : 'expand'}`}
                 </div>
               )}
             </div>
@@ -124,10 +123,12 @@ export function VisionPanel({
           {!isEditing && versionCount > 0 && !readOnly && (
             <button
               onClick={onOpenHistory}
-              className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-white/50 transition-colors"
-              title="Version history"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-white/50 transition-colors"
+              title="Compare versions and restore older drafts"
             >
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-3 h-3" />
+              History
+              <span className="ml-0.5 px-1 bg-blue-100 rounded-md text-[9px] font-black">{versionCount}</span>
             </button>
           )}
           {!isEditing && content && (
@@ -144,7 +145,7 @@ export function VisionPanel({
                 title="Edit directly"
               >
                 <Pencil className="w-3 h-3" />
-                Edit directly
+                Edit
               </button>
               <button
                 onClick={onAskAiFocus}
@@ -152,8 +153,18 @@ export function VisionPanel({
                 title="Ask AI to revise"
               >
                 <MessageCircle className="w-3 h-3" />
-                Ask AI to revise
+                Ask AI
               </button>
+              {isExpanded && (
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  aria-label="Collapse plan"
+                  title="Collapse"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/50 transition-colors"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                </button>
+              )}
             </>
           )}
           {isEditing && (
@@ -183,7 +194,8 @@ export function VisionPanel({
         </div>
       )}
 
-      {/* Content */}
+      {/* Content — typography tuned for readability over density:
+          base text-sm + relaxed leading + comfortable max-width via prose. */}
       {(isExpanded || isEditing) && (
         <div 
           className="px-6 py-5 border-t border-blue-100 max-h-[450px] overflow-y-auto scroll-smooth"
@@ -202,7 +214,7 @@ export function VisionPanel({
               className="w-full min-h-[200px] max-h-[600px] bg-white border border-blue-200 rounded-2xl p-4 text-sm text-[#0a192f] font-mono resize-none focus:outline-none focus:border-blue-400 leading-relaxed"
             />
           ) : (
-            <div className="prose prose-sm max-w-none text-blue-900 prose-headings:text-blue-800 prose-strong:text-blue-900 text-justify">
+            <div className="prose prose-sm max-w-none text-slate-800 prose-headings:text-[#0a192f] prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-h2:mt-5 prose-h3:mt-4 prose-p:my-2 prose-p:leading-relaxed prose-li:my-1 prose-li:leading-relaxed prose-strong:text-[#0a192f] prose-strong:font-semibold prose-ul:my-2 prose-ol:my-2">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content ?? ''}</ReactMarkdown>
             </div>
           )}

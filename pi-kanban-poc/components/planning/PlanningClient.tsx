@@ -72,31 +72,32 @@ interface AttachedFile {
   kind: 'text' | 'unsupported'
 }
 
+/**
+ * Thin adapter over the shared ingestion pipeline (lib/fileIngest.ts).
+ *
+ * We keep the historical AttachedFile shape so the rest of PlanningClient
+ * doesn't need to change. The new pipeline supports PDF, DOCX, XLSX, CSV
+ * and falls back to text for code/markdown/etc. Images come back flagged as
+ * needing a vision model — we surface that as a note in the content.
+ */
 async function readFileAsText(file: File): Promise<AttachedFile> {
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
-  const textExtensions = new Set([
-    'txt', 'md', 'csv', 'json', 'yaml', 'yml', 'xml', 'html', 'log',
-    'js', 'ts', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'rb', 'sh',
-  ])
-  if (!textExtensions.has(extension)) {
+  const { ingestFile } = await import('@/lib/fileIngest')
+  const ingested = await ingestFile(file)
+  if (ingested.error) {
+    return { name: ingested.filename, content: `(Failed to read: ${ingested.error})`, kind: 'unsupported' }
+  }
+  if (ingested.needsVisionModel && !ingested.text) {
     return {
-      name: file.name,
-      content: `(Unsupported format: .${extension}. Try converting to .md, .txt, or paste the content directly.)`,
+      name: ingested.filename,
+      content: `(${ingested.summary ?? 'Binary / image attachment — AI needs a vision-capable model to interpret this.'})`,
       kind: 'unsupported',
     }
   }
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const content = (ev.target?.result as string) ?? ''
-      // Cap at 50k chars to avoid blowing the context window.
-      const capped = content.length > 50_000 ? content.slice(0, 50_000) + '\n\n(…truncated)' : content
-      resolve({ name: file.name, content: capped, kind: 'text' })
-    }
-    reader.onerror = () =>
-      resolve({ name: file.name, content: '(Failed to read file.)', kind: 'unsupported' })
-    reader.readAsText(file)
-  })
+  return {
+    name: ingested.filename,
+    content: ingested.text || `(${ingested.summary ?? 'Empty file'})`,
+    kind: 'text',
+  }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -133,9 +134,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const sendMessage = useSendPlanningMessage()
 
   const createTaskFn = useKanbanStore((s) => s.createTask)
+  const deleteTaskFn = useKanbanStore((s) => s.deleteTask)
   const updateThreadFn = useKanbanStore((s) => s.updatePlanningThread)
   const setPhaseTransitionResponseFn = useKanbanStore((s) => s.setPhaseTransitionResponse)
   const setTaskProposalActionFn = useKanbanStore((s) => s.setTaskProposalAction)
+  const clearTaskProposalActionFn = useKanbanStore((s) => s.clearTaskProposalAction)
   const getVisionVersionsForThread = useKanbanStore((s) => s.getVisionVersionsForThread)
   const createVisionVersionFn = useKanbanStore((s) => s.createVisionVersion)
   const restoreVisionVersionFn = useKanbanStore((s) => s.restoreVisionVersion)
@@ -289,13 +292,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   // ─── Task proposal approval ───────────────────────────────────────────────
   const handleApproveTask = useCallback(
     (messageId: string, proposal: StructuredTaskProposal) => {
-      createTaskFn({
+      const created = createTaskFn({
         projectId: initialProject.id,
         title: proposal.title,
         description: proposal.description ?? undefined,
         priority: proposal.priority,
       })
-      setTaskProposalActionFn(messageId, proposal.id, 'approved')
+      setTaskProposalActionFn(messageId, proposal.id, 'approved', created.id)
     },
     [createTaskFn, setTaskProposalActionFn, initialProject.id],
   )
@@ -305,6 +308,35 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       setTaskProposalActionFn(messageId, proposalId, 'dismissed')
     },
     [setTaskProposalActionFn],
+  )
+
+  /** Revert a previously approved/dismissed proposal back to pending. If the
+   *  user had approved it we also roll back the created Task so the Kanban
+   *  doesn't keep a task the user is now undoing. */
+  const handleResetTask = useCallback(
+    (messageId: string, proposalId: string, previousAction: 'approved' | 'dismissed', createdTaskId?: string) => {
+      if (previousAction === 'approved' && createdTaskId) {
+        deleteTaskFn(createdTaskId)
+      }
+      clearTaskProposalActionFn(messageId, proposalId)
+    },
+    [deleteTaskFn, clearTaskProposalActionFn],
+  )
+
+  /** Approve every proposal in a message envelope that is still pending.
+   *  Keeps existing approved/dismissed decisions intact. */
+  const handleApproveAllInMessage = useCallback(
+    (msg: PlanningMessage) => {
+      if (!msg.envelope?.tasks) return
+      const decisions = msg.taskProposalActions ?? []
+      msg.envelope.tasks.forEach((proposal) => {
+        const existing = decisions.find((d) => d.taskId === proposal.id)
+        if (!existing) {
+          handleApproveTask(msg.id, proposal)
+        }
+      })
+    },
+    [handleApproveTask],
   )
 
   // ─── Batch question submission ────────────────────────────────────────────
@@ -519,6 +551,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   onRejectTransition={() => handleRejectTransition(msg.id)}
                   onApproveTask={(p) => handleApproveTask(msg.id, p)}
                   onDismissTask={(pid) => handleDismissTask(msg.id, pid)}
+                  onResetTask={(pid, prevAction, createdId) =>
+                    handleResetTask(msg.id, pid, prevAction, createdId)
+                  }
+                  onApproveAll={() => handleApproveAllInMessage(msg)}
                 />
               ))}
 
@@ -670,6 +706,8 @@ interface MessageViewProps {
   onRejectTransition: () => void
   onApproveTask: (proposal: StructuredTaskProposal) => void
   onDismissTask: (proposalId: string) => void
+  onResetTask: (proposalId: string, previousAction: 'approved' | 'dismissed', createdTaskId?: string) => void
+  onApproveAll: () => void
 }
 
 function MessageView({
@@ -681,6 +719,8 @@ function MessageView({
   onRejectTransition,
   onApproveTask,
   onDismissTask,
+  onResetTask,
+  onApproveAll,
 }: MessageViewProps) {
   const isUser = msg.role === 'user'
   const envelope = msg.envelope ?? null
@@ -725,19 +765,45 @@ function MessageView({
 
             {hasTasks && (
               <div className="mt-3 space-y-2">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
-                  Proposed tasks
-                </div>
+                {(() => {
+                  const proposals = envelope!.tasks!
+                  const decisions = msg.taskProposalActions ?? []
+                  const pendingCount = proposals.filter(
+                    (p) => !decisions.find((d) => d.taskId === p.id),
+                  ).length
+                  const approvedCount = decisions.filter((d) => d.action === 'approved').length
+                  return (
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                        Proposed tasks · {approvedCount}/{proposals.length} approved
+                      </div>
+                      {pendingCount > 0 && (
+                        <button
+                          onClick={onApproveAll}
+                          disabled={disabled}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-40 active:scale-95"
+                        >
+                          ✓ Approve all ({pendingCount})
+                        </button>
+                      )}
+                    </div>
+                  )
+                })()}
                 {envelope!.tasks!.map((task) => {
-                  const status =
-                    msg.taskProposalActions?.find((a) => a.taskId === task.id)?.action ?? 'pending'
+                  const decision = msg.taskProposalActions?.find((a) => a.taskId === task.id)
+                  const status = (decision?.action ?? 'pending') as 'pending' | 'approved' | 'dismissed'
                   return (
                     <TaskProposalCard
                       key={task.id}
                       task={task}
-                      status={status as 'pending' | 'approved' | 'dismissed'}
+                      status={status}
                       onApprove={() => onApproveTask(task)}
                       onDismiss={() => onDismissTask(task.id)}
+                      onReset={
+                        decision
+                          ? () => onResetTask(task.id, decision.action, decision.createdTaskId)
+                          : undefined
+                      }
                       disabled={disabled}
                     />
                   )

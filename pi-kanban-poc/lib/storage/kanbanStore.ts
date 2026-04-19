@@ -155,6 +155,13 @@ interface KanbanState {
     messageId: string,
     taskId: string,
     action: 'approved' | 'dismissed',
+    createdTaskId?: string,
+  ) => PlanningMessage | null
+  /** Remove an existing approved/dismissed action so the proposal becomes
+   *  pending again. Used by the "Reset" affordance on TaskProposalCard. */
+  clearTaskProposalAction: (
+    messageId: string,
+    taskId: string,
   ) => PlanningMessage | null
 
   // Vision versioning (Tier 3.11)
@@ -233,6 +240,7 @@ export const useKanbanStore = create<KanbanState>()(
           status: null,
           createdAt: now(),
           updatedAt: now(),
+          planningStatus: 'not_started',
         }
         set((s) => ({ projects: [...s.projects, project] }))
         return project
@@ -453,7 +461,19 @@ export const useKanbanStore = create<KanbanState>()(
           lastMessage: null,
           lastMessageAt: null,
         }
-        set((s) => ({ planningThreads: [...s.planningThreads, thread] }))
+        set((s) => ({
+          planningThreads: [...s.planningThreads, thread],
+          // Auto-flip project planningStatus from 'not_started' → 'in_progress'
+          // the moment a planning thread is created. Don't downgrade 'completed'
+          // back to 'in_progress' though — once user clicks Start Execution the
+          // project should keep its 'completed' status even if they revisit
+          // planning to add a follow-up thread.
+          projects: s.projects.map((p) =>
+            p.id === projectId && (p.planningStatus ?? 'not_started') === 'not_started'
+              ? { ...p, planningStatus: 'in_progress', updatedAt: now() }
+              : p,
+          ),
+        }))
         return thread
       },
 
@@ -535,14 +555,28 @@ export const useKanbanStore = create<KanbanState>()(
         return updated
       },
 
-      setTaskProposalAction: (messageId, taskId, action) => {
+      setTaskProposalAction: (messageId, taskId, action, createdTaskId) => {
         let updated: PlanningMessage | null = null
         set((s) => ({
           planningMessages: s.planningMessages.map((m) => {
             if (m.id !== messageId) return m
             const prev = m.taskProposalActions ?? []
             const next = prev.filter((a) => a.taskId !== taskId)
-            next.push({ taskId, action })
+            next.push({ taskId, action, createdTaskId })
+            updated = { ...m, taskProposalActions: next }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      clearTaskProposalAction: (messageId, taskId) => {
+        let updated: PlanningMessage | null = null
+        set((s) => ({
+          planningMessages: s.planningMessages.map((m) => {
+            if (m.id !== messageId) return m
+            const prev = m.taskProposalActions ?? []
+            const next = prev.filter((a) => a.taskId !== taskId)
             updated = { ...m, taskProposalActions: next }
             return updated
           }),
