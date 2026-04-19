@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { FolderOpen, LayoutGrid, List as ListIcon, FileStack } from 'lucide-react'
+import Link from 'next/link'
+import { FolderOpen, LayoutGrid, List as ListIcon, FileStack, BookOpen } from 'lucide-react'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import { StatusFilterBar } from '@/components/molecules/StatusFilterBar'
 import { DirectoryProjectGrid } from '@/components/organisms/DirectoryProjectGrid'
@@ -80,6 +81,16 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Knowledge Hub link (#8) — surfaces the published-plan library
+              from any directory tab so the user can switch to it quickly. */}
+          <Link
+            href="/hub"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors"
+            title="Knowledge Hub — your published plans"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            Knowledge Hub
+          </Link>
           {tab === 'tasks' && (
             <>
               <button

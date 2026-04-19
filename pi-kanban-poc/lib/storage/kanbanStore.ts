@@ -90,6 +90,7 @@ interface KanbanState {
     description?: string
     status?: TaskStatus
     priority?: TaskPriority
+    sourceProposal?: { messageId: string; proposalId: string }
   }) => Task
   createTasksBatch: (
     projectId: string,
@@ -97,6 +98,12 @@ interface KanbanState {
   ) => Task[]
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt' | 'projectId'>>) => Task | null
   deleteTask: (id: string) => void
+  /**
+   * Reorder tasks within a project. Pass the new ordered list of task IDs;
+   * each task's `order` is rewritten to a contiguous integer sequence.
+   * No-op if any of the IDs don't belong to the project.
+   */
+  reorderTasks: (projectId: string, orderedIds: string[]) => void
 
   // Subtask ops
   createSubtasks: (
@@ -176,6 +183,12 @@ interface KanbanState {
   }) => VisionVersion
   getVisionVersionsForThread: (threadId: string) => VisionVersion[]
   restoreVisionVersion: (versionId: string) => VisionVersion | null
+  /**
+   * Mark a version as the single "published" plan for its thread (#4).
+   * All other versions in the same thread are reset to `draft`.
+   * Returns the updated version, or null if the id isn't found.
+   */
+  publishVisionVersion: (versionId: string) => VisionVersion | null
 
   // Bulk reset (useful for dev / settings)
   reset: () => void
@@ -274,7 +287,13 @@ export const useKanbanStore = create<KanbanState>()(
         }))
       },
 
-      createTask: ({ projectId, title, description, status = 'TODO', priority = 'MEDIUM' }) => {
+      createTask: ({ projectId, title, description, status = 'TODO', priority = 'MEDIUM', sourceProposal }) => {
+        // Compute next order: max + 1 of existing tasks in this project,
+        // so manually-added tasks land at the bottom of the list.
+        const existing = get().tasks.filter((t) => t.projectId === projectId)
+        const nextOrder = existing.length === 0
+          ? 0
+          : Math.max(...existing.map((t) => t.order ?? 0)) + 1
         const task: Task = {
           id: uid('task'),
           projectId,
@@ -284,6 +303,9 @@ export const useKanbanStore = create<KanbanState>()(
           priority,
           createdAt: now(),
           updatedAt: now(),
+          order: nextOrder,
+          statusChangedAt: now(),
+          sourceProposal,
         }
         const activity: TaskActivityEntry = {
           id: uid('act'),
@@ -303,6 +325,10 @@ export const useKanbanStore = create<KanbanState>()(
       },
 
       createTasksBatch: (projectId, items) => {
+        const existing = get().tasks.filter((t) => t.projectId === projectId)
+        let nextOrder = existing.length === 0
+          ? 0
+          : Math.max(...existing.map((t) => t.order ?? 0)) + 1
         const created: Task[] = items.map((it) => ({
           id: uid('task'),
           projectId,
@@ -312,6 +338,8 @@ export const useKanbanStore = create<KanbanState>()(
           priority: it.priority ?? 'MEDIUM',
           createdAt: now(),
           updatedAt: now(),
+          order: nextOrder++,
+          statusChangedAt: now(),
         }))
         const newActivities: TaskActivityEntry[] = created.map((t) => ({
           id: uid('act'),
@@ -337,7 +365,16 @@ export const useKanbanStore = create<KanbanState>()(
           tasks: s.tasks.map((t) => {
             if (t.id !== id) return t
             prevTask = t as Task
-            updated = { ...t, ...patch, updatedAt: now() } as Task
+            // When the status changes we also bump statusChangedAt so the
+            // "active task" indicator can compute a meaningful "in
+            // progress for X minutes" label.
+            const statusChanged = patch.status && patch.status !== t.status
+            updated = {
+              ...t,
+              ...patch,
+              updatedAt: now(),
+              ...(statusChanged ? { statusChangedAt: now() } : {}),
+            } as Task
             return updated
           }),
         }))
@@ -391,6 +428,18 @@ export const useKanbanStore = create<KanbanState>()(
           conversations: s.conversations.filter((c) => c.taskId !== id),
           activities: s.activities.filter((a) => a.taskId !== id),
           cachedBreakdowns: s.cachedBreakdowns.filter((c) => c.taskId !== id),
+        }))
+      },
+
+      reorderTasks: (projectId, orderedIds) => {
+        const idIndex = new Map(orderedIds.map((id, i) => [id, i]))
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.projectId !== projectId) return t
+            const newOrder = idIndex.get(t.id)
+            if (newOrder == null) return t
+            return { ...t, order: newOrder, updatedAt: now() }
+          }),
         }))
       },
 
@@ -603,12 +652,19 @@ export const useKanbanStore = create<KanbanState>()(
           summary,
           diffFromPrevious,
           triggerMessage,
+          status: 'draft',
         }
         set((s) => {
           // Cap at 50 versions per thread — keep initial + phase_transition, trim oldest otherwise
           const existing = s.visionVersions.filter((v) => v.threadId === threadId)
           const others = s.visionVersions.filter((v) => v.threadId !== threadId)
-          const combined = [...existing, version]
+          // Any new draft version demotes the previously-published one
+          // back to draft so the user knows the plan has drifted and
+          // needs re-publishing (#4).
+          const demoted = existing.map((v) =>
+            v.status === 'published' ? { ...v, status: 'draft' as const } : v,
+          )
+          const combined = [...demoted, version]
           if (combined.length > 50) {
             // Protected versions always kept
             const protectedVers = combined.filter(
@@ -649,6 +705,7 @@ export const useKanbanStore = create<KanbanState>()(
           summary: `Restored from version ${ver.id}`,
           diffFromPrevious: null,
           triggerMessage: null,
+          status: 'draft',
         }
         set((s) => ({
           visionVersions: [...s.visionVersions, restored],
@@ -657,6 +714,26 @@ export const useKanbanStore = create<KanbanState>()(
           ),
         }))
         return restored
+      },
+
+      publishVisionVersion: (versionId) => {
+        const ver = get().visionVersions.find((v) => v.id === versionId)
+        if (!ver) return null
+        const stamp = now()
+        let updated: VisionVersion | null = null
+        set((s) => ({
+          visionVersions: s.visionVersions.map((v) => {
+            if (v.threadId !== ver.threadId) return v
+            if (v.id === versionId) {
+              updated = { ...v, status: 'published', publishedAt: stamp }
+              return updated
+            }
+            // Demote any previously-published siblings back to draft so
+            // there is exactly one canonical published version per thread.
+            return v.status === 'published' ? { ...v, status: 'draft' } : v
+          }),
+        }))
+        return updated
       },
 
       // ─── Activity log (Tier 3.10) ──────────────────────────────────────────

@@ -15,6 +15,9 @@ import { validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { getNextPendingSubtaskContext, useDoerAgent } from '@/lib/hooks/useDoerAgent'
 import { useReviewerAgent } from '@/lib/hooks/useReviewerAgent'
+import { deriveVerdict, verdictBadge } from '@/lib/reviewer-loop'
+import type { NextAction } from '@/lib/reviewer-loop'
+import type { ReviewerEnvelope } from '@/types/domain'
 
 interface Task {
   id: string
@@ -355,11 +358,39 @@ function ReviewerWorkspacePanel({
 
         {reviewer.state === 'result' && reviewer.envelope && (
           <div className="rounded-2xl bg-white border border-amber-100 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-amber-100 bg-amber-50/50">
+            <div className="px-4 py-2.5 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between gap-2">
               <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">
                 Review result
               </div>
+              <ReviewerVerdictBadge envelope={reviewer.envelope} />
             </div>
+
+            {/* Iteration progress banner — only shows once ≥ 1 iteration has
+                completed so the user can see how close we are to the human
+                gate. Keeps #9's auto-loop transparent instead of hidden. */}
+            <div className="px-4 pt-3">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <span>
+                  Iteration {reviewer.iterationCount} of {reviewer.maxIterations}
+                </span>
+                {reviewer.iterationCount >= reviewer.maxIterations && (
+                  <span className="text-rose-600 inline-flex items-center gap-1">
+                    ⚠ Human gate reached
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${
+                    reviewer.iterationCount >= reviewer.maxIterations ? 'bg-rose-500' : 'bg-amber-500'
+                  }`}
+                  style={{
+                    width: `${Math.min(100, (reviewer.iterationCount / reviewer.maxIterations) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+
             <div className="px-4 py-4 space-y-4">
               <p className="text-[11px] italic text-slate-600 leading-relaxed">
                 “{reviewer.envelope.reviewUnderstanding}”
@@ -415,29 +446,22 @@ function ReviewerWorkspacePanel({
                 </div>
               )}
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {reviewer.envelope.approveTask ? (
-                  <button
-                    onClick={onApproveDone}
-                    className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors"
-                  >
-                    Approve task
-                  </button>
-                ) : (
-                  <button
-                    onClick={onRequestChanges}
-                    className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors"
-                  >
-                    Send back to doer
-                  </button>
-                )}
-                <button
-                  onClick={() => reviewer.reset()}
-                  className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
-                >
-                  Review again
-                </button>
-              </div>
+              {/*
+                Verdict-based action bar (#9).
+
+                We render action buttons according to `nextAction` so the
+                UI reflects what will actually happen (auto-retry vs human
+                gate vs replan) rather than a hard-coded approve/deny pair.
+                The Doer auto-retry still requires a click — we do NOT fire
+                LLM calls without explicit consent. That keeps cost &
+                surprise both low.
+              */}
+              <ReviewerActionBar
+                nextAction={reviewer.nextAction}
+                onApprove={onApproveDone}
+                onSendBackToDoer={onRequestChanges}
+                onReviewAgain={() => reviewer.reset()}
+              />
             </div>
           </div>
         )}
@@ -634,6 +658,121 @@ function DoerExecutionPanel({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+
+// ___ Reviewer verdict + action sub-components (#9) _________________________
+
+function ReviewerVerdictBadge({ envelope }: { envelope: ReviewerEnvelope }) {
+  const verdict = deriveVerdict(envelope)
+  const meta = verdictBadge(verdict)
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${meta.tone}`}>
+      {meta.label}
+    </span>
+  )
+}
+
+interface ReviewerActionBarProps {
+  nextAction: NextAction | null
+  onApprove: () => void
+  onSendBackToDoer: () => void
+  onReviewAgain: () => void
+}
+
+function ReviewerActionBar({
+  nextAction,
+  onApprove,
+  onSendBackToDoer,
+  onReviewAgain,
+}: ReviewerActionBarProps) {
+  if (!nextAction) {
+    return (
+      <button
+        onClick={onReviewAgain}
+        className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
+      >
+        Review again
+      </button>
+    )
+  }
+
+  if (nextAction.kind === 'approve_done') {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors">
+          Approve task (DONE)
+        </button>
+        <button onClick={onReviewAgain} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors">
+          Review again
+        </button>
+      </div>
+    )
+  }
+
+  if (nextAction.kind === 'auto_retry') {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition-colors" title="Returns the task to IN_PROGRESS so the Doer can address the findings">
+          Send back to Doer (iteration {nextAction.iteration})
+        </button>
+        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-white border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-50 transition-colors" title="Approve anyway despite reviewer findings">
+          Approve anyway
+        </button>
+      </div>
+    )
+  }
+
+  if (nextAction.kind === 'escalate_replan') {
+    return (
+      <div className="space-y-2">
+        <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-[11px] text-rose-900 leading-relaxed">
+          <strong>Reviewer thinks the underlying plan is wrong.</strong> Open this task in Mission Control and use "Re-plan task" instead of running the Doer again.
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors">
+            Send back (planner-aware)
+          </button>
+          <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-white border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-50 transition-colors">
+            Approve anyway
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (nextAction.kind === 'await_human_clarification') {
+    // Shouldn't normally appear in the result pathway (the hook pins it to
+    // state='needs-input'), but guard anyway to keep type-narrowing happy.
+    return (
+      <button
+        onClick={onReviewAgain}
+        className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
+      >
+        Review again
+      </button>
+    )
+  }
+
+  // human_gate — exhaustive fallthrough
+  return (
+    <div className="space-y-2">
+      <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-[11px] text-rose-900 leading-relaxed">
+        <strong>Stuck on this task.</strong> {nextAction.reason} Choose a path below.
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors">
+          Mark as DONE anyway
+        </button>
+        <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-slate-800 transition-colors">
+          Retry once more (manual)
+        </button>
+        <button onClick={onReviewAgain} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors">
+          Review again
+        </button>
       </div>
     </div>
   )

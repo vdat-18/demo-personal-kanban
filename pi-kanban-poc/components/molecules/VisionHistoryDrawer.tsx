@@ -13,6 +13,11 @@ interface VisionHistoryDrawerProps {
   versions: VisionVersion[]
   currentContent: string | null
   onRestore: (versionId: string) => void
+  /**
+   * Publish this version as the single canonical plan for the thread (#4).
+   * Wired from PlanningClient to kanbanStore.publishVisionVersion.
+   */
+  onPublish?: (versionId: string) => void
 }
 
 const CHANGE_LABEL: Record<VisionVersion['changeType'], string> = {
@@ -40,6 +45,7 @@ export function VisionHistoryDrawer({
   versions,
   currentContent: _currentContent,
   onRestore,
+  onPublish,
 }: VisionHistoryDrawerProps) {
   const [openVersionId, setOpenVersionId] = useState<string | null>(null)
   const [openMode, setOpenMode] = useState<'view' | 'compare'>('view')
@@ -194,6 +200,23 @@ export function VisionHistoryDrawer({
                           <RotateCcw className="w-2.5 h-2.5" />
                           Restore
                         </button>
+                      )}
+                      {/* Publish action (#4) — only for the current draft.
+                          Already-published versions show a passive badge
+                          so the user can still tell which one is canonical. */}
+                      {onPublish && isCurrent && v.status !== 'published' && (
+                        <button
+                          onClick={() => onPublish(v.id)}
+                          className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                          title="Publish this version as the official plan for this thread"
+                        >
+                          ✓ Publish
+                        </button>
+                      )}
+                      {v.status === 'published' && (
+                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                          ★ Published
+                        </span>
                       )}
                     </div>
                   </div>
