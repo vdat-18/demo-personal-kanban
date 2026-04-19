@@ -7,6 +7,8 @@ export type ProjectDomain = 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LO
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
+/** Lifecycle of project planning — drives where Recent Journey navigates to. */
+export type PlanningStatus = 'not_started' | 'in_progress' | 'completed'
 
 // Legacy lowercase status — kept for compatibility with constants/agents.ts
 export type LegacyTaskStatus =
@@ -31,6 +33,11 @@ export interface Project {
   status: string | null
   createdAt: string
   updatedAt: string
+  /** Tracks whether planning is complete so Home → Recent Journey can route
+   *  intelligently (planning vs kanban). Defaults to 'not_started' for new
+   *  projects, flips to 'in_progress' when first planning thread is created,
+   *  and 'completed' when user clicks Start Execution. */
+  planningStatus?: PlanningStatus
 }
 
 export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
@@ -239,6 +246,10 @@ export interface PlanningMessage {
   taskProposalActions?: Array<{
     taskId: string
     action: 'approved' | 'dismissed'
+    /** When action === 'approved', the id of the Task record that was
+     *  created in the store. Stored so "Reset to pending" can roll back by
+     *  deleting that task. Undefined for 'dismissed' actions. */
+    createdTaskId?: string
   }>
 }
 

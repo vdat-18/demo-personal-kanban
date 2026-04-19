@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { FolderOpen, LayoutGrid, List as ListIcon } from 'lucide-react'
+import { FolderOpen, LayoutGrid, List as ListIcon, FileStack } from 'lucide-react'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import { StatusFilterBar } from '@/components/molecules/StatusFilterBar'
 import { DirectoryProjectGrid } from '@/components/organisms/DirectoryProjectGrid'
 import { DirectoryTaskList } from '@/components/organisms/DirectoryTaskList'
+import { DirectoryArtifactsPanel } from '@/components/organisms/DirectoryArtifactsPanel'
 import type { UITaskStatus } from '@/types/domain'
 
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
@@ -29,6 +30,7 @@ interface Project {
 }
 
 type ViewMode = 'grid' | 'list'
+type Tab = 'tasks' | 'artifacts'
 
 export interface DirectoryTemplateProps {
   projects: Project[]
@@ -39,6 +41,7 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedStatus, setSelectedStatus] = useState<UITaskStatus | 'ALL'>('ALL')
+  const [tab, setTab] = useState<Tab>('tasks')
 
   const allTasks = useMemo(
     () => projects.flatMap((p) => p.tasks.map((t) => ({ ...t, projectName: p.name, projectId: p.id }))),
@@ -66,57 +69,106 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
   return (
     <div className="flex flex-col h-full w-full bg-[#f8f9fa] font-sans overflow-hidden">
       {/* Header */}
-      <header className="h-20 px-10 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-4">
-          <FolderOpen className="w-6 h-6 text-blue-600" />
+      <header className="h-16 px-8 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <FolderOpen className="w-5 h-5 text-blue-600" />
           <div>
-            <h1 className="font-extrabold text-2xl text-[#0a192f] tracking-tight">Directory</h1>
-            <p className="text-xs font-bold text-gray-400">{projects.length} projects · {allTasks.length} tasks</p>
+            <h1 className="font-bold text-lg text-[#0a192f] tracking-tight">Directory</h1>
+            <p className="text-[11px] font-semibold text-slate-400">
+              {projects.length} projects · {allTasks.length} tasks
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-xl transition-colors ${viewMode === 'grid' ? 'bg-[#0a192f] text-white' : 'text-gray-400 hover:bg-gray-100'}`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2 rounded-xl transition-colors ${viewMode === 'list' ? 'bg-[#0a192f] text-white' : 'text-gray-400 hover:bg-gray-100'}`}
-          >
-            <ListIcon className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-2">
+          {tab === 'tasks' && (
+            <>
+              <button
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+              >
+                <ListIcon className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
+      {/* Tab switcher — Tasks | Artifacts */}
+      <div className="border-b border-slate-100 bg-white px-8 shrink-0">
+        <div className="max-w-7xl mx-auto flex items-center gap-1">
+          <TabButton active={tab === 'tasks'} onClick={() => setTab('tasks')} icon={<ListIcon className="w-3.5 h-3.5" />}>
+            Tasks & Projects
+          </TabButton>
+          <TabButton active={tab === 'artifacts'} onClick={() => setTab('artifacts')} icon={<FileStack className="w-3.5 h-3.5" />}>
+            Artifacts
+          </TabButton>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-10 py-8 space-y-8">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search tasks and projects..."
-          />
+        <div className="max-w-7xl mx-auto px-8 py-6 space-y-6">
+          {tab === 'tasks' ? (
+            <>
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search tasks and projects..."
+              />
 
-          <StatusFilterBar
-            statuses={STATUSES}
-            selected={selectedStatus}
-            counts={statusCounts}
-            onSelect={setSelectedStatus}
-          />
+              <StatusFilterBar
+                statuses={STATUSES}
+                selected={selectedStatus}
+                counts={statusCounts}
+                onSelect={setSelectedStatus}
+              />
 
-          <DirectoryProjectGrid
-            projects={projects}
-            onProjectClick={(id) => router.push(`/planning/${id}`)}
-          />
+              <DirectoryProjectGrid
+                projects={projects}
+                onProjectClick={(id) => router.push(`/planning/${id}`)}
+              />
 
-          <DirectoryTaskList
-            tasks={filteredTasks}
-            viewMode={viewMode}
-            onTaskClick={(id) => router.push(`/chat/${id}`)}
-          />
+              <DirectoryTaskList
+                tasks={filteredTasks}
+                viewMode={viewMode}
+                onTaskClick={(id) => router.push(`/chat/${id}`)}
+              />
+            </>
+          ) : (
+            <DirectoryArtifactsPanel />
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+interface TabButtonProps {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+}
+
+function TabButton({ active, onClick, icon, children }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+        active
+          ? 'text-[#0a192f] border-blue-500'
+          : 'text-slate-500 border-transparent hover:text-slate-700'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, X, Flag, Clock } from 'lucide-react'
+import { Check, X, Flag, Clock, RotateCcw } from 'lucide-react'
 import type { StructuredTaskProposal } from '@/types/domain'
 
 interface TaskProposalCardProps {
@@ -8,6 +8,9 @@ interface TaskProposalCardProps {
   status?: 'pending' | 'approved' | 'dismissed'
   onApprove: () => void
   onDismiss: () => void
+  /** Optional: revert an already-decided card back to pending so user can
+   *  change their mind before hitting Start Execution. */
+  onReset?: () => void
   disabled?: boolean
 }
 
@@ -21,33 +24,54 @@ const PRIORITY_STYLE: Record<StructuredTaskProposal['priority'], string> = {
 /**
  * Card for a single task proposal returned in the agent envelope.
  *
- * Per Tier 2.7 the user approves tasks one by one — flow stays simple and
- * explicit on purpose.
+ * Users can approve/dismiss each proposal and — with onReset — flip that
+ * decision back to pending before committing via Start Execution.
  */
 export function TaskProposalCard({
   task,
   status = 'pending',
   onApprove,
   onDismiss,
+  onReset,
   disabled,
 }: TaskProposalCardProps) {
   if (status === 'approved') {
     return (
       <div className="rounded-2xl border border-green-100 bg-green-50/40 px-4 py-2.5 flex items-center gap-2 text-xs">
         <Check className="w-3.5 h-3.5 text-green-600 shrink-0" />
-        <span className="font-semibold text-green-700 truncate">{task.title}</span>
-        <span className="ml-auto text-[10px] text-green-600/70 uppercase tracking-wider font-black">
+        <span className="font-semibold text-green-700 truncate flex-1">{task.title}</span>
+        <span className="text-[10px] text-green-600/70 uppercase tracking-wider font-black">
           Approved
         </span>
+        {onReset && (
+          <button
+            onClick={onReset}
+            disabled={disabled}
+            title="Move back to pending"
+            className="p-1 rounded-lg text-green-700/60 hover:text-green-700 hover:bg-green-100 transition-colors disabled:opacity-40"
+          >
+            <RotateCcw className="w-3 h-3" />
+          </button>
+        )}
       </div>
     )
   }
 
   if (status === 'dismissed') {
     return (
-      <div className="rounded-2xl border border-slate-100 bg-slate-50/40 px-4 py-2.5 flex items-center gap-2 text-xs opacity-60">
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/40 px-4 py-2.5 flex items-center gap-2 text-xs">
         <X className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <span className="text-slate-500 line-through truncate">{task.title}</span>
+        <span className="text-slate-500 line-through truncate flex-1">{task.title}</span>
+        {onReset && (
+          <button
+            onClick={onReset}
+            disabled={disabled}
+            title="Restore to pending"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40"
+          >
+            <RotateCcw className="w-3 h-3" />
+          </button>
+        )}
       </div>
     )
   }
