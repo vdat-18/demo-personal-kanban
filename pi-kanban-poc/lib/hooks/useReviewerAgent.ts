@@ -2,7 +2,14 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { ReviewerEnvelope, Subtask, UITaskStatus } from '@/types/domain'
+import type { ReviewerEnvelope, UITaskStatus } from '@/types/domain'
+import {
+  planNextAction,
+  deriveVerdict,
+  MAX_REVIEW_ITERATIONS,
+  type NextAction,
+  type ReviewVerdict,
+} from '@/lib/reviewer-loop'
 
 interface UseReviewerAgentArgs {
   taskId: string
@@ -19,6 +26,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   const projects = useKanbanStore((s) => s.projects)
   const planningThreads = useKanbanStore((s) => s.planningThreads)
   const saveReviewerStepResult = useKanbanStore((s) => s.saveReviewerStepResult)
+  const updateTask = useKanbanStore((s) => s.updateTask)
   const logActivity = useKanbanStore((s) => s.logActivity)
 
   const [state, setState] = useState<ReviewerState>('idle')
@@ -33,6 +41,8 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     () => subtasks.filter((s) => s.taskId === taskId).sort((a, b) => a.order - b.order),
     [subtasks, taskId],
   )
+
+  const currentIteration = task?.reviewIterationCount ?? 0
 
   const buildPrompt = useCallback((clarificationAnswer?: string) => {
     if (!task) return ''
@@ -60,7 +70,15 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       '  }>,',
       '  "needsHumanInput": { "question": string } | null,',
       '  "approveTask": boolean,',
-      '  "changeRequest": string | null',
+      '  "changeRequest": string | null,',
+      '  "verdict": "approve" | "minor_revision" | "major_revision" | "replan_needed",',
+      '  "confidence": number, /* 0..1 */',
+      '  "changeActions": Array<{',
+      '    "subtaskId": string | null,',
+      '    "action": "revise" | "remove" | "add" | "clarify",',
+      '    "reason": string,',
+      '    "suggestedContent": string | null',
+      '  }>',
       '}',
       '',
       'Rules:',
@@ -69,6 +87,15 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       '- approveTask=true only if the task is genuinely ready for DONE.',
       '- You DO NOT change task status yourself. A human will click approve.',
       '- If critical context is missing, ask ONE focused question via needsHumanInput.',
+      '',
+      'Verdict semantics (be conservative — when in doubt, prefer the SMALLER step):',
+      '- "approve":         everything looks good; ready for DONE.',
+      '- "minor_revision":  small wording / clarity / completeness fixes — Doer can usually fix in one pass.',
+      '- "major_revision":  substantive content rework needed; a human should review before retrying.',
+      '- "replan_needed":   the underlying plan / step list itself is wrong; route back to the planner.',
+      'Set approveTask=true ONLY when verdict="approve".',
+      'When verdict is not "approve", populate `changeActions` with concrete, actionable items keyed to the subtask that needs fixing.',
+      `Note: this is review iteration ${currentIteration + 1} (max ${MAX_REVIEW_ITERATIONS} before human gate).`,
     ]
 
     if (project) {
@@ -94,7 +121,19 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       lines.push('', `User clarification: ${clarificationAnswer}`)
     }
     return lines.join('\n')
-  }, [planningThreads, projects, task, taskSubtasks])
+  }, [planningThreads, projects, task, taskSubtasks, currentIteration])
+
+  /** Persist the iteration counter + verdict on the task itself so the
+   *  banner / loop guards survive a page refresh. */
+  const persistIteration = useCallback(
+    (verdict: ReviewVerdict) => {
+      updateTask(taskId, {
+        reviewIterationCount: currentIteration + 1,
+        lastReviewVerdict: verdict,
+      })
+    },
+    [updateTask, taskId, currentIteration],
+  )
 
   const start = useCallback(async () => {
     if (!task) return
@@ -106,7 +145,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       taskId,
       type: 'reviewer_started',
       actor: 'ai',
-      summary: 'AI started reviewing the task',
+      summary: `AI started review iteration ${currentIteration + 1}`,
     })
 
     try {
@@ -131,6 +170,8 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       if (!parsed) throw new Error('Reviewer response was not valid JSON')
 
       setEnvelope(parsed)
+      const verdict = deriveVerdict(parsed)
+      persistIteration(verdict)
 
       for (const review of parsed.stepReviews) {
         saveReviewerStepResult(taskId, review.subtaskId, {
@@ -155,7 +196,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
           actor: 'ai',
           summary: parsed.approveTask
             ? 'AI thinks this task is ready for DONE'
-            : 'AI found issues and suggests changes',
+            : `AI verdict: ${verdict} (iteration ${currentIteration + 1})`,
         })
         setState('result')
       }
@@ -163,7 +204,17 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       setError(e instanceof Error ? e.message : 'Unknown reviewer error')
       setState('error')
     }
-  }, [buildPrompt, logActivity, saveReviewerStepResult, task, taskDescription, taskId, taskTitle])
+  }, [
+    buildPrompt,
+    logActivity,
+    saveReviewerStepResult,
+    persistIteration,
+    task,
+    taskDescription,
+    taskId,
+    taskTitle,
+    currentIteration,
+  ])
 
   const answerClarification = useCallback(async (answer: string) => {
     if (!task) return
@@ -192,6 +243,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       if (!parsed) throw new Error('Reviewer response was not valid JSON')
 
       setEnvelope(parsed)
+      persistIteration(deriveVerdict(parsed))
       for (const review of parsed.stepReviews) {
         saveReviewerStepResult(taskId, review.subtaskId, {
           summary: review.summary,
@@ -204,7 +256,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       setError(e instanceof Error ? e.message : 'Unknown reviewer error')
       setState('error')
     }
-  }, [buildPrompt, saveReviewerStepResult, task, taskDescription, taskId, taskTitle])
+  }, [buildPrompt, saveReviewerStepResult, persistIteration, task, taskDescription, taskId, taskTitle])
 
   const reset = useCallback(() => {
     setState('idle')
@@ -212,10 +264,21 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     setEnvelope(null)
   }, [])
 
+  /** Derive the next-action recommendation for the UI. We don't auto-apply
+   *  it here — the workspace panel decides when to surface auto-retry vs.
+   *  human gate based on user preferences. */
+  const nextAction: NextAction | null = useMemo(() => {
+    if (!envelope || state !== 'result') return null
+    return planNextAction(envelope, currentIteration)
+  }, [envelope, state, currentIteration])
+
   return {
     state,
     error,
     envelope,
+    nextAction,
+    iterationCount: currentIteration,
+    maxIterations: MAX_REVIEW_ITERATIONS,
     start,
     answerClarification,
     reset,

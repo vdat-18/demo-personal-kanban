@@ -275,9 +275,11 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     '',
     '── Phase semantics (internal labels) ─────────────────────────',
     '- discovery: gather enough context to draft a solid blueprint. Ask',
-    '  questions in BATCHES (aim for 4-6 per batch, never 1-2). Cover the 6',
-    '  discovery dimensions systematically across 2-3 batches before declaring',
-    '  readyForNextPhase:',
+    '  questions in BATCHES of AT LEAST 4 and IDEALLY 5-7 questions per turn.',
+    '  Returning fewer than 4 questions in discovery phase is a failure mode —',
+    '  you are meant to explore, not to interview one bullet at a time. Cover',
+    '  the 6 discovery dimensions systematically across 2-3 batches before',
+    '  declaring readyForNextPhase:',
     '    • WHAT: the concrete output/deliverable, scope boundaries (in/out)',
     '    • WHY: the underlying reason, success metrics, cost of inaction',
     '    • WHO: audience, stakeholders who must approve, people who execute',
@@ -437,6 +439,31 @@ function normalizeReviewerEnvelope(obj: unknown): ReviewerEnvelope {
         : null,
     approveTask: o.approveTask === true,
     changeRequest: typeof o.changeRequest === 'string' ? o.changeRequest : null,
+    verdict:
+      o.verdict === 'approve'
+        || o.verdict === 'minor_revision'
+        || o.verdict === 'major_revision'
+        || o.verdict === 'replan_needed'
+        ? (o.verdict as ReviewerEnvelope['verdict'])
+        : undefined,
+    confidence: typeof o.confidence === 'number' ? o.confidence : undefined,
+    changeActions: Array.isArray(o.changeActions)
+      ? (o.changeActions as Array<Record<string, unknown>>)
+          .map((a) => {
+            const action = a.action
+            if (action !== 'revise' && action !== 'remove' && action !== 'add' && action !== 'clarify') {
+              return null
+            }
+            return {
+              subtaskId: typeof a.subtaskId === 'string' ? a.subtaskId : undefined,
+              action: action as 'revise' | 'remove' | 'add' | 'clarify',
+              reason: typeof a.reason === 'string' ? a.reason : '',
+              suggestedContent:
+                typeof a.suggestedContent === 'string' ? a.suggestedContent : undefined,
+            }
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null && x.reason.length > 0)
+      : undefined,
   }
 }
 
