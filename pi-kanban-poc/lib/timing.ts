@@ -5,7 +5,7 @@
  * the 10 most recent successful durations; the median is used as ETA.
  *
  * Used by hooks that wrap /api/agent calls (Doer, Reviewer, Breakdown,
- * planning chat) so users see "Thường mất ~25s · đã chạy 8s" instead of
+ * planning chat) so users see "Usually ~25s · running 8s" instead of
  * a black-box spinner.
  */
 
@@ -87,7 +87,7 @@ function roundTo5(seconds: number): number {
 }
 
 /**
- * Threshold helper for "đang lâu hơn bình thường" warning.
+ * Threshold helper for "taking longer than usual" warning.
  * Returns true once elapsed > 1.5× ETA.
  */
 export function isOverEta(elapsedMs: number, etaMs: number): boolean {

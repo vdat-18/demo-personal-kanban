@@ -9,8 +9,8 @@ interface Props {
   /** When `running` becomes true, the component starts its local timer.
    *  Setting it back to false resets the elapsed counter. */
   running: boolean
-  /** Optional label prefix — e.g. "AI đang trả lời". Default falls back to
-   *  a generic "Đang xử lý". */
+  /** Optional label prefix — e.g. "AI is responding". Default falls back to
+   *  a generic "Processing". */
   label?: string
   onAbort?: () => void
   className?: string
@@ -20,7 +20,7 @@ interface Props {
  * Inline ETA indicator for AI calls.
  *
  * Shows:
- *   Thường mất ~25s · đã chạy 8s   [■ Dừng]
+ *   Usually ~25s · running 8s   [■ Stop]
  *
  * and flips to a soft warning once elapsed > 1.5× ETA.
  */

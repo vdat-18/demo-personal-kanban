@@ -73,6 +73,8 @@ export interface SendMessageInput {
     newContent: string
     previousContent: string | null
   } | null
+  /** Base64-encoded images to send to the vision API (Tier 3.12). */
+  imageFiles?: Array<{ mimeType: string; base64: string }>
 }
 
 export interface SendResult {
@@ -95,7 +97,7 @@ export function useSendPlanningMessage() {
 
   const mutateAsync = useCallback(
     async (input: SendMessageInput): Promise<SendResult> => {
-      const { threadId, content, batchSubmission, phaseTransitionConfirm, visionDirectEdit } = input
+      const { threadId, content, batchSubmission, phaseTransitionConfirm, visionDirectEdit, imageFiles } = input
       const thread = threads.find((t) => t.id === threadId)
       if (!thread) throw new FetchError('Thread not found', 404)
       const project = projects.find((p) => p.id === thread.projectId) ?? null
@@ -134,6 +136,7 @@ export function useSendPlanningMessage() {
               : null,
             visionDirectEdit: visionDirectEdit ?? null,
             messages: history,
+            imageFiles: imageFiles && imageFiles.length > 0 ? imageFiles : undefined,
           }),
         })
         if (!res.ok) {

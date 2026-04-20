@@ -718,7 +718,7 @@ export const useKanbanStore = create<KanbanState>()(
           // currently-published version on every new draft. The published
           // version stays as-is until the user explicitly publishes a newer
           // one (which triggers `publishVisionVersion` to mark it superseded).
-          // The UI shows a "Bản đã publish có thể đã lỗi thời" banner when
+          // The UI shows a "Published version may be outdated" banner when
           // a newer draft exists past the published one.
           const combined = [...existing, version]
           if (combined.length > 50) {

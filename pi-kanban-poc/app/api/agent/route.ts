@@ -149,6 +149,8 @@ interface PlanRequest extends BaseRequest {
    *  client passes the new content here so the agent is told about it
    *  explicitly via a system note (Tier 1.4). */
   visionDirectEdit?: { newContent: string; previousContent: string | null } | null
+  /** Base64-encoded images from the user's last message (Tier 3.12 vision). */
+  imageFiles?: Array<{ mimeType: string; base64: string }>
 }
 
 interface ChatRequest extends BaseRequest {
@@ -666,34 +668,99 @@ function serializeTranscript(messages: BaseRequest['messages']): string {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
+/**
+ * When the last user message contains images, we bypass the SDK and call the
+ * OpenAI-compatible endpoint directly with multimodal content blocks.
+ */
+async function callMultimodalPlan(
+  systemPrompt: string,
+  messages: BaseRequest['messages'],
+  imageFiles: Array<{ mimeType: string; base64: string }>,
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  // Build a messages array where the LAST user message gets image_url blocks prepended
+  const openaiMessages: Array<{ role: string; content: string | unknown[] }> = [
+    { role: 'system', content: systemPrompt },
+  ]
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]
+    const isLastUser = m.role === 'user' && i === messages.length - 1
+    if (isLastUser && imageFiles.length > 0) {
+      const content: unknown[] = imageFiles.map((img) => ({
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+      }))
+      content.push({ type: 'text', text: m.content })
+      openaiMessages.push({ role: 'user', content })
+    } else {
+      openaiMessages.push({ role: m.role, content: m.content })
+    }
+  }
+
+  const resp = await fetch(`${TROLLLLM_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${TROLLLLM_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: TROLLLLM_MODEL_ID,
+      messages: openaiMessages,
+      max_tokens: 8192,
+    }),
+  })
+  if (!resp.ok) {
+    const err = await resp.text()
+    throw new Error(`Multimodal API error (${resp.status}): ${err}`)
+  }
+  const data = await resp.json() as {
+    choices: Array<{ message: { content: string } }>
+    usage?: { prompt_tokens?: number; completion_tokens?: number }
+  }
+  return {
+    text: data.choices?.[0]?.message?.content ?? '',
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+  }
+}
+
 async function handlePlan(req: PlanRequest): Promise<Response> {
   const systemPrompt = buildPlanSystemPrompt(req)
-  const cacheKey = req.threadId ?? null
-  const { session, promptToFeed, shouldDispose } = await getOrCreateSession(
-    cacheKey,
-    systemPrompt,
-    req.messages,
-  )
 
   let assistantText = ''
   let inputTokens = 0
   let outputTokens = 0
 
-  const unsubscribe = session.subscribe((event: any) => {
-    if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
-      assistantText += event.assistantMessageEvent.delta as string
-    }
-    if (event.type === 'turn_end' && event.message?.usage) {
-      inputTokens += event.message.usage.input ?? 0
-      outputTokens += event.message.usage.output ?? 0
-    }
-  })
+  if (req.imageFiles && req.imageFiles.length > 0) {
+    // Vision path — call the multimodal API directly
+    const result = await callMultimodalPlan(systemPrompt, req.messages, req.imageFiles)
+    assistantText = result.text
+    inputTokens = result.inputTokens
+    outputTokens = result.outputTokens
+  } else {
+    // Normal text path — use the SDK session (with caching)
+    const cacheKey = req.threadId ?? null
+    const { session, promptToFeed, shouldDispose } = await getOrCreateSession(
+      cacheKey,
+      systemPrompt,
+      req.messages,
+    )
 
-  try {
-    await session.prompt(promptToFeed)
-  } finally {
-    unsubscribe()
-    if (shouldDispose) session.dispose()
+    const unsubscribe = session.subscribe((event: any) => {
+      if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+        assistantText += event.assistantMessageEvent.delta as string
+      }
+      if (event.type === 'turn_end' && event.message?.usage) {
+        inputTokens += event.message.usage.input ?? 0
+        outputTokens += event.message.usage.output ?? 0
+      }
+    })
+
+    try {
+      await session.prompt(promptToFeed)
+    } finally {
+      unsubscribe()
+      if (shouldDispose) session.dispose()
+    }
   }
 
   // Try to parse structured envelope. If the model misbehaved, fall back to

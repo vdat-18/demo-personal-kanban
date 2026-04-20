@@ -82,7 +82,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       taskId,
       type: 'doer_started_subtask',
       actor: 'user',
-      summary: 'Bạn đã huỷ Doer',
+      summary: 'You cancelled the Doer',
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logActivity, taskId])

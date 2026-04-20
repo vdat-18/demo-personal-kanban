@@ -63,22 +63,19 @@ const ICON_MAP = {
 } as const
 
 // ── File helpers (Tier 3.12 lightweight intake) ──────────────────────────────
-// Non-image files are read as text client-side and appended to the chat
-// message. Images would need the multimodal API — kept as a follow-up.
 
 interface AttachedFile {
   name: string
   content: string
-  kind: 'text' | 'unsupported'
+  kind: 'text' | 'image' | 'unsupported'
+  /** Populated for image files — forwarded to the vision API. */
+  imageData?: { mimeType: string; base64: string }
 }
 
 /**
  * Thin adapter over the shared ingestion pipeline (lib/fileIngest.ts).
  *
- * We keep the historical AttachedFile shape so the rest of PlanningClient
- * doesn't need to change. The new pipeline supports PDF, DOCX, XLSX, CSV
- * and falls back to text for code/markdown/etc. Images come back flagged as
- * needing a vision model — we surface that as a note in the content.
+ * Supports: PDF, DOCX, DOC, XLSX, CSV, plain text, images (base64 → vision).
  */
 async function readFileAsText(file: File): Promise<AttachedFile> {
   const { ingestFile } = await import('@/lib/fileIngest')
@@ -86,11 +83,12 @@ async function readFileAsText(file: File): Promise<AttachedFile> {
   if (ingested.error) {
     return { name: ingested.filename, content: `(Failed to read: ${ingested.error})`, kind: 'unsupported' }
   }
-  if (ingested.needsVisionModel && !ingested.text) {
+  if (ingested.kind === 'image' && ingested.imageData) {
     return {
       name: ingested.filename,
-      content: `(${ingested.summary ?? 'Binary / image attachment — AI needs a vision-capable model to interpret this.'})`,
-      kind: 'unsupported',
+      content: `[Image: ${ingested.filename}]`,
+      kind: 'image',
+      imageData: ingested.imageData,
     }
   }
   return {
@@ -218,12 +216,19 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       if (!activeThreadId || sendMessage.isPending) return
 
       const content = extras?.contentOverride ?? input.trim()
+      const textFiles = attachedFiles.filter((f) => f.kind !== 'image')
+      const imageFiles = attachedFiles.filter((f) => f.kind === 'image' && f.imageData)
       const fileBlock =
-        attachedFiles.length > 0
+        textFiles.length > 0
           ? '\n\n' +
-          attachedFiles.map((f) => `--- File: ${f.name} ---\n${f.content}`).join('\n\n')
+          textFiles.map((f) => `--- File: ${f.name} ---\n${f.content}`).join('\n\n')
           : ''
-      const fullContent = (content + fileBlock).trim()
+      // Image placeholders inline so the user message shows what was attached
+      const imageBlock =
+        imageFiles.length > 0
+          ? '\n\n' + imageFiles.map((f) => `[Image attached: ${f.name}]`).join('\n')
+          : ''
+      const fullContent = (content + fileBlock + imageBlock).trim()
 
       if (!fullContent && !extras?.batchSubmission && !extras?.phaseTransitionConfirm) return
 
@@ -247,6 +252,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           batchSubmission: extras?.batchSubmission ?? null,
           phaseTransitionConfirm: extras?.phaseTransitionConfirm ?? null,
           visionDirectEdit: extras?.visionDirectEdit ?? null,
+          imageFiles: imageFiles.map((f) => f.imageData!),
         },
         {
           onError: (err) => {
