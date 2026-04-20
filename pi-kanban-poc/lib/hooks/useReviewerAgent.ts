@@ -1,8 +1,10 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { ReviewerEnvelope, UITaskStatus } from '@/types/domain'
+import { formatError } from '@/lib/display/format'
+import { recordDuration } from '@/lib/timing'
 import {
   planNextAction,
   deriveVerdict,
@@ -28,10 +30,30 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   const saveReviewerStepResult = useKanbanStore((s) => s.saveReviewerStepResult)
   const updateTask = useKanbanStore((s) => s.updateTask)
   const logActivity = useKanbanStore((s) => s.logActivity)
+  const addTokenUsage = useKanbanStore((s) => s.addTokenUsage)
 
   const [state, setState] = useState<ReviewerState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [envelope, setEnvelope] = useState<ReviewerEnvelope | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      abortRef.current?.abort()
+      abortRef.current = null
+    }
+  }, [])
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    if (!isMountedRef.current) return
+    setState('idle')
+    setError(null)
+  }, [])
 
   const task = useMemo(
     () => tasks.find((t) => t.id === taskId) ?? null,
@@ -149,6 +171,11 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     })
 
     try {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      const startedAt = Date.now()
+
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,14 +187,22 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
           taskDescription,
           systemPromptOverride: buildPrompt(),
         }),
+        signal: controller.signal,
       })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Reviewer request failed (${response.status})`)
       }
-      const data = (await response.json()) as { envelope?: ReviewerEnvelope }
+      const data = (await response.json()) as { envelope?: ReviewerEnvelope; tokenUsage?: { input: number; output: number } }
       const parsed = data.envelope ?? null
       if (!parsed) throw new Error('Reviewer response was not valid JSON')
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      recordDuration('reviewer', Date.now() - startedAt)
+      if (data.tokenUsage && task) {
+        addTokenUsage(task.projectId, data.tokenUsage)
+      }
 
       setEnvelope(parsed)
       const verdict = deriveVerdict(parsed)
@@ -201,7 +236,12 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
         setState('result')
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown reviewer error')
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState('idle')
+        return
+      }
+      setError(formatError(e))
       setState('error')
     }
   }, [
@@ -222,6 +262,10 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     setError(null)
 
     try {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,14 +277,21 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
           taskDescription,
           systemPromptOverride: buildPrompt(answer),
         }),
+        signal: controller.signal,
       })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Reviewer request failed (${response.status})`)
       }
-      const data = (await response.json()) as { envelope?: ReviewerEnvelope }
+      const data = (await response.json()) as { envelope?: ReviewerEnvelope; tokenUsage?: { input: number; output: number } }
       const parsed = data.envelope ?? null
       if (!parsed) throw new Error('Reviewer response was not valid JSON')
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      if (data.tokenUsage && task) {
+        addTokenUsage(task.projectId, data.tokenUsage)
+      }
 
       setEnvelope(parsed)
       persistIteration(deriveVerdict(parsed))
@@ -253,7 +304,12 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       }
       setState(parsed.needsHumanInput ? 'needs-input' : 'result')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown reviewer error')
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState('idle')
+        return
+      }
+      setError(formatError(e))
       setState('error')
     }
   }, [buildPrompt, saveReviewerStepResult, persistIteration, task, taskDescription, taskId, taskTitle])
@@ -282,5 +338,6 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     start,
     answerClarification,
     reset,
+    abort,
   }
 }

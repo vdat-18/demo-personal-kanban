@@ -1,16 +1,20 @@
 'use client'
 
 import { ArrowLeft, Plus, Loader2 } from 'lucide-react'
+import { TokenCounter } from '@/components/molecules/TokenCounter'
 
 export interface KanbanHeaderProps {
   projectName: string
   projectDescription: string | null
   isProcessing?: boolean
+  /** Cumulative project token usage to show as a tiny chip in the header.
+   *  PoC scope: count only, no $ amount. */
+  tokenUsage?: { input: number; output: number } | null
   onBack: () => void
   onAddTask: () => void
 }
 
-export function KanbanHeader({ projectName, projectDescription, isProcessing = false, onBack, onAddTask }: KanbanHeaderProps) {
+export function KanbanHeader({ projectName, projectDescription, isProcessing = false, tokenUsage, onBack, onAddTask }: KanbanHeaderProps) {
   return (
     <header className="h-28 px-12 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between shrink-0 sticky top-0 z-40 transition-all">
       <div className="flex items-center gap-8">
@@ -27,6 +31,9 @@ export function KanbanHeader({ projectName, projectDescription, isProcessing = f
         </div>
       </div>
       <div className="flex items-center gap-4">
+        {tokenUsage && (
+          <TokenCounter input={tokenUsage.input} output={tokenUsage.output} label="This project" />
+        )}
         {isProcessing && (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-[1rem] border border-blue-100">
             <Loader2 className="w-4 h-4 animate-spin" />

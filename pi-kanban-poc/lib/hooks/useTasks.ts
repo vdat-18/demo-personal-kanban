@@ -33,6 +33,7 @@ export function useTasks(params?: { status?: TaskStatus; projectId?: string }) {
   const tasks = useKanbanStore((s) => s.tasks)
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
+      if (t.deletedAt) return false
       if (params?.status && t.status !== params.status) return false
       if (params?.projectId && t.projectId !== params.projectId) return false
       return true
@@ -51,7 +52,10 @@ export function useTasks(params?: { status?: TaskStatus; projectId?: string }) {
 
 export function useTask(id: string) {
   const tasks = useKanbanStore((s) => s.tasks)
-  const task = useMemo(() => tasks.find((t) => t.id === id), [tasks, id])
+  const task = useMemo(
+    () => tasks.find((t) => t.id === id && !t.deletedAt),
+    [tasks, id],
+  )
   return {
     data: task,
     isLoading: false,

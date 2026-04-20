@@ -1,10 +1,15 @@
 'use client'
 
-import { StopCircle } from 'lucide-react'
+import { useState } from 'react'
+import { StopCircle, ChevronDown } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { ConversationHistoryPanel } from '@/components/molecules/ConversationHistoryPanel'
-import type { UITaskStatus, UIConversation, SubtaskApprovalStatus } from '@/types/domain'
+import { TokenCounter } from '@/components/molecules/TokenCounter'
+import type { UITaskStatus, UIConversation, SubtaskApprovalStatus, TaskStatus, TaskPriority } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
+import { formatTaskStatus, formatPriority } from '@/lib/display/format'
 
 export interface TaskInfoSidebarProps {
   taskTitle: string
@@ -51,6 +56,16 @@ export function TaskInfoSidebar({
   onAbort,
   activityTimeline,
 }: TaskInfoSidebarProps) {
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null)
+
+  const taskTokenUsage = conversations.reduce(
+    (acc, c) => ({
+      input: acc.input + (c.tokenUsage?.input ?? 0),
+      output: acc.output + (c.tokenUsage?.output ?? 0),
+    }),
+    { input: 0, output: 0 },
+  )
+
   return (
     <div className="w-full h-full overflow-y-auto p-6 flex flex-col gap-6 shrink-0">
       {/* Status Controls */}
@@ -60,7 +75,7 @@ export function TaskInfoSidebar({
         </h3>
         <div className="flex flex-col gap-2">
           <div className="py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider text-center bg-[#0a192f] text-white">
-            {taskStatus}
+            {formatTaskStatus(taskStatus as TaskStatus).label}
           </div>
           {getAllowedTransitions(taskStatus as TaskStatusValue).length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
@@ -70,7 +85,7 @@ export function TaskInfoSidebar({
                   onClick={() => onUpdateStatus(s as UITaskStatus)}
                   className="py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors bg-gray-50 text-gray-500 hover:bg-gray-100"
                 >
-                  {s === 'BLOCKED' ? '⛔ BLOCK' : s === 'TODO' ? '↩ RESTORE' : `→ ${s}`}
+                  → {formatTaskStatus(s as TaskStatus).label}
                 </button>
               ))}
             </div>
@@ -93,8 +108,14 @@ export function TaskInfoSidebar({
         )}
         <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
           <span className="text-xs font-bold text-gray-400">Priority</span>
-          <span className="text-xs font-bold text-[#0a192f]">{taskPriority}</span>
+          <span className="text-xs font-bold text-[#0a192f]">{formatPriority(taskPriority as TaskPriority).label}</span>
         </div>
+        {(taskTokenUsage.input > 0 || taskTokenUsage.output > 0) && (
+          <div className="mt-2 pt-2 border-t border-gray-50 flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-400">Tokens</span>
+            <TokenCounter input={taskTokenUsage.input} output={taskTokenUsage.output} />
+          </div>
+        )}
       </div>
 
       {/* Current step */}
@@ -116,28 +137,56 @@ export function TaskInfoSidebar({
           <h3 className="text-xs font-black text-green-600 uppercase tracking-widest mb-3">
             Steps
           </h3>
-          <div className="space-y-1.5">
-            {subtasks.filter(s => s.approvalStatus === 'approved').map((sub) => (
-              <div key={sub.id} className={`flex items-start gap-2 rounded-xl px-2 py-1 ${sub.completed ? 'bg-slate-50' : 'bg-green-50/40'}`}>
-                <span className="mt-0.5 text-[11px] text-green-600">{sub.completed ? '☑' : '☐'}</span>
-                <div className="min-w-0 flex-1">
-                  <div className={`text-xs font-semibold leading-snug ${sub.completed ? 'line-through text-slate-400' : 'text-[#0a192f]'}`}>
-                    {sub.title}
-                  </div>
-                  {sub.description && (
-                    <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
-                  )}
-                  {sub.doerResult?.summary && (
-                    <div className="mt-1.5 rounded-lg bg-blue-50 border border-blue-100 px-2 py-1.5">
-                      <div className="text-[9px] font-black uppercase tracking-wider text-blue-500 mb-0.5">
-                        AI Output
+          <div className="space-y-2">
+            {subtasks.filter(s => s.approvalStatus === 'approved').map((sub) => {
+              const isExpanded = expandedStepId === sub.id
+              const hasOutput = !!(sub.doerResult?.artifact || sub.doerResult?.summary || sub.output)
+              return (
+                <div key={sub.id} className={`rounded-xl border ${sub.completed ? 'border-slate-100 bg-slate-50' : 'border-green-100 bg-green-50/30'}`}>
+                  {/* Step header row */}
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <span className="text-[11px] text-green-600 shrink-0">{sub.completed ? '☑' : '☐'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-semibold leading-snug ${sub.completed ? 'line-through text-slate-400' : 'text-[#0a192f]'}`}>
+                        {sub.title}
                       </div>
-                      <div className="text-[10px] text-blue-900 leading-relaxed">{sub.doerResult.summary}</div>
+                      {sub.description && !isExpanded && (
+                        <div className="text-[10px] text-slate-400 mt-0.5 truncate">{sub.description}</div>
+                      )}
+                    </div>
+                    {hasOutput && (
+                      <button
+                        onClick={() => setExpandedStepId(isExpanded ? null : sub.id)}
+                        className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold text-blue-500 hover:text-blue-700 transition-colors"
+                        title={isExpanded ? 'Collapse output' : 'View output'}
+                      >
+                        <span>{isExpanded ? 'Hide' : 'Output'}</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded output */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 border-t border-blue-50">
+                      {sub.description && (
+                        <p className="text-[11px] text-slate-500 mt-2 mb-2 leading-relaxed">{sub.description}</p>
+                      )}
+                      <div className="mt-2 rounded-lg bg-white border border-blue-100 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-wider text-blue-500 mb-1.5">
+                          AI Draft Output
+                        </div>
+                        <div className="prose prose-xs max-w-none text-slate-700 prose-p:my-1 prose-p:leading-relaxed prose-li:my-0.5 prose-headings:text-[#0a192f] prose-headings:font-bold prose-headings:text-xs prose-strong:font-semibold prose-code:text-[10px] prose-code:bg-slate-100 prose-code:px-1 prose-code:rounded">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {sub.doerResult?.artifact || sub.doerResult?.summary || sub.output || ''}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { Check, X, Flag, Clock, RotateCcw } from 'lucide-react'
 import type { StructuredTaskProposal } from '@/types/domain'
+import { TASK_PRIORITY_LABEL } from '@/lib/display/labels'
 
 interface TaskProposalCardProps {
   task: StructuredTaskProposal
@@ -82,7 +83,7 @@ export function TaskProposalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${PRIORITY_STYLE[task.priority]}`}>
-              {task.priority}
+              {TASK_PRIORITY_LABEL[task.priority] ?? task.priority}
             </span>
             {task.milestone && (
               <span className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">

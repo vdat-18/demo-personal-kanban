@@ -7,6 +7,7 @@ import { HeroSection } from '@/components/organisms/HeroSection'
 import { ProjectGrid } from '@/components/organisms/ProjectGrid'
 import { CreateProjectModal } from '@/components/molecules/CreateProjectModal'
 import { ImportProjectFlow } from '@/components/molecules/ImportProjectFlow'
+import { useConfirm } from '@/components/molecules/ConfirmDialog'
 import { useProjects, useCreateProject, useDeleteProject } from '@/lib/hooks/useProjects'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { IngestedFile } from '@/lib/fileIngest'
@@ -22,6 +23,7 @@ export function DashboardTemplate() {
   const { data: projects = [] } = useProjects()
   const { mutateAsync: createProject } = useCreateProject()
   const { mutateAsync: deleteProject } = useDeleteProject()
+  const { confirm, element: confirmElement } = useConfirm()
   const createPlanningThread = useKanbanStore((s) => s.createPlanningThread)
   const createPlanningMessage = useKanbanStore((s) => s.createPlanningMessage)
 
@@ -107,14 +109,26 @@ export function DashboardTemplate() {
   const handleDeleteProject = useCallback(
     async (e: React.MouseEvent, id: string) => {
       e.stopPropagation()
-      if (!window.confirm('Are you sure you want to delete this project?')) return
+      const project = projects.find((p) => p.id === id)
+      const ok = await confirm({
+        title: 'Delete project?',
+        message: (
+          <>
+            Deleting <strong>{project?.name ?? 'project'}</strong> will permanently remove all tasks,
+            chat history, and artifacts inside. This action cannot be undone.
+          </>
+        ),
+        variant: 'danger',
+        confirmLabel: 'Delete project',
+      })
+      if (!ok) return
       try {
         await deleteProject(id)
       } catch (err) {
         console.error(err)
       }
     },
-    [deleteProject],
+    [confirm, deleteProject, projects],
   )
 
   // Map projects to the shape ProjectGrid expects
@@ -214,6 +228,7 @@ export function DashboardTemplate() {
         onClose={() => setShowImportFlow(false)}
         onSubmit={handleImportSubmit}
       />
+      {confirmElement}
     </div>
   )
 }

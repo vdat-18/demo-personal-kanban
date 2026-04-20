@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
-import type { UITaskStatus } from '@/types/domain'
+import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { STATUS_COLORS } from '@/constants/status'
+import { formatTaskStatus } from '@/lib/display/format'
 
 export interface StatusPillProps {
   status: UITaskStatus
@@ -16,7 +17,7 @@ export function StatusPill({ status, className }: StatusPillProps) {
         className
       )}
     >
-      {status}
+      {formatTaskStatus(status as TaskStatus).label}
     </span>
   )
 }

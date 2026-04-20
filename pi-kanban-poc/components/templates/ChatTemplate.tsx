@@ -18,6 +18,7 @@ import { useReviewerAgent } from '@/lib/hooks/useReviewerAgent'
 import { deriveVerdict, verdictBadge } from '@/lib/reviewer-loop'
 import type { NextAction } from '@/lib/reviewer-loop'
 import type { ReviewerEnvelope } from '@/types/domain'
+import { EtaIndicator } from '@/components/molecules/EtaIndicator'
 
 interface Task {
   id: string
@@ -153,7 +154,7 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   )
 
   const taskSubtasks = useMemo(
-    () => allSubtasks.filter((sub) => sub.taskId === task.id),
+    () => allSubtasks.filter((sub) => sub.taskId === task.id && !sub.deletedAt),
     [allSubtasks, task.id],
   )
 
@@ -314,14 +315,19 @@ function ReviewerWorkspacePanel({
         </div>
 
         {reviewer.state === 'reviewing' && (
-          <div className="rounded-2xl bg-amber-50/60 border border-amber-100 px-4 py-3 flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">
-                Reviewer is checking the work
+          <div className="rounded-2xl bg-amber-50/60 border border-amber-100 px-4 py-3">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 flex-1">
+                AI reviewing
               </div>
-              <div className="text-[11px] text-amber-600">Looking for gaps, quality issues, and missing deliverables…</div>
             </div>
+            <EtaIndicator
+              mode="reviewer"
+              running={true}
+              label="Finding gaps and quality issues"
+              onAbort={() => reviewer.abort()}
+            />
           </div>
         )}
 
@@ -512,9 +518,11 @@ function DoerExecutionPanel({
         {nextPendingSubtask && doer.state === 'idle' && (
           <button
             onClick={() => doer.start(nextPendingSubtask.id)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+            title="Estimated ~8k tokens for this call"
           >
             🤖 Do next step
+            <span className="text-[9px] font-mono opacity-70">≈ 8k</span>
           </button>
         )}
       </div>
@@ -545,25 +553,38 @@ function DoerExecutionPanel({
             )}
           </div>
         ) : (
-          <div className="rounded-2xl bg-green-50/60 border border-green-100 px-4 py-4">
-            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-green-700 mb-1">
-              All steps complete
+          <div className="rounded-2xl bg-green-50/60 border border-green-100 px-4 py-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-green-700 mb-1">
+                All steps complete
+              </div>
+              <div className="text-sm font-semibold text-[#0a192f] leading-snug">
+                This task is ready to send to review.
+              </div>
             </div>
-            <div className="text-sm font-semibold text-[#0a192f] leading-snug">
-              This task is ready to send to review.
-            </div>
+            <button
+              onClick={onMoveToReview}
+              className="shrink-0 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-green-500/20 flex items-center gap-1.5"
+            >
+              Send to Review →
+            </button>
           </div>
         )}
 
         {doer.state === 'working' && (
-          <div className="rounded-2xl bg-violet-50/60 border border-violet-100 px-4 py-3 flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse shrink-0" />
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-violet-700">
-                Doer is working
+          <div className="rounded-2xl bg-violet-50/60 border border-violet-100 px-4 py-3">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse shrink-0" />
+              <div className="text-[10px] font-black uppercase tracking-wider text-violet-700 flex-1">
+                AI working
               </div>
-              <div className="text-[11px] text-violet-600">Drafting output for the current step…</div>
             </div>
+            <EtaIndicator
+              mode="doer"
+              running={true}
+              label="Generating content"
+              onAbort={() => doer.abort()}
+            />
           </div>
         )}
 

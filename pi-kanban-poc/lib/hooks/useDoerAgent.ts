@@ -1,8 +1,10 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { DoerEnvelope, Subtask, UITaskStatus } from '@/types/domain'
+import { formatError } from '@/lib/display/format'
+import { recordDuration } from '@/lib/timing'
 
 interface DoerContext {
   task: { title: string; description: string | null; priority: string }
@@ -49,6 +51,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const projects = useKanbanStore((s) => s.projects)
   const planningThreads = useKanbanStore((s) => s.planningThreads)
   const saveDoerResult = useKanbanStore((s) => s.saveDoerResult)
+  const addTokenUsage = useKanbanStore((s) => s.addTokenUsage)
   const markSubtaskCompletedByDoer = useKanbanStore((s) => s.markSubtaskCompletedByDoer)
   const getNextPendingSubtask = useKanbanStore((s) => s.getNextPendingSubtask)
   const logActivity = useKanbanStore((s) => s.logActivity)
@@ -57,6 +60,32 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const [error, setError] = useState<string | null>(null)
   const [envelope, setEnvelope] = useState<DoerEnvelope | null>(null)
   const [currentSubtaskId, setCurrentSubtaskId] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      abortRef.current?.abort()
+      abortRef.current = null
+    }
+  }, [])
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    if (!isMountedRef.current) return
+    setState('idle')
+    setError(null)
+    logActivity({
+      taskId,
+      type: 'doer_started_subtask',
+      actor: 'user',
+      summary: 'Bạn đã huỷ Doer',
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logActivity, taskId])
 
   const task = useMemo(
     () => tasks.find((t) => t.id === taskId) ?? null,
@@ -115,6 +144,12 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 
     const systemPrompt = buildDoerPrompt(ctx)
 
+    // Cancel any pending call first
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const startedAt = Date.now()
+
     try {
       const response = await fetch('/api/agent', {
         method: 'POST',
@@ -132,15 +167,23 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
           taskDescription,
           systemPromptOverride: systemPrompt,
         }),
+        signal: controller.signal,
       })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Doer request failed (${response.status})`)
       }
-      const data = (await response.json()) as { envelope?: DoerEnvelope }
+      const data = (await response.json()) as { envelope?: DoerEnvelope; tokenUsage?: { input: number; output: number } }
       const parsed = data.envelope ?? null
       if (!parsed) {
         throw new Error('Doer response was not valid JSON')
+      }
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      recordDuration('doer', Date.now() - startedAt)
+      if (data.tokenUsage && task) {
+        addTokenUsage(task.projectId, data.tokenUsage)
       }
 
       setEnvelope(parsed)
@@ -175,8 +218,15 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 
       setState('result')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown doer error')
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState('idle')
+        return
+      }
+      setError(formatError(e))
       setState('error')
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
     }
   }, [buildContext, getNextPendingSubtask, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle])
 
@@ -191,6 +241,10 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 
     const prompt = buildDoerPrompt(ctx, answer)
 
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const response = await fetch('/api/agent', {
         method: 'POST',
@@ -203,14 +257,21 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
           taskDescription,
           systemPromptOverride: prompt,
         }),
+        signal: controller.signal,
       })
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Doer request failed (${response.status})`)
       }
-      const data = (await response.json()) as { envelope?: DoerEnvelope }
+      const data = (await response.json()) as { envelope?: DoerEnvelope; tokenUsage?: { input: number; output: number } }
       const parsed = data.envelope ?? null
       if (!parsed) throw new Error('Doer response was not valid JSON')
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      if (data.tokenUsage && task) {
+        addTokenUsage(task.projectId, data.tokenUsage)
+      }
 
       setEnvelope(parsed)
 
@@ -219,8 +280,15 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       }
       setState(parsed.needsHumanInput ? 'needs-input' : 'result')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown doer error')
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState('idle')
+        return
+      }
+      setError(formatError(e))
       setState('error')
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
     }
   }, [buildContext, currentSubtaskId, saveDoerResult, task, taskDescription, taskId, taskTitle])
 
@@ -247,6 +315,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     answerClarification,
     acceptCurrentStep,
     retryCurrentStep,
+    abort,
   }
 }
 

@@ -44,7 +44,10 @@ export default function KnowledgeHubPage() {
     const projectIndex = new Map(projects.map((p) => [p.id, p]))
     const threadIndex = new Map(threads.map((t) => [t.id, t]))
     const published = versions
-      .filter((v) => v.status === 'published')
+      // Hub shows only the currently-active published plan per thread.
+      // Older published rows (now `supersededAt != null`) are kept in the
+      // store as history but hidden from the cross-project hub.
+      .filter((v) => v.status === 'published' && !v.supersededAt)
       .map((v) => {
         const thread = threadIndex.get(v.threadId)
         const project = thread ? projectIndex.get(thread.projectId) : undefined
