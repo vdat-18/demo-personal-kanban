@@ -4,10 +4,14 @@ import { DirectoryTaskCard } from '@/components/molecules/DirectoryTaskCard'
 import { DirectoryTaskRow } from '@/components/molecules/DirectoryTaskRow'
 import type { UITaskStatus } from '@/types/domain'
 
+type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+
 interface Task {
   id: string
   title: string
+  description?: string | null
   status: UITaskStatus
+  priority: TaskPriority
   projectName: string
 }
 
@@ -18,6 +22,17 @@ export interface DirectoryTaskListProps {
 }
 
 export function DirectoryTaskList({ tasks, viewMode, onTaskClick }: DirectoryTaskListProps) {
+  if (tasks.length === 0) {
+    return (
+      <section>
+        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Tasks (0)</h2>
+        <div className="py-20 text-center">
+          <p className="text-sm font-bold text-gray-300">No tasks match your filters.</p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section>
       <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
@@ -31,7 +46,9 @@ export function DirectoryTaskList({ tasks, viewMode, onTaskClick }: DirectoryTas
               key={task.id}
               id={task.id}
               title={task.title}
+              description={task.description}
               status={task.status}
+              priority={task.priority}
               projectName={task.projectName}
               onClick={() => onTaskClick(task.id)}
             />
@@ -44,17 +61,14 @@ export function DirectoryTaskList({ tasks, viewMode, onTaskClick }: DirectoryTas
               key={task.id}
               id={task.id}
               title={task.title}
+              description={task.description}
               status={task.status}
+              priority={task.priority}
               projectName={task.projectName}
               onClick={() => onTaskClick(task.id)}
               showBorder={i > 0}
             />
           ))}
-          {tasks.length === 0 && (
-            <div className="p-10 text-center">
-              <p className="text-sm font-bold text-gray-300">No tasks match your search.</p>
-            </div>
-          )}
         </div>
       )}
     </section>

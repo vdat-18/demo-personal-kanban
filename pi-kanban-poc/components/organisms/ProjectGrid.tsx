@@ -2,6 +2,7 @@
 
 import { Clock, Layout } from 'lucide-react'
 import { ProjectCard } from '@/components/molecules/ProjectCard'
+import type { PlanningStatus } from '@/types/domain'
 
 interface Project {
   id: string
@@ -9,6 +10,7 @@ interface Project {
   description?: string | null
   domain?: string
   status: string
+  planningStatus?: PlanningStatus
   createdAt: string
   tasks: Array<{ id: string; status: string }>
 }
@@ -21,33 +23,35 @@ export interface ProjectGridProps {
 
 export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: ProjectGridProps) {
   return (
-    <section className="animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-500 ease-out">
-      <div className="flex justify-between items-end mb-12 px-4">
+    <section className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 ease-out">
+      <div className="flex justify-between items-end mb-6 px-1">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-blue-500" />
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Project History</span>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-3.5 h-3.5 text-blue-500" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
+              Project History
+            </span>
           </div>
-          <h2 className="text-5xl font-black text-[#0a192f] tracking-tighter">Your recent journeys</h2>
+          <h2 className="text-2xl font-bold text-[#0a192f] tracking-tight">
+            Your recent journeys
+          </h2>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] bg-blue-50 px-3 py-1 rounded-full border border-blue-100 shadow-sm">
-            {projects.length > 0 ? `${projects.length} PROJECTS` : 'READY'}
-          </span>
-        </div>
+        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.18em] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+          {projects.length > 0 ? `${projects.length} projects` : 'Ready'}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {projects.length === 0 ? (
-          <div className="col-span-full py-32 flex flex-col items-center justify-center bg-white/40 rounded-[5rem] border border-white shadow-2xl shadow-slate-200/20 backdrop-blur-sm">
-            <div className="w-28 h-28 rounded-[3rem] bg-white shadow-2xl shadow-slate-200 flex items-center justify-center text-blue-400 mb-10 transition-transform hover:scale-105 duration-700">
-              <Layout className="w-12 h-12" />
+          <div className="col-span-full py-16 flex flex-col items-center justify-center bg-white/60 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-white shadow-md flex items-center justify-center text-blue-400 mb-4">
+              <Layout className="w-7 h-7" />
             </div>
-            <p className="text-sm font-black text-[#0a192f] uppercase tracking-[0.25em] text-center mb-4">
+            <p className="text-sm font-bold text-[#0a192f] mb-1">
               Your journeys will appear here
             </p>
-            <p className="text-base text-slate-400 text-center max-w-xs leading-relaxed font-medium">
-              Start a new project and let AI help you plan and execute it!
+            <p className="text-sm text-slate-400 text-center max-w-xs">
+              Start a new project and let AI help you plan and execute it.
             </p>
           </div>
         ) : (
@@ -57,6 +61,7 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
               id={project.id}
               name={project.name}
               status={project.status}
+              planningStatus={project.planningStatus ?? 'not_started'}
               tasks={project.tasks}
               onClick={() => onProjectClick(project.id)}
               onDelete={onDeleteProject}

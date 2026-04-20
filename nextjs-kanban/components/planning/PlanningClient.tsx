@@ -408,7 +408,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       {/* Center: Chat Panel */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
         {/* Header */}
-        <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
+        <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10 relative">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-3">
               <button
@@ -434,7 +434,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             </div>
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden md:block absolute left-1/2 -translate-x-1/2">
             <PhaseStepper phase={currentPhase} />
           </div>
 

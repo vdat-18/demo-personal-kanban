@@ -8,9 +8,6 @@ import {
   Save,
   XCircle,
   Clock,
-  Download,
-  Copy,
-  Check,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -31,19 +28,13 @@ interface VisionPanelProps {
   title?: string
   /** Optional readonly mode (used in the onboarding example thread). */
   readOnly?: boolean
+  /** True when there is a newer draft version after the currently-published
+   *  one — used to show a "Plan đã cập nhật, publish lại?" banner (#1). */
+  publishedIsStale?: boolean
+  /** Optional callback to publish the latest draft directly from the banner. */
+  onPublishLatest?: () => void
 }
 
-/**
- * Dual-mode vision document (Tier 1.4).
- *
- * - View mode: render markdown, with buttons to switch to direct-edit or to
- *   focus the chat input for AI-assisted revision.
- * - Edit mode: inline textarea. Saving creates a user_direct_edit version and
- *   sends a system note to the agent so the next turn is aware of the change.
- *
- * Conflict resolution (user edits AND chats simultaneously) is handled upstream
- * in PlanningClient — we just surface an "unsaved edits" hint here.
- */
 export function VisionPanel({
   content,
   onSaveEdit,
@@ -52,6 +43,8 @@ export function VisionPanel({
   versionCount,
   title,
   readOnly,
+  publishedIsStale,
+  onPublishLatest,
 }: VisionPanelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(content ?? '')
@@ -90,69 +83,75 @@ export function VisionPanel({
   }
 
   return (
-    <div className="mx-4 mb-3 rounded-3xl border border-blue-100 bg-blue-50/30 overflow-hidden shadow-sm">
+    <div className="mx-4 mb-3 rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-blue-50/40 border-b border-blue-100">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+        {/* Left: toggle expand */}
         <button
           onClick={() => !isEditing && setIsExpanded((v) => !v)}
           disabled={isEditing}
-          className="flex items-center gap-2.5 text-left hover:bg-white/40 p-1 -m-1 rounded-xl transition-all"
+          aria-expanded={isExpanded}
+          className="flex items-center gap-2 text-left group select-none"
         >
-          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-            <FileText className="w-3.5 h-3.5 text-blue-600" />
+          <div className="w-5 h-5 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+            <FileText className="w-3 h-3 text-indigo-500" />
           </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="text-[10px] font-black text-blue-700 uppercase tracking-[0.15em]">
-                {title ?? 'Your plan'}
-              </div>
-              {!isEditing && (
-                <div className="text-[9px] text-blue-400 font-semibold">
-                  {versionCount > 0 ? `${versionCount} revision${versionCount > 1 ? 's' : ''}` : 'Draft'}
-                </div>
-              )}
-            </div>
+          <div>
+            <span className="text-[11px] font-black text-gray-800 uppercase tracking-widest">
+              {title ?? 'Your plan'}
+            </span>
             {!isEditing && (
-              <div className="text-blue-300">
-                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </div>
+              <span className="ml-2 text-[10px] text-gray-400 font-medium">
+                {versionCount > 0
+                  ? `${versionCount} revision${versionCount > 1 ? 's' : ''}`
+                  : 'Draft'}
+                {' · '}
+                <span className="text-indigo-400 group-hover:text-indigo-600 transition-colors">
+                  {isExpanded ? 'click to close' : 'click to expand'}
+                </span>
+              </span>
             )}
           </div>
+          {!isEditing && (
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+            />
+          )}
         </button>
 
-        <div className="flex items-center gap-1">
+        {/* Right: action buttons */}
+        <div className="flex items-center gap-0.5">
           {!isEditing && versionCount > 0 && !readOnly && (
             <button
               onClick={onOpenHistory}
-              className="p-1.5 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-white/50 transition-colors"
-              title="Version history"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              title="Compare versions and restore older drafts"
             >
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-3 h-3" />
+              History
+              <span className="ml-0.5 px-1 bg-gray-200 rounded text-[9px] font-black text-gray-600">{versionCount}</span>
             </button>
           )}
           {!isEditing && content && (
-            <ExportMenu
-              content={content}
-              title={title ?? 'Plan'}
-            />
+            <ExportMenu content={content} title={title ?? 'Plan'} />
           )}
           {!isEditing && !readOnly && (
             <>
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-white/50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                 title="Edit directly"
               >
                 <Pencil className="w-3 h-3" />
-                Edit directly
+                Edit
               </button>
               <button
                 onClick={onAskAiFocus}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-white/50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
                 title="Ask AI to revise"
               >
                 <MessageCircle className="w-3 h-3" />
-                Ask AI to revise
+                Ask AI
               </button>
             </>
           )}
@@ -160,14 +159,14 @@ export function VisionPanel({
             <>
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
               >
                 <XCircle className="w-3 h-3" />
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
               >
                 <Save className="w-3 h-3" />
                 Save
@@ -178,16 +177,32 @@ export function VisionPanel({
       </div>
 
       {isEditing && hasUnsavedChanges && (
-        <div className="px-5 py-2 bg-amber-50/80 border-b border-amber-100 text-[10px] font-semibold text-amber-700">
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-[10px] font-semibold text-amber-700">
           ⚠️ You have unsaved edits. Save before sending a chat message.
         </div>
       )}
 
-      {/* Content */}
+      {publishedIsStale && !readOnly && (
+        <div className="px-5 py-3 border-t border-amber-100 bg-amber-50/60 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-800 leading-snug">
+              A newer draft is available. Publish it to keep your team up to date.
+            </p>
+          </div>
+          {onPublishLatest && (
+            <button
+              onClick={onPublishLatest}
+              className="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[11px] font-bold uppercase tracking-wider hover:bg-amber-700 transition-colors active:scale-95 shrink-0"
+            >
+              Publish latest
+            </button>
+          )}
+        </div>
+      )}
+
       {(isExpanded || isEditing) && (
-        <div 
-          className="px-6 py-5 border-t border-blue-100 max-h-[450px] overflow-y-auto scroll-smooth"
-        >
+        <div className="px-6 py-5 max-h-[450px] overflow-y-auto scroll-smooth">
           {isEditing ? (
             <textarea
               ref={textareaRef}
@@ -199,10 +214,10 @@ export function VisionPanel({
                 el.style.height = `${Math.min(el.scrollHeight, 600)}px`
               }}
               placeholder="# Your plan"
-              className="w-full min-h-[200px] max-h-[600px] bg-white border border-blue-200 rounded-2xl p-4 text-sm text-[#0a192f] font-mono resize-none focus:outline-none focus:border-blue-400 leading-relaxed"
+              className="w-full min-h-[200px] max-h-[600px] bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-800 font-mono resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 leading-relaxed"
             />
           ) : (
-            <div className="prose prose-sm max-w-none text-blue-900 prose-headings:text-blue-800 prose-strong:text-blue-900 text-justify">
+            <div className="prose prose-sm max-w-none text-slate-700 prose-headings:text-[#0a192f] prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-h2:mt-5 prose-h3:mt-4 prose-p:my-2 prose-p:leading-relaxed prose-li:my-1 prose-li:leading-relaxed prose-strong:text-[#0a192f] prose-strong:font-semibold prose-ul:my-2 prose-ol:my-2">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content ?? ''}</ReactMarkdown>
             </div>
           )}

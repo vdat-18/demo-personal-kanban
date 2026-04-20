@@ -274,23 +274,52 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     `Current phase: ${phase}.`,
     '',
     '── Phase semantics (internal labels) ─────────────────────────',
-    '- discovery: gather just enough context. Ask questions in BATCHES (3-7 at a',
-    '  time), never one at a time. Use chip suggestions whenever the answer is',
-    '  closed-domain (timeline, budget tier, audience type, yes/no). Use free',
-    '  text only when the answer is open-ended. Adapt question phrasing and',
-    '  examples to the nature of the user\'s project (event, business, learning,',
-    '  personal life, ...). Do NOT ask the user to declare a domain.',
+    '- discovery: gather enough context to draft a solid blueprint. Ask',
+    '  questions in BATCHES of AT LEAST 4 and IDEALLY 5-7 questions per turn.',
+    '  Returning fewer than 4 questions in discovery phase is a failure mode —',
+    '  you are meant to explore, not to interview one bullet at a time. Cover',
+    '  the 6 discovery dimensions systematically across 2-3 batches before',
+    '  declaring readyForNextPhase:',
+    '    • WHAT: the concrete output/deliverable, scope boundaries (in/out)',
+    '    • WHY: the underlying reason, success metrics, cost of inaction',
+    '    • WHO: audience, stakeholders who must approve, people who execute',
+    '    • WHEN: hard deadline, intermediate milestones, blocking dependencies',
+    '    • HOW: budget, available tools/platforms, preferred methods',
+    '    • CONSTRAINT: compliance, brand guidelines, resource caps, risks',
+    '  For each question set the "dimension" field. Prefer chip suggestions for',
+    '  closed-domain answers (timeline windows, budget tier, audience type,',
+    '  yes/no). Use free text only when the answer is genuinely open-ended.',
+    '  Adapt phrasing/examples to the nature of the project (event, business,',
+    '  learning, personal life, ...). Do NOT ask the user to declare a domain.',
     '- blueprint: produce or revise the vision document in markdown. The',
-    '  document lives in the visionDocument field. Keep "content" short — the',
-    '  user reads the document, not the chat bubble.',
+    '  document lives in the visionDocument field. IMPORTANT: even during',
+    '  discovery you MAY and SHOULD return an updated visionDocument as soon',
+    '  as you have enough to draft a v1 (after the first batch of answers).',
+    '  Each subsequent batch should ENRICH/REVISE the draft — never start from',
+    '  scratch. Mark it as a draft in the content if confidence is still low.',
+    '  Keep "content" short — the user reads the document, not the chat bubble.',
     '- task_mapping: propose concrete tasks via the "tasks" array. Return them',
     '  in the structured field, NEVER as inline markdown bullets. Group with',
     '  the milestone field when natural. Tasks should be small enough to act on.',
     '',
+    '── Progressive blueprint drafting ────────────────────────────',
+    '- After the user answers batch 1 of discovery questions, produce an',
+    '  initial visionDocument (even if thin). Tag sections as "draft" when',
+    '  information is still missing.',
+    '- After each subsequent batch, REVISE the existing visionDocument:',
+    '    • add newly learned details in the appropriate section,',
+    '    • remove obsolete assumptions the user contradicted,',
+    '    • tighten language as the picture stabilizes.',
+    '- Keep section headings stable across versions so the diff reads cleanly.',
+    '- Never regenerate the document from scratch unless the user explicitly',
+    '  asks to start over.',
+    '',
     '── Phase transitions ─────────────────────────────────────────',
     '- When you believe the current phase is "done enough", set',
     '  readyForNextPhase=true, suggestedPhase=<next>, reasonForTransition=<short',
-    '  human reason>. NEVER change phase silently.',
+    '  human reason>. Only suggest moving on AFTER covering at least WHAT/WHY/',
+    '  WHEN in discovery and producing a visionDocument draft. NEVER change',
+    '  phase silently.',
     '- If the user asks to skip ahead or jump back ("just give me the tasks",',
     '  "let\'s revisit the goal"), set detectedUserIntent="jump_phase" and',
     '  targetPhase=<their target>. Do not refuse — the client will confirm with',
@@ -410,6 +439,31 @@ function normalizeReviewerEnvelope(obj: unknown): ReviewerEnvelope {
         : null,
     approveTask: o.approveTask === true,
     changeRequest: typeof o.changeRequest === 'string' ? o.changeRequest : null,
+    verdict:
+      o.verdict === 'approve'
+        || o.verdict === 'minor_revision'
+        || o.verdict === 'major_revision'
+        || o.verdict === 'replan_needed'
+        ? (o.verdict as ReviewerEnvelope['verdict'])
+        : undefined,
+    confidence: typeof o.confidence === 'number' ? o.confidence : undefined,
+    changeActions: Array.isArray(o.changeActions)
+      ? (o.changeActions as Array<Record<string, unknown>>)
+          .map((a) => {
+            const action = a.action
+            if (action !== 'revise' && action !== 'remove' && action !== 'add' && action !== 'clarify') {
+              return null
+            }
+            return {
+              subtaskId: typeof a.subtaskId === 'string' ? a.subtaskId : undefined,
+              action: action as 'revise' | 'remove' | 'add' | 'clarify',
+              reason: typeof a.reason === 'string' ? a.reason : '',
+              suggestedContent:
+                typeof a.suggestedContent === 'string' ? a.suggestedContent : undefined,
+            }
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null && x.reason.length > 0)
+      : undefined,
   }
 }
 
@@ -1216,7 +1270,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'messages[] is required' }, { status: 400 })
   }
 
-  try {
+  // Per-mode hard timeout. Beyond this we return 504 with a friendly code so
+  // the client can show "AI took too long" instead of a hung spinner.
+  const TIMEOUT_MS: Record<string, number> = {
+    plan: 120_000,
+    breakdown: 120_000,
+    doer: 120_000,
+    reviewer: 120_000,
+    chat: 180_000,
+  }
+  const timeoutMs = TIMEOUT_MS[body.mode] ?? 120_000
+
+  const dispatch = async (): Promise<Response> => {
     if (body.mode === 'plan') return await handlePlan(body)
     if (body.mode === 'chat') return await handleChat(body)
     if (body.mode === 'breakdown') return await handleBreakdown(body)
@@ -1226,8 +1291,20 @@ export async function POST(req: NextRequest) {
       { error: `Unknown mode: ${(body as { mode: string }).mode}` },
       { status: 400 },
     )
+  }
+
+  try {
+    return await Promise.race<Response>([
+      dispatch(),
+      new Promise<Response>((_, reject) =>
+        setTimeout(() => reject(new Error('E_TIMEOUT')), timeoutMs),
+      ),
+    ])
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Agent error'
+    if (message === 'E_TIMEOUT') {
+      return Response.json({ error: 'E_TIMEOUT' }, { status: 504 })
+    }
     return Response.json({ error: message }, { status: 500 })
   }
 }

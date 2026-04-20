@@ -7,6 +7,8 @@ export type ProjectDomain = 'SOFTWARE_ENGINEERING' | 'MARKETING' | 'SALES' | 'LO
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'BLOCKED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
+/** Lifecycle of project planning — drives where Recent Journey navigates to. */
+export type PlanningStatus = 'not_started' | 'in_progress' | 'completed'
 
 // Legacy lowercase status — kept for compatibility with constants/agents.ts
 export type LegacyTaskStatus =
@@ -31,6 +33,18 @@ export interface Project {
   status: string | null
   createdAt: string
   updatedAt: string
+  /** Tracks whether planning is complete so Home → Recent Journey can route
+   *  intelligently (planning vs kanban). Defaults to 'not_started' for new
+   *  projects, flips to 'in_progress' when first planning thread is created,
+   *  and 'completed' when user clicks Start Execution. */
+  planningStatus?: PlanningStatus
+  /**
+   * Cumulative token usage across all AI calls in this project (Doer,
+   * Reviewer, Breakdown, Planning, Chat). Surfaced in the project UI so
+   * the user has a sense of "how much have I spent here". Optional —
+   * legacy projects start at 0 via the selector.
+   */
+  totalTokenUsage?: { input: number; output: number }
 }
 
 export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
@@ -67,6 +81,8 @@ export interface Subtask {
    *  inspected it. Separate from doerResult so the UI can show both "what was
    *  produced" and "what quality concerns were found" side by side. */
   reviewResult?: ReviewerStepResult | null
+  /** Soft-delete timestamp — see Task.deletedAt. */
+  deletedAt?: string | null
 }
 
 export interface Task {
@@ -81,6 +97,43 @@ export interface Task {
   /** Set to true when the user explicitly dismissed the breakdown hint for
    *  this task (separate from the global dismiss flag). */
   hintDismissed?: boolean
+  /**
+   * Manual ordering within a project. Floating point so inserting between
+   * two tasks only requires computing `(a.order + b.order) / 2`. When
+   * absent (legacy rows) the UI falls back to `createdAt` ordering.
+   */
+  order?: number
+  /**
+   * ISO timestamp of the last status change. Used by the "Active task"
+   * indicator to show e.g. "42m on this task". When absent, the UI uses
+   * `updatedAt` as an approximation.
+   */
+  statusChangedAt?: string
+  /**
+   * Back-reference to the planning proposal this task was approved from,
+   * so the Kanban can offer an "Undo approval" action that both deletes
+   * the task AND flips the chat proposal card back to pending.
+   */
+  sourceProposal?: {
+    messageId: string
+    proposalId: string
+  }
+  /**
+   * Reviewer auto-loop state (#9). Incremented every time the reviewer
+   * completes a cycle on this task. When it hits MAX_REVIEW_ITERATIONS
+   * without approve, the UI forces a human gate instead of continuing to
+   * auto-send back to the Doer.
+   */
+  reviewIterationCount?: number
+  /** Latest reviewer verdict for quick UI consumption, mirroring the
+   *  field on ReviewerEnvelope. */
+  lastReviewVerdict?: 'approve' | 'minor_revision' | 'major_revision' | 'replan_needed'
+  /**
+   * Soft-delete timestamp. When set, the task is hidden from all selectors
+   * but kept in the store so the user can hit "Undo" within the toast
+   * window. Boot-time sweep purges entries older than `SOFT_DELETE_TTL_MS`.
+   */
+  deletedAt?: string | null
 }
 
 export interface ConversationMessage {
@@ -205,6 +258,27 @@ export interface VisionVersion {
   summary: string | null
   diffFromPrevious: string[] | null
   triggerMessage: string | null
+  /**
+   * Lifecycle status (#4). Every snapshot starts as `draft`. The user can
+   * explicitly `publish` a version to mark it as the authoritative plan.
+   * Only one version per thread should be published at a time — newer
+   * versions reset to draft again after a plan revision, prompting the
+   * user to re-publish when they're happy.
+   */
+  status?: 'draft' | 'published'
+  /** ISO timestamp when the user published this version, if applicable. */
+  publishedAt?: string
+  /**
+   * When a published version is later replaced by a newer publish, the old
+   * row is marked as superseded — keeping its `status: 'published'` history
+   * intact while letting the UI distinguish "current" vs "historical".
+   *
+   * `supersededBy` points at the version that replaced it; `supersededAt`
+   * is the ISO timestamp of the replacement publish. Both are unset on the
+   * currently-active published version.
+   */
+  supersededBy?: string | null
+  supersededAt?: string | null
 }
 
 // ─── Planning entities ───────────────────────────────────────────────────────
@@ -239,6 +313,10 @@ export interface PlanningMessage {
   taskProposalActions?: Array<{
     taskId: string
     action: 'approved' | 'dismissed'
+    /** When action === 'approved', the id of the Task record that was
+     *  created in the store. Stored so "Reset to pending" can roll back by
+     *  deleting that task. Undefined for 'dismissed' actions. */
+    createdTaskId?: string
   }>
 }
 
@@ -349,6 +427,35 @@ export interface ReviewerEnvelope {
   approveTask: boolean
   /** If changes are needed, provide a human-readable explanation. */
   changeRequest: string | null
+  /**
+   * Structured verdict for the auto-loop (#9). When omitted (legacy
+   * envelopes / older AI responses), the UI derives verdict from
+   * `approveTask` and the count of `findings` for backward compatibility.
+   *
+   *   - approve         → mark DONE
+   *   - minor_revision  → safe to auto-loop back to Doer (≤ MAX_REVIEW_ITERATIONS)
+   *   - major_revision  → human gate, do NOT auto-retry
+   *   - replan_needed   → escalate to the Step Planner / Planning phase
+   *
+   * `confidence` is the reviewer's self-rated likelihood that the verdict
+   * is correct (0..1). Used only as a tie-breaker — we don't show it to the
+   * user verbatim because that anthropomorphizes the AI more than is
+   * useful.
+   */
+  verdict?: 'approve' | 'minor_revision' | 'major_revision' | 'replan_needed'
+  confidence?: number
+  /**
+   * Optional structured action list a Doer can apply mechanically without
+   * re-interpreting prose. When the reviewer returns these, the auto-loop
+   * can stitch them into the Doer's next prompt as concrete instructions
+   * keyed to specific subtasks.
+   */
+  changeActions?: Array<{
+    subtaskId?: string
+    action: 'revise' | 'remove' | 'add' | 'clarify'
+    reason: string
+    suggestedContent?: string
+  }>
 }
 
 // ─── TODO breakdown agent (Tier 2.5) ─────────────────────────────────────────

@@ -1,10 +1,11 @@
 'use client'
 
-import { X, History, RotateCcw, User as UserIcon, Bot } from 'lucide-react'
+import { X, History, RotateCcw, User as UserIcon, Bot, GitCompareArrows } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { VisionVersion } from '@/types/domain'
+import { diffLines, summarizeDiff } from '@/lib/diff'
 
 interface VisionHistoryDrawerProps {
   open: boolean
@@ -12,6 +13,11 @@ interface VisionHistoryDrawerProps {
   versions: VisionVersion[]
   currentContent: string | null
   onRestore: (versionId: string) => void
+  /**
+   * Publish this version as the single canonical plan for the thread (#4).
+   * Wired from PlanningClient to kanbanStore.publishVisionVersion.
+   */
+  onPublish?: (versionId: string) => void
 }
 
 const CHANGE_LABEL: Record<VisionVersion['changeType'], string> = {
@@ -26,18 +32,34 @@ const CHANGE_LABEL: Record<VisionVersion['changeType'], string> = {
 /**
  * Side-drawer for the vision version timeline (Tier 3.11).
  *
- * - Lists all versions newest-first.
- * - "View" expands the version content inline.
- * - "Restore" creates a forward-only restore (current becomes a new version).
+ * Two viewing modes:
+ *   - "View" expands the version content inline (pure markdown).
+ *   - "Compare" runs a line-by-line diff of the version against the version
+ *     immediately newer than it. Added lines are green, removed lines are red,
+ *     context lines are dimmed. This makes it obvious at a glance what
+ *     changed in each revision.
  */
 export function VisionHistoryDrawer({
   open,
   onClose,
   versions,
-  currentContent,
+  currentContent: _currentContent,
   onRestore,
+  onPublish,
 }: VisionHistoryDrawerProps) {
   const [openVersionId, setOpenVersionId] = useState<string | null>(null)
+  const [openMode, setOpenMode] = useState<'view' | 'compare'>('view')
+
+  // Close the drawer on ESC so keyboard users aren't trapped — matches the
+  // backdrop-click affordance already in place.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
 
   if (!open) return null
 
@@ -57,6 +79,7 @@ export function VisionHistoryDrawer({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close history drawer"
             className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
@@ -73,6 +96,19 @@ export function VisionHistoryDrawer({
             const isExpanded = openVersionId === v.id
             const isCurrent = idx === 0
             const Icon = v.createdBy === 'user' ? UserIcon : Bot
+
+            // The "newer" reference is whichever version sits ABOVE this one
+            // in the chronologically-newest-first list. For the current
+            // version itself there is no newer one — fall back to "previous".
+            const newerVersion = idx > 0 ? versions[idx - 1] : null
+            const previousVersion = idx < versions.length - 1 ? versions[idx + 1] : null
+            const compareTarget = newerVersion ?? previousVersion
+            const compareLabel = newerVersion
+              ? `Compare with newer (${CHANGE_LABEL[newerVersion.changeType]})`
+              : previousVersion
+              ? `Compare with previous`
+              : null
+
             return (
               <div
                 key={v.id}
@@ -112,13 +148,45 @@ export function VisionHistoryDrawer({
                         ))}
                       </ul>
                     )}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <button
-                        onClick={() => setOpenVersionId(isExpanded ? null : v.id)}
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                        onClick={() => {
+                          if (isExpanded && openMode === 'view') {
+                            setOpenVersionId(null)
+                          } else {
+                            setOpenVersionId(v.id)
+                            setOpenMode('view')
+                          }
+                        }}
+                        className={`text-[10px] font-bold transition-colors ${
+                          isExpanded && openMode === 'view'
+                            ? 'text-blue-700'
+                            : 'text-blue-600 hover:text-blue-700'
+                        }`}
                       >
-                        {isExpanded ? 'Hide' : 'View'}
+                        {isExpanded && openMode === 'view' ? 'Hide' : 'View'}
                       </button>
+                      {compareTarget && (
+                        <button
+                          onClick={() => {
+                            if (isExpanded && openMode === 'compare') {
+                              setOpenVersionId(null)
+                            } else {
+                              setOpenVersionId(v.id)
+                              setOpenMode('compare')
+                            }
+                          }}
+                          title={compareLabel ?? undefined}
+                          className={`flex items-center gap-1 text-[10px] font-bold transition-colors ${
+                            isExpanded && openMode === 'compare'
+                              ? 'text-emerald-700'
+                              : 'text-emerald-600 hover:text-emerald-700'
+                          }`}
+                        >
+                          <GitCompareArrows className="w-2.5 h-2.5" />
+                          {isExpanded && openMode === 'compare' ? 'Hide diff' : 'Diff'}
+                        </button>
+                      )}
                       {!isCurrent && (
                         <button
                           onClick={() => {
@@ -133,19 +201,116 @@ export function VisionHistoryDrawer({
                           Restore
                         </button>
                       )}
+                      {/* Publish action (#4) — only for the current draft.
+                          Already-published versions show a passive badge
+                          so the user can still tell which one is canonical. */}
+                      {onPublish && isCurrent && v.status !== 'published' && (
+                        <button
+                          onClick={() => onPublish(v.id)}
+                          className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                          title="Publish this version as the official plan for this thread"
+                        >
+                          ✓ Publish
+                        </button>
+                      )}
+                      {v.status === 'published' && !v.supersededAt && (
+                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                          ★ Published
+                        </span>
+                      )}
+                      {v.status === 'published' && v.supersededAt && (
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full"
+                          title="This version was published but has been superseded by a newer one"
+                        >
+                          Superseded
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                {isExpanded && (
+                {isExpanded && openMode === 'view' && (
                   <div className="px-4 pb-4 border-t border-slate-100 pt-3 prose prose-xs max-w-none text-slate-700 text-xs">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{v.content}</ReactMarkdown>
                   </div>
+                )}
+                {isExpanded && openMode === 'compare' && compareTarget && (
+                  <DiffView
+                    /* "from" is the OLDER text → "to" is what we're inspecting.
+                       The chronologically-newer (compareTarget) sits above,
+                       so to show "what this version changed" we diff
+                       compareTarget → v when compareTarget is older
+                       (idx === last) or v → compareTarget otherwise. */
+                    from={newerVersion ? v.content : (previousVersion?.content ?? '')}
+                    to={newerVersion ? newerVersion.content : v.content}
+                    fromLabel={newerVersion ? `This version` : `Previous`}
+                    toLabel={newerVersion ? CHANGE_LABEL[newerVersion.changeType] : CHANGE_LABEL[v.changeType]}
+                  />
                 )}
               </div>
             )
           })}
         </div>
       </aside>
+    </div>
+  )
+}
+
+interface DiffViewProps {
+  from: string
+  to: string
+  fromLabel: string
+  toLabel: string
+}
+
+/**
+ * Inline unified-style diff view. Lines that exist only in `from` are shown
+ * red (with a leading "−"); lines only in `to` are green ("+"); lines that
+ * survived in both are dimmed context.
+ */
+function DiffView({ from, to, fromLabel, toLabel }: DiffViewProps) {
+  const diff = diffLines(from, to)
+  const summary = summarizeDiff(diff)
+  return (
+    <div className="border-t border-slate-100">
+      <div className="px-4 py-2 flex items-center justify-between bg-slate-50/60">
+        <div className="text-[10px] font-bold text-slate-500">
+          <span className="text-rose-600">−{fromLabel}</span>
+          <span className="mx-1.5 text-slate-300">vs</span>
+          <span className="text-emerald-600">+{toLabel}</span>
+        </div>
+        <div className="text-[10px] font-bold flex items-center gap-2">
+          <span className="text-emerald-600">+{summary.added}</span>
+          <span className="text-rose-600">−{summary.removed}</span>
+        </div>
+      </div>
+      <div className="px-1 py-2 bg-white max-h-[280px] overflow-y-auto font-mono text-[11px] leading-snug">
+        {diff.map((line, i) => {
+          const base = 'px-3 py-0.5 whitespace-pre-wrap break-words'
+          if (line.kind === 'added') {
+            return (
+              <div key={i} className={`${base} bg-emerald-50 text-emerald-900 border-l-2 border-emerald-400`}>
+                <span className="text-emerald-500 mr-2">+</span>
+                {line.text || ' '}
+              </div>
+            )
+          }
+          if (line.kind === 'removed') {
+            return (
+              <div key={i} className={`${base} bg-rose-50 text-rose-900 border-l-2 border-rose-400`}>
+                <span className="text-rose-500 mr-2">−</span>
+                {line.text || ' '}
+              </div>
+            )
+          }
+          return (
+            <div key={i} className={`${base} text-slate-500`}>
+              <span className="text-slate-300 mr-2"> </span>
+              {line.text || ' '}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

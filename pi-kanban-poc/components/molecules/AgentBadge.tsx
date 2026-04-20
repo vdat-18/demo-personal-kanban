@@ -4,6 +4,7 @@
 
 import { cn } from "@/lib/utils";
 import { AGENT_COLORS, AGENT_ICONS } from "@/constants/agents";
+import { formatAgentRole } from "@/lib/display/format";
 
 interface Props {
   agentType: string;
@@ -31,7 +32,7 @@ export function AgentBadge({
       )}
     >
       {showIcon && Icon && <Icon className={size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5"} />}
-      {agentType}
+      {formatAgentRole(agentType)}
     </span>
   );
 }
