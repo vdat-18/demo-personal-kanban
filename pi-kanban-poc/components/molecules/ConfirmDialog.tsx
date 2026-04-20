@@ -121,7 +121,7 @@ interface ConfirmState extends ConfirmOptions {
  * Example:
  *   const { confirm, element } = useConfirm()
  *   ...
- *   if (await confirm({ title: 'Xoá task?', message: '...', variant: 'danger' })) {
+ *   if (await confirm({ title: 'Delete task?', message: '...', variant: 'danger' })) {
  *     deleteTask(id)
  *   }
  *   return <>{element}{...children}</>

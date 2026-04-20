@@ -29,7 +29,7 @@ interface VisionPanelProps {
   /** Optional readonly mode (used in the onboarding example thread). */
   readOnly?: boolean
   /** True when there is a newer draft version after the currently-published
-   *  one — used to show a "Plan đã cập nhật, publish lại?" banner (#1). */
+   *  one — used to show a "Plan updated, publish again?" banner (#1). */
   publishedIsStale?: boolean
   /** Optional callback to publish the latest draft directly from the banner. */
   onPublishLatest?: () => void

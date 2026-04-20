@@ -51,6 +51,7 @@ const KIND_ICON: Record<IngestedFile['kind'], React.ComponentType<{ className?: 
   text: FileText,
   pdf: FileText,
   docx: FileText,
+  doc: FileText,
   xlsx: FileSpreadsheet,
   csv: FileSpreadsheet,
   image: ImageIcon,

@@ -6,7 +6,7 @@ import { formatTokenCount } from '@/lib/tokenEstimate'
 interface Props {
   input: number
   output: number
-  /** Optional prefix label ("Project này", "Phiên này", …). */
+  /** Optional prefix label ("This project", "This session", …). */
   label?: string
   className?: string
 }
