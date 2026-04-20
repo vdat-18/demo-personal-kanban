@@ -21,11 +21,12 @@
  *   {
  *     filename: string,
  *     mimeType: string,
- *     kind: 'text' | 'pdf' | 'docx' | 'xlsx' | 'csv' | 'image' | 'unknown',
+ *     kind: 'text' | 'pdf' | 'docx' | 'doc' | 'xlsx' | 'csv' | 'image' | 'unknown',
  *     text: string,              // extracted plain text (may be empty)
  *     summary?: string,           // short human description for UI
  *     error?: string,             // populated on extraction failure
  *     needsVisionModel?: boolean, // true for images/unsupported formats
+ *     imageData?: { mimeType: string; base64: string }, // populated for images
  *     charCount: number,
  *   }
  */
@@ -34,6 +35,7 @@ export type IngestKind =
   | 'text'
   | 'pdf'
   | 'docx'
+  | 'doc'
   | 'xlsx'
   | 'csv'
   | 'image'
@@ -47,6 +49,8 @@ export interface IngestedFile {
   summary?: string
   error?: string
   needsVisionModel?: boolean
+  /** Populated for image files — base64-encoded raw bytes ready for vision API. */
+  imageData?: { mimeType: string; base64: string }
   charCount: number
 }
 
@@ -68,6 +72,13 @@ export async function ingestFile(file: File): Promise<IngestedFile> {
       return await ingestDocx(file)
     }
     if (
+      mime === 'application/msword' ||
+      name.endsWith('.doc')
+    ) {
+      // mammoth handles both .doc and .docx
+      return await ingestDocx(file)
+    }
+    if (
       mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       name.endsWith('.xlsx') ||
       name.endsWith('.xls')
@@ -77,14 +88,17 @@ export async function ingestFile(file: File): Promise<IngestedFile> {
     if (mime === 'text/csv' || name.endsWith('.csv')) {
       return await ingestCsv(file)
     }
-    if (mime.startsWith('image/')) {
+    if (mime.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|ico|avif|tiff?)$/i.test(name)) {
+      const effectiveMime = mime || 'image/jpeg'
+      const base64 = await fileToBase64(file)
       return {
         filename: file.name,
-        mimeType: mime,
+        mimeType: effectiveMime,
         kind: 'image',
         text: '',
         needsVisionModel: true,
-        summary: 'Image attachment — AI will try to describe it if your model supports vision.',
+        imageData: { mimeType: effectiveMime, base64 },
+        summary: `Image attachment (${file.name}) — sent to vision model.`,
         charCount: 0,
       }
     }
@@ -224,6 +238,17 @@ async function ingestXlsx(file: File): Promise<IngestedFile> {
 function clampText(raw: string): string {
   if (raw.length <= MAX_CHARS) return raw
   return raw.slice(0, MAX_CHARS) + `\n\n… [truncated — original was ${raw.length.toLocaleString()} chars]`
+}
+
+/** Read a File as a base64 string (strips the data-URL prefix). */
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
 }
 
 /** Format multiple ingested files into a single message body suitable for

@@ -15,7 +15,7 @@ import { useConfirm } from './ConfirmDialog'
  * Props:
  *  - `mode="add"` shows blank fields and submits to `onSubmit({...})`.
  *  - `mode="edit"` pre-fills from `initial` and submits the same shape.
- *  - `defaultStatus` (add only): shown as readonly chip "Sẽ vào cột: …" so
+ *  - `defaultStatus` (add only): shown as readonly chip "Adding to column: …" so
  *    users adding from a Kanban column know where the task lands.
  *  - ESC closes; Enter (without shift) submits when title is non-empty.
  */
