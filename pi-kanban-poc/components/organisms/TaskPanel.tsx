@@ -12,7 +12,6 @@ import {
   Rocket,
   Pencil,
   GripVertical,
-  Info,
   Play,
   Clock,
 } from 'lucide-react'
@@ -33,8 +32,10 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useTasks, useCreateTask, useDeleteTask, useUpdateTask } from '@/lib/hooks/useTasks'
+import { toast } from 'sonner'
+import { formatTaskStatus, formatPriority, toneClass } from '@/lib/display/format'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import { useTasks, useCreateTask, useDeleteTask, useUpdateTask } from '@/lib/hooks/useTasks'
 import type { Task } from '@/lib/hooks/useTasks'
 import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/TaskFormDialog'
 
@@ -51,6 +52,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
   const createTask = useCreateTask()
   const deleteTask = useDeleteTask()
   const updateTask = useUpdateTask()
+  const restoreTaskInStore = useKanbanStore((s) => s.restoreTask)
   const reorderTasks = useKanbanStore((s) => s.reorderTasks)
   const updateProjectFn = useKanbanStore((s) => s.updateProject)
 
@@ -216,9 +218,13 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
                     idx={idx}
                     onEdit={() => openEdit(task)}
                     onDelete={() => {
-                      if (window.confirm('Delete this task?')) {
-                        deleteTask.mutate(task.id)
-                      }
+                      deleteTask.mutate(task.id)
+                      toast.success(`Deleted "${task.title}"`, {
+                        action: {
+                          label: 'Undo',
+                          onClick: () => restoreTaskInStore(task.id),
+                        },
+                      })
                     }}
                   />
                 ))}
@@ -310,43 +316,18 @@ function SortableTaskRow({ task, idx, onEdit, onDelete }: SortableTaskRowProps) 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-1.5">
-          <p className="font-bold text-sm text-[#0a192f] mb-1 flex-1">{task.title}</p>
-          {task.description && (
-            <span title={task.description} className="text-slate-300 hover:text-blue-500 transition-colors cursor-help mt-0.5">
-              <Info className="w-3.5 h-3.5" />
-            </span>
-          )}
-        </div>
+        <p className="font-bold text-sm text-[#0a192f] mb-1">{task.title}</p>
         {task.description && (
-          <p className="text-xs text-gray-500 pr-2 line-clamp-2">{task.description}</p>
+          <p className="text-xs text-gray-500 pr-2 leading-relaxed max-h-0 overflow-hidden group-hover:max-h-40 transition-all duration-300 ease-in-out">
+            {task.description}
+          </p>
         )}
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              task.status === 'DONE'
-                ? 'bg-green-100 text-green-700'
-                : task.status === 'IN_PROGRESS'
-                ? 'bg-blue-100 text-blue-700'
-                : task.status === 'BLOCKED'
-                ? 'bg-red-100 text-red-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {task.status}
+         <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${toneClass(formatTaskStatus(task.status).tone)}`}>
+            {formatTaskStatus(task.status).label}
           </span>
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              task.priority === 'URGENT'
-                ? 'bg-red-100 text-red-700'
-                : task.priority === 'HIGH'
-                ? 'bg-orange-100 text-orange-700'
-                : task.priority === 'MEDIUM'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {task.priority}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${toneClass(formatPriority(task.priority).tone)}`}>
+            {formatPriority(task.priority).label}
           </span>
           {isActive && task.statusChangedAt && (
             <span className="text-[10px] font-semibold text-blue-600 inline-flex items-center gap-1">

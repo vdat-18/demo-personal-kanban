@@ -1270,7 +1270,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'messages[] is required' }, { status: 400 })
   }
 
-  try {
+  // Per-mode hard timeout. Beyond this we return 504 with a friendly code so
+  // the client can show "AI took too long" instead of a hung spinner.
+  const TIMEOUT_MS: Record<string, number> = {
+    plan: 120_000,
+    breakdown: 120_000,
+    doer: 120_000,
+    reviewer: 120_000,
+    chat: 180_000,
+  }
+  const timeoutMs = TIMEOUT_MS[body.mode] ?? 120_000
+
+  const dispatch = async (): Promise<Response> => {
     if (body.mode === 'plan') return await handlePlan(body)
     if (body.mode === 'chat') return await handleChat(body)
     if (body.mode === 'breakdown') return await handleBreakdown(body)
@@ -1280,8 +1291,20 @@ export async function POST(req: NextRequest) {
       { error: `Unknown mode: ${(body as { mode: string }).mode}` },
       { status: 400 },
     )
+  }
+
+  try {
+    return await Promise.race<Response>([
+      dispatch(),
+      new Promise<Response>((_, reject) =>
+        setTimeout(() => reject(new Error('E_TIMEOUT')), timeoutMs),
+      ),
+    ])
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Agent error'
+    if (message === 'E_TIMEOUT') {
+      return Response.json({ error: 'E_TIMEOUT' }, { status: 504 })
+    }
     return Response.json({ error: message }, { status: 500 })
   }
 }

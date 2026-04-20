@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import {
   BreakdownActionButton,
   BreakdownLoadingCard,
@@ -40,7 +41,7 @@ export function TodoStepPlannerPanel({
   const logActivity = useKanbanStore((s) => s.logActivity)
 
   const subtasks = useMemo(
-    () => allSubtasks.filter((sub) => sub.taskId === taskId),
+    () => allSubtasks.filter((sub) => sub.taskId === taskId && !sub.deletedAt),
     [allSubtasks, taskId],
   )
   const cached = useMemo(
@@ -100,6 +101,12 @@ export function TodoStepPlannerPanel({
       actor: 'user',
       summary: `Denied subtask: ${sub.title}`,
       resourceLink: { type: 'subtask', id: sub.id },
+    })
+    toast.success(`Denied "${sub.title}"`, {
+      action: {
+        label: 'Undo',
+        onClick: () => updateSubtask(sub.id, { approvalStatus: 'pending' }),
+      },
     })
   }
 

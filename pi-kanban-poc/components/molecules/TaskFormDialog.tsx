@@ -2,22 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { X, Save, AlertTriangle } from 'lucide-react'
-import type { TaskPriority } from '@/types/domain'
+import type { TaskPriority, TaskStatus } from '@/types/domain'
+import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '@/lib/display/labels'
+import { useConfirm } from './ConfirmDialog'
 
 /**
- * Reusable Add/Edit Task dialog (#5).
+ * Reusable Add/Edit Task dialog.
  *
- * Replaces the old `window.prompt('Task title:')` flow with a proper modal
- * that captures title, description and priority. Used both from the
- * Planning TaskPanel and the Mission Control Kanban so manual task
- * management feels first-class instead of bolted on.
+ * Used both from the Planning TaskPanel and the Mission Control Kanban so
+ * manual task management feels first-class instead of bolted on.
  *
- * Behavior:
+ * Props:
  *  - `mode="add"` shows blank fields and submits to `onSubmit({...})`.
  *  - `mode="edit"` pre-fills from `initial` and submits the same shape.
+ *  - `defaultStatus` (add only): shown as readonly chip "Sẽ vào cột: …" so
+ *    users adding from a Kanban column know where the task lands.
  *  - ESC closes; Enter (without shift) submits when title is non-empty.
- *  - Closing while there are unsaved changes asks for confirmation in edit
- *    mode (less destructive in add-mode where there's nothing to lose).
  */
 
 export type TaskFormValues = {
@@ -30,6 +30,8 @@ export interface TaskFormDialogProps {
   open: boolean
   mode: 'add' | 'edit'
   initial?: Partial<TaskFormValues>
+  /** Status the new task will get; only shown as readonly hint. */
+  defaultStatus?: TaskStatus
   isSubmitting?: boolean
   onClose: () => void
   onSubmit: (values: TaskFormValues) => Promise<void> | void
@@ -41,6 +43,7 @@ export function TaskFormDialog({
   open,
   mode,
   initial,
+  defaultStatus,
   isSubmitting,
   onClose,
   onSubmit,
@@ -48,6 +51,7 @@ export function TaskFormDialog({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [priority, setPriority] = useState<TaskPriority>(initial?.priority ?? 'MEDIUM')
+  const { confirm, element: confirmElement } = useConfirm()
 
   // Re-initialize when the modal is (re-)opened with fresh values.
   useEffect(() => {
@@ -75,9 +79,15 @@ export function TaskFormDialog({
     description !== (initial?.description ?? '') ||
     priority !== (initial?.priority ?? 'MEDIUM')
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (mode === 'edit' && isDirty && !isSubmitting) {
-      if (!window.confirm('Discard your changes?')) return
+      const ok = await confirm({
+        title: 'Discard changes?',
+        message: 'You have unsaved changes. Discard and close?',
+        variant: 'warning',
+        confirmLabel: 'Discard',
+      })
+      if (!ok) return
     }
     onClose()
   }
@@ -98,8 +108,8 @@ export function TaskFormDialog({
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {mode === 'add'
-                ? 'Create a new task manually — useful for things the AI missed.'
-                : 'Update the task fields below.'}
+                ? 'Create a task manually.'
+                : 'Update task details.'}
             </p>
           </div>
           <button
@@ -112,6 +122,15 @@ export function TaskFormDialog({
         </header>
 
         <div className="p-5 space-y-4">
+          {mode === 'add' && defaultStatus && (
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="font-semibold">Adding to column:</span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 font-bold text-[#0a192f]">
+                {TASK_STATUS_LABEL[defaultStatus]}
+              </span>
+            </div>
+          )}
+
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Title <span className="text-rose-500">*</span>
@@ -134,13 +153,13 @@ export function TaskFormDialog({
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Description
+              Description (optional)
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="What needs to happen, success criteria, notes…"
+              placeholder="What needs to be done, success criteria, notes…"
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-400 resize-y"
             />
           </div>
@@ -169,7 +188,7 @@ export function TaskFormDialog({
                         : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    {p}
+                    {TASK_PRIORITY_LABEL[p]}
                   </button>
                 )
               })}
@@ -199,11 +218,12 @@ export function TaskFormDialog({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0a192f] text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
             >
               <Save className="w-3.5 h-3.5" />
-              {mode === 'add' ? 'Create task' : 'Save changes'}
+              {mode === 'add' ? 'Create task' : 'Save'}
             </button>
           </div>
         </footer>
       </div>
+      {confirmElement}
     </div>
   )
 }

@@ -83,6 +83,10 @@ interface KanbanState {
   updateProject: (id: string, patch: Partial<Omit<Project, 'id' | 'createdAt'>>) => Project | null
   deleteProject: (id: string) => void
 
+  /** Accumulate token usage on a project for the header counter. Safe to
+   *  call with (0, 0) — will just no-op. */
+  addTokenUsage: (projectId: string, usage: { input: number; output: number }) => void
+
   // Task ops
   createTask: (input: {
     projectId: string
@@ -98,6 +102,9 @@ interface KanbanState {
   ) => Task[]
   updateTask: (id: string, patch: Partial<Omit<Task, 'id' | 'createdAt' | 'projectId'>>) => Task | null
   deleteTask: (id: string) => void
+  /** Restore a soft-deleted task (and its cascade snapshot) within the
+   *  undo window. No-op if task wasn't deleted or was already purged. */
+  restoreTask: (id: string) => void
   /**
    * Reorder tasks within a project. Pass the new ordered list of task IDs;
    * each task's `order` is rewritten to a contiguous integer sequence.
@@ -121,6 +128,8 @@ interface KanbanState {
     patch: Partial<Pick<Subtask, 'title' | 'description' | 'estimatedEffort' | 'type' | 'completed' | 'output' | 'doerResult' | 'approvalStatus'>>,
   ) => Subtask | null
   deleteSubtask: (id: string) => void
+  /** Restore a soft-deleted subtask. */
+  restoreSubtask: (id: string) => void
 
   // Conversation ops
   createConversation: (input: {
@@ -287,6 +296,25 @@ export const useKanbanStore = create<KanbanState>()(
         }))
       },
 
+      addTokenUsage: (projectId, usage) => {
+        const input = usage.input ?? 0
+        const output = usage.output ?? 0
+        if (input === 0 && output === 0) return
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            if (p.id !== projectId) return p
+            const prev = p.totalTokenUsage ?? { input: 0, output: 0 }
+            return {
+              ...p,
+              totalTokenUsage: {
+                input: prev.input + input,
+                output: prev.output + output,
+              },
+            }
+          }),
+        }))
+      },
+
       createTask: ({ projectId, title, description, status = 'TODO', priority = 'MEDIUM', sourceProposal }) => {
         // Compute next order: max + 1 of existing tasks in this project,
         // so manually-added tasks land at the bottom of the list.
@@ -422,12 +450,30 @@ export const useKanbanStore = create<KanbanState>()(
       },
 
       deleteTask: (id) => {
+        // Soft delete: stamp deletedAt on the task + cascaded subtasks with
+        // the SAME timestamp so `restoreTask` can atomically restore the
+        // whole bundle. Boot-time sweep hard-deletes entries older than
+        // SOFT_DELETE_TTL_MS (see below).
+        const ts = now()
         set((s) => ({
-          tasks: s.tasks.filter((t) => t.id !== id),
-          subtasks: s.subtasks.filter((sub) => sub.taskId !== id),
-          conversations: s.conversations.filter((c) => c.taskId !== id),
-          activities: s.activities.filter((a) => a.taskId !== id),
-          cachedBreakdowns: s.cachedBreakdowns.filter((c) => c.taskId !== id),
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, deletedAt: ts } : t)),
+          subtasks: s.subtasks.map((sub) =>
+            sub.taskId === id ? { ...sub, deletedAt: ts } : sub,
+          ),
+        }))
+      },
+
+      restoreTask: (id) => {
+        const target = get().tasks.find((t) => t.id === id)
+        if (!target?.deletedAt) return
+        const cascadeTs = target.deletedAt
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, deletedAt: null } : t)),
+          subtasks: s.subtasks.map((sub) =>
+            sub.taskId === id && sub.deletedAt === cascadeTs
+              ? { ...sub, deletedAt: null }
+              : sub,
+          ),
         }))
       },
 
@@ -476,7 +522,17 @@ export const useKanbanStore = create<KanbanState>()(
 
       deleteSubtask: (id) => {
         set((s) => ({
-          subtasks: s.subtasks.filter((sub) => sub.id !== id),
+          subtasks: s.subtasks.map((sub) =>
+            sub.id === id ? { ...sub, deletedAt: now() } : sub,
+          ),
+        }))
+      },
+
+      restoreSubtask: (id) => {
+        set((s) => ({
+          subtasks: s.subtasks.map((sub) =>
+            sub.id === id ? { ...sub, deletedAt: null } : sub,
+          ),
         }))
       },
 
@@ -658,13 +714,13 @@ export const useKanbanStore = create<KanbanState>()(
           // Cap at 50 versions per thread — keep initial + phase_transition, trim oldest otherwise
           const existing = s.visionVersions.filter((v) => v.threadId === threadId)
           const others = s.visionVersions.filter((v) => v.threadId !== threadId)
-          // Any new draft version demotes the previously-published one
-          // back to draft so the user knows the plan has drifted and
-          // needs re-publishing (#4).
-          const demoted = existing.map((v) =>
-            v.status === 'published' ? { ...v, status: 'draft' as const } : v,
-          )
-          const combined = [...demoted, version]
+          // NOTE: with the supersededBy model (#1) we no longer demote the
+          // currently-published version on every new draft. The published
+          // version stays as-is until the user explicitly publishes a newer
+          // one (which triggers `publishVisionVersion` to mark it superseded).
+          // The UI shows a "Bản đã publish có thể đã lỗi thời" banner when
+          // a newer draft exists past the published one.
+          const combined = [...existing, version]
           if (combined.length > 50) {
             // Protected versions always kept
             const protectedVers = combined.filter(
@@ -725,12 +781,23 @@ export const useKanbanStore = create<KanbanState>()(
           visionVersions: s.visionVersions.map((v) => {
             if (v.threadId !== ver.threadId) return v
             if (v.id === versionId) {
-              updated = { ...v, status: 'published', publishedAt: stamp }
+              updated = {
+                ...v,
+                status: 'published',
+                publishedAt: stamp,
+                supersededBy: null,
+                supersededAt: null,
+              }
               return updated
             }
-            // Demote any previously-published siblings back to draft so
-            // there is exactly one canonical published version per thread.
-            return v.status === 'published' ? { ...v, status: 'draft' } : v
+            // Mark any previously-published siblings as superseded by this
+            // new publish. They keep `status: 'published'` so history reads
+            // accurately, plus a `supersededBy/At` pair so the UI can show
+            // a "(historical)" badge and the hub can filter to current only.
+            if (v.status === 'published' && !v.supersededAt) {
+              return { ...v, supersededBy: versionId, supersededAt: stamp }
+            }
+            return v
           }),
         }))
         return updated
@@ -993,16 +1060,58 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
         //         (description, estimatedEffort, type, aiGenerated). All optional;
         //         legacy subtasks render fine without them.
+        // v3 → v4 added VisionVersion.supersededBy/At (#1) — back-fill: for
+        //         each thread, the newest published row stays "current",
+        //         older published rows get supersededBy/At pointing at the
+        //         next-newer published version's createdAt. Also adds
+        //         Project.totalTokenUsage and Task/Subtask.deletedAt as
+        //         purely-optional fields (no transform needed).
         const s = (persistedState ?? {}) as Record<string, unknown>
+        const rawVersions = Array.isArray(s.visionVersions) ? (s.visionVersions as VisionVersion[]) : []
+        const byThread = new Map<string, VisionVersion[]>()
+        for (const v of rawVersions) {
+          const arr = byThread.get(v.threadId) ?? []
+          arr.push(v)
+          byThread.set(v.threadId, arr)
+        }
+        const migratedVersions: VisionVersion[] = []
+        for (const [, arr] of byThread) {
+          const publishedSorted = arr
+            .filter((v) => v.status === 'published')
+            .sort((a, b) => {
+              const at = new Date(a.publishedAt ?? a.createdAt).getTime()
+              const bt = new Date(b.publishedAt ?? b.createdAt).getTime()
+              return bt - at
+            })
+          // Newest published = current; everything older = superseded by
+          // the next-newer one (for chained history).
+          for (let i = 0; i < publishedSorted.length; i++) {
+            const v = publishedSorted[i]
+            if (i === 0) {
+              migratedVersions.push({ ...v, supersededBy: null, supersededAt: null })
+            } else {
+              const newer = publishedSorted[i - 1]
+              migratedVersions.push({
+                ...v,
+                supersededBy: newer.id,
+                supersededAt: newer.publishedAt ?? newer.createdAt,
+              })
+            }
+          }
+          // Non-published versions pass through unchanged.
+          for (const v of arr) {
+            if (v.status !== 'published') migratedVersions.push(v)
+          }
+        }
         return {
           ...s,
-          visionVersions: Array.isArray(s.visionVersions) ? s.visionVersions : [],
+          visionVersions: migratedVersions.length > 0 ? migratedVersions : rawVersions,
           activities: Array.isArray(s.activities) ? s.activities : [],
           cachedBreakdowns: Array.isArray(s.cachedBreakdowns) ? s.cachedBreakdowns : [],
           planningMessages: Array.isArray(s.planningMessages)
@@ -1025,9 +1134,36 @@ export const useKanbanStore = create<KanbanState>()(
             : [],
         } as KanbanState
       },
+      onRehydrateStorage: () => () => {
+        // Sweep: hard-delete soft-deleted records older than the TTL window.
+        // Runs once after the persisted state is rehydrated.
+        try {
+          const cutoff = Date.now() - SOFT_DELETE_TTL_MS
+          useKanbanStore.setState((s) => ({
+            tasks: s.tasks.filter(
+              (t) => !t.deletedAt || new Date(t.deletedAt).getTime() > cutoff,
+            ),
+            subtasks: s.subtasks.filter(
+              (sub) => !sub.deletedAt || new Date(sub.deletedAt).getTime() > cutoff,
+            ),
+          }))
+        } catch {
+          /* ignore — sweep is best-effort */
+        }
+      },
     },
   ),
 )
+
+/** TTL after which soft-deleted records are permanently purged on boot.
+ *  Default 7 days — generous so a user can recover accidental deletes after
+ *  a weekend off, but bounded so the store doesn't grow unbounded. */
+export const SOFT_DELETE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/** Predicate helpers for selectors. Filtering at read time means the store
+ *  schema is unchanged for callers that need the raw arrays (export, audit). */
+export const isActiveTask = (t: Task): boolean => !t.deletedAt
+export const isActiveSubtask = (sub: Subtask): boolean => !sub.deletedAt
 
 // ─── Hydration helper ─────────────────────────────────────────────────────────
 // Components can subscribe to this to know when localStorage has finished loading,

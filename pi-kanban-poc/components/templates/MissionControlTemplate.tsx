@@ -6,8 +6,9 @@ import { KanbanBoard } from '@/components/organisms/KanbanBoard'
 import { KanbanHeader } from '@/components/organisms/KanbanHeader'
 import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
+import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/TaskFormDialog'
 import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
-import type { UITaskStatus } from '@/types/domain'
+import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { useColumnAutoMode } from '@/lib/hooks/useColumnAutoMode'
@@ -50,15 +51,19 @@ export interface MissionControlTemplateProps {
 export function MissionControlTemplate({ project: initialProject }: MissionControlTemplateProps) {
   const router = useRouter()
   const storeTasks = useKanbanStore((s) => s.tasks)
+  const storeProjects = useKanbanStore((s) => s.projects)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const createTaskInStore = useKanbanStore((s) => s.createTask)
+
+  const liveProject = storeProjects.find((p) => p.id === initialProject.id) ?? null
+  const projectTokenUsage = liveProject?.totalTokenUsage ?? null
 
   const concurrency = useBreakdownConcurrency()
   const isProcessing = concurrency.active.length > 0 || concurrency.queue.length > 0
 
   // Live tasks for this project (always reflect store state)
   const tasks = storeTasks
-    .filter((t) => t.projectId === initialProject.id)
+    .filter((t) => t.projectId === initialProject.id && !t.deletedAt)
     .map((t) => ({
       id: t.id,
       title: t.title,
@@ -76,6 +81,10 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<UITaskStatus | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Task | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [addDialog, setAddDialog] = useState<{ open: boolean; status: TaskStatus }>({
+    open: false,
+    status: 'TODO',
+  })
 
   const updateTaskStatus = useCallback(
     async (taskId: string, status: UITaskStatus) => {
@@ -132,12 +141,9 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         projectName={project.name}
         projectDescription={project.description}
         isProcessing={isProcessing}
+        tokenUsage={projectTokenUsage}
         onBack={() => router.push('/')}
-        onAddTask={async () => {
-          const title = window.prompt('Task title:')
-          if (!title?.trim()) return
-          createTaskInStore({ title, projectId: project.id })
-        }}
+        onAddTask={() => setAddDialog({ open: true, status: 'TODO' })}
       />
 
       <KanbanBoard
@@ -174,6 +180,23 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         onReasonChange={setCancelReason}
         onConfirm={handleCancelConfirm}
         onCancel={() => { setCancelTarget(null); setCancelReason('') }}
+      />
+
+      <TaskFormDialog
+        open={addDialog.open}
+        mode="add"
+        defaultStatus={addDialog.status}
+        onClose={() => setAddDialog({ open: false, status: 'TODO' })}
+        onSubmit={(values: TaskFormValues) => {
+          createTaskInStore({
+            projectId: project.id,
+            title: values.title,
+            description: values.description || undefined,
+            status: addDialog.status,
+            priority: values.priority,
+          })
+          setAddDialog({ open: false, status: 'TODO' })
+        }}
       />
     </div>
   )

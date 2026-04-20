@@ -213,9 +213,17 @@ export function VisionHistoryDrawer({
                           ✓ Publish
                         </button>
                       )}
-                      {v.status === 'published' && (
+                      {v.status === 'published' && !v.supersededAt && (
                         <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
                           ★ Published
+                        </span>
+                      )}
+                      {v.status === 'published' && v.supersededAt && (
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full"
+                          title="This version was published but has been superseded by a newer one"
+                        >
+                          Superseded
                         </span>
                       )}
                     </div>

@@ -38,6 +38,13 @@ export interface Project {
    *  projects, flips to 'in_progress' when first planning thread is created,
    *  and 'completed' when user clicks Start Execution. */
   planningStatus?: PlanningStatus
+  /**
+   * Cumulative token usage across all AI calls in this project (Doer,
+   * Reviewer, Breakdown, Planning, Chat). Surfaced in the project UI so
+   * the user has a sense of "how much have I spent here". Optional —
+   * legacy projects start at 0 via the selector.
+   */
+  totalTokenUsage?: { input: number; output: number }
 }
 
 export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
@@ -74,6 +81,8 @@ export interface Subtask {
    *  inspected it. Separate from doerResult so the UI can show both "what was
    *  produced" and "what quality concerns were found" side by side. */
   reviewResult?: ReviewerStepResult | null
+  /** Soft-delete timestamp — see Task.deletedAt. */
+  deletedAt?: string | null
 }
 
 export interface Task {
@@ -119,6 +128,12 @@ export interface Task {
   /** Latest reviewer verdict for quick UI consumption, mirroring the
    *  field on ReviewerEnvelope. */
   lastReviewVerdict?: 'approve' | 'minor_revision' | 'major_revision' | 'replan_needed'
+  /**
+   * Soft-delete timestamp. When set, the task is hidden from all selectors
+   * but kept in the store so the user can hit "Undo" within the toast
+   * window. Boot-time sweep purges entries older than `SOFT_DELETE_TTL_MS`.
+   */
+  deletedAt?: string | null
 }
 
 export interface ConversationMessage {
@@ -253,6 +268,17 @@ export interface VisionVersion {
   status?: 'draft' | 'published'
   /** ISO timestamp when the user published this version, if applicable. */
   publishedAt?: string
+  /**
+   * When a published version is later replaced by a newer publish, the old
+   * row is marked as superseded — keeping its `status: 'published'` history
+   * intact while letting the UI distinguish "current" vs "historical".
+   *
+   * `supersededBy` points at the version that replaced it; `supersededAt`
+   * is the ISO timestamp of the replacement publish. Both are unset on the
+   * currently-active published version.
+   */
+  supersededBy?: string | null
+  supersededAt?: string | null
 }
 
 // ─── Planning entities ───────────────────────────────────────────────────────

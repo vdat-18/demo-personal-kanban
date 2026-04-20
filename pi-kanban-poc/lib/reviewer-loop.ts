@@ -106,10 +106,10 @@ function buildInstructionsFromFindings(env: ReviewerEnvelope): string {
 }
 
 const VERDICT_BADGE: Record<ReviewVerdict, { label: string; tone: string }> = {
-  approve: { label: 'Approved', tone: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  minor_revision: { label: 'Minor revision', tone: 'bg-amber-100 text-amber-800 border-amber-200' },
-  major_revision: { label: 'Major revision', tone: 'bg-orange-100 text-orange-800 border-orange-200' },
-  replan_needed: { label: 'Needs replan', tone: 'bg-rose-100 text-rose-800 border-rose-200' },
+  approve: { label: 'Xong rồi', tone: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  minor_revision: { label: 'Cần chỉnh nhẹ', tone: 'bg-amber-100 text-amber-800 border-amber-200' },
+  major_revision: { label: 'Cần làm lại', tone: 'bg-orange-100 text-orange-800 border-orange-200' },
+  replan_needed: { label: 'Kế hoạch cần sửa', tone: 'bg-rose-100 text-rose-800 border-rose-200' },
 }
 
 export function verdictBadge(verdict: ReviewVerdict) {

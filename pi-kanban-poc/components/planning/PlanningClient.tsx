@@ -154,6 +154,22 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     [allVisionVersions, activeThreadId],
   )
 
+  // Stale-publish detection (#1): there is a currently-published version
+  // AND a newer draft has been created after it. The banner prompts the
+  // user to publish the newer plan instead of leaving the team on a
+  // stale snapshot.
+  const publishedVersion = useMemo(
+    () => versionsForThread.find((v) => v.status === 'published' && !v.supersededAt) ?? null,
+    [versionsForThread],
+  )
+  const latestVersion = versionsForThread[0] ?? null
+  const publishedIsStale = !!(
+    publishedVersion &&
+    latestVersion &&
+    latestVersion.id !== publishedVersion.id &&
+    new Date(latestVersion.createdAt).getTime() > new Date(publishedVersion.publishedAt ?? publishedVersion.createdAt).getTime()
+  )
+
   // ─── Auto-create first thread if none exist ──────────────────────────────
   const isCreatingThread = useRef(false)
   useEffect(() => {
@@ -466,12 +482,44 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
   const welcomeText = `👋 Hi — I'm here to help you plan **${initialProject.name}**.\n\nJust tell me about it in your own words — what you want to do, who it's for, any timeline in your head. I'll ask follow-ups in one go, draft a plan you can review or edit, then break it into concrete action items.\n\nWhat are you trying to do?`
 
+  const [sidebarWidth, setSidebarWidth] = useState(256)
+  const [taskWidth, setTaskWidth] = useState(420)
+
+  const startResize = useCallback(
+    (panel: 'sidebar' | 'task', e: React.MouseEvent) => {
+      e.preventDefault()
+      const startX = e.clientX
+      const startWidth = panel === 'sidebar' ? sidebarWidth : taskWidth
+
+      const onMove = (ev: MouseEvent) => {
+        if (panel === 'sidebar') {
+          const next = Math.max(180, Math.min(480, startWidth + ev.clientX - startX))
+          setSidebarWidth(next)
+        } else {
+          const next = Math.max(280, Math.min(640, startWidth - (ev.clientX - startX)))
+          setTaskWidth(next)
+        }
+      }
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [sidebarWidth, taskWidth],
+  )
+
   return (
     <div className="flex h-full w-full bg-[#f0f2f5] font-sans">
       {/* Left: Thread Sidebar */}
       <div
-        className={`shrink-0 transition-all duration-300 overflow-hidden ${isSidebarOpen ? 'w-64' : 'w-0'
-          }`}
+        className={`shrink-0 overflow-hidden ${isSidebarOpen ? '' : 'w-0'}`}
+        style={isSidebarOpen ? { width: sidebarWidth } : undefined}
       >
         <ThreadListSidebar
           threads={threads}
@@ -486,10 +534,21 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         />
       </div>
 
+      {/* Sidebar resize handle */}
+      {isSidebarOpen && (
+        <div
+          onMouseDown={(e) => startResize('sidebar', e)}
+          className="w-1 shrink-0 cursor-col-resize hover:bg-indigo-400 bg-transparent transition-colors duration-150 group relative"
+          title="Drag to resize"
+        >
+          <div className="absolute inset-y-0 -left-0.5 -right-0.5" />
+        </div>
+      )}
+
       {/* Center: Chat Panel */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
           {/* Header */}
-          <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
+          <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10 relative">
             <div className="flex items-center gap-5">
               <div className="flex items-center gap-3">
                 <button
@@ -519,16 +578,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               </div>
             </div>
 
-            <div className="hidden md:block">
+            <div className="hidden md:block absolute left-1/2 -translate-x-1/2">
               <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} />
             </div>
 
-            <div
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-[10px] font-black ${phaseConfig.bg} ${phaseConfig.color} border ${phaseConfig.border} shadow-sm`}
-            >
-              <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
-              <span className="uppercase tracking-[0.15em]">{phaseConfig.label}</span>
-            </div>
+
           </header>
 
           {/* Vision Document Panel (dual-mode) */}
@@ -539,6 +593,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             onSaveEdit={handleVisionSaveEdit}
             onAskAiFocus={handleAskAiFocus}
             onOpenHistory={() => setHistoryDrawerOpen(true)}
+            publishedIsStale={publishedIsStale}
+            onPublishLatest={
+              latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
+            }
           />
 
           {/* Vision history drawer */}
@@ -717,8 +775,15 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           </div>
         </div>
 
+      {/* Task panel resize handle */}
+      <div
+        onMouseDown={(e) => startResize('task', e)}
+        className="w-1 shrink-0 cursor-col-resize hover:bg-indigo-400 bg-transparent transition-colors duration-150"
+        title="Drag to resize"
+      />
+
       {/* Right: Tasks Panel */}
-      <div className="w-[420px] shrink-0">
+      <div className="shrink-0" style={{ width: taskWidth }}>
         <TaskPanel
           projectId={initialProject.id}
           projectName={initialProject.name}
