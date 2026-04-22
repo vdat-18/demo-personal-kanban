@@ -16,7 +16,7 @@ import {
 import { ingestFile, type IngestedFile } from '@/lib/fileIngest'
 
 /**
- * Dashboard "Import Data" multi-step flow (#1).
+ * Dashboard "Start From Documents" multi-step flow (#1).
  *
  * Step 1 — Source picker: drop / pick files (PDF, DOCX, XLSX, CSV, TXT, MD,
  *          images). Plain-text paste fallback for users without a file.
@@ -38,6 +38,7 @@ export interface ImportProjectFlowProps {
   onClose: () => void
   onSubmit: (args: {
     projectName: string
+    userContext: string
     /** Concatenated extracted text + a leading instruction line that will be
      *  posted as the first user message in the new planning thread. */
     seedMessage: string
@@ -63,6 +64,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
   const [files, setFiles] = useState<IngestedFile[]>([])
   const [pasteText, setPasteText] = useState('')
   const [projectName, setProjectName] = useState('')
+  const [userContext, setUserContext] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -75,6 +77,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
       setFiles([])
       setPasteText('')
       setProjectName('')
+      setUserContext('')
       setIsProcessing(false)
       setIsSubmitting(false)
       setIsDragging(false)
@@ -163,12 +166,22 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
         }
         return `--- ${f.filename} ---\n${f.text}`
       })
+
+      const normalizedUserContext = userContext.trim()
+
       const seedMessage = [
-        `I'm starting a project from the following imported material. Please read it carefully, summarise what you understand, and ask clarifying questions for anything ambiguous before drafting a plan.`,
+        `I'm starting a project from the following imported material. Please read it carefully, summarise what you understand in detail, explicitly reference each uploaded file, incorporate my additional notes, and ask clarifying questions for anything ambiguous before drafting a plan.`,
+        normalizedUserContext ? `Additional context from me:\n${normalizedUserContext}` : '',
         '',
         ...fileBlocks,
-      ].join('\n\n')
-      await onSubmit({ projectName: projectName.trim(), seedMessage, files })
+      ].filter(Boolean).join('\n\n')
+
+      await onSubmit({
+        projectName: projectName.trim(),
+        userContext: normalizedUserContext,
+        seedMessage,
+        files,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -362,11 +375,25 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                 }}
               />
             </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Extra context for the planning chat
+              </label>
+              <textarea
+                value={userContext}
+                onChange={(e) => setUserContext(e.target.value)}
+                placeholder="Add anything the files do not explain yet: your goal, deadline, constraints, stakeholders, or what you want the AI to focus on first..."
+                className="mt-2 w-full min-h-[140px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-400 resize-y"
+              />
+              <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                This note will be included in the first planning summary so the chat starts with both your uploaded files and your own explanation.
+              </p>
+            </div>
             <div className="rounded-xl bg-blue-50/60 border border-blue-100 p-4 text-xs text-slate-600 leading-relaxed">
               <strong className="text-[#0a192f]">What happens next:</strong> we'll create the project,
-              attach your {files.length} file{files.length === 1 ? '' : 's'} as context, and ask the AI
-              to read everything and start the discovery conversation with informed clarifying questions
-              — instead of starting from a blank slate.
+              attach your {files.length} file{files.length === 1 ? '' : 's'} plus your added notes as context,
+              and ask the AI to read everything, summarize each file in detail, and start the discovery
+              conversation with informed clarifying questions instead of starting from a blank slate.
             </div>
             <div className="flex items-center justify-between gap-3">
               <button

@@ -9,6 +9,7 @@ import { CreateProjectModal } from '@/components/molecules/CreateProjectModal'
 import { ImportProjectFlow } from '@/components/molecules/ImportProjectFlow'
 import { useConfirm } from '@/components/molecules/ConfirmDialog'
 import { useProjects, useCreateProject, useDeleteProject } from '@/lib/hooks/useProjects'
+import { useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { IngestedFile } from '@/lib/fileIngest'
 import {
@@ -23,9 +24,9 @@ export function DashboardTemplate() {
   const { data: projects = [] } = useProjects()
   const { mutateAsync: createProject } = useCreateProject()
   const { mutateAsync: deleteProject } = useDeleteProject()
+  const sendPlanningMessage = useSendPlanningMessage()
   const { confirm, element: confirmElement } = useConfirm()
   const createPlanningThread = useKanbanStore((s) => s.createPlanningThread)
-  const createPlanningMessage = useKanbanStore((s) => s.createPlanningMessage)
 
   const [showModal, setShowModal] = useState(false)
   const [showImportFlow, setShowImportFlow] = useState(false)
@@ -79,31 +80,34 @@ export function DashboardTemplate() {
   const handleImportSubmit = useCallback(
     async ({
       projectName: name,
+      userContext,
       seedMessage,
       files,
     }: {
       projectName: string
+      userContext: string
       seedMessage: string
       files: IngestedFile[]
     }) => {
       const project = await createProject({
         name,
-        description: `Imported from ${files.length} file${files.length === 1 ? '' : 's'}`,
+        description: userContext
+          ? `Imported from ${files.length} file${files.length === 1 ? '' : 's'} with additional user context`
+          : `Imported from ${files.length} file${files.length === 1 ? '' : 's'}`,
         domain: 'GENERAL',
       })
-      // Seed the planning thread so the very first AI turn already has full
-      // context. The thread is auto-flipped to 'in_progress' by the store.
+
       const thread = createPlanningThread({ projectId: project.id, title: `Imported: ${name}` })
-      createPlanningMessage({
+
+      await sendPlanningMessage.mutateAsync({
         threadId: thread.id,
-        role: 'user',
         content: seedMessage,
-        tokenUsage: null,
       })
+
       setShowImportFlow(false)
       router.push(`/planning/${project.id}`)
     },
-    [createProject, createPlanningThread, createPlanningMessage, router],
+    [createProject, createPlanningThread, sendPlanningMessage, router],
   )
 
   const handleDeleteProject = useCallback(
