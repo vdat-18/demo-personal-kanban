@@ -15,6 +15,8 @@ export default function DirectoryPage() {
         id: p.id,
         name: p.name,
         description: p.description,
+        playbookId: p.playbookId,
+        importedSources: p.importedSources,
         status: p.status ?? 'planning',
         createdAt: p.createdAt,
         tasks: tasks

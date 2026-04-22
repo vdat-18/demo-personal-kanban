@@ -14,6 +14,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { ingestFile, type IngestedFile } from '@/lib/fileIngest'
+import { PlaybookSelect } from '@/components/molecules/PlaybookSelect'
+import type { ImportedSource, PlaybookId } from '@/types/domain'
 
 /**
  * Dashboard "Start From Documents" multi-step flow (#1).
@@ -39,10 +41,12 @@ export interface ImportProjectFlowProps {
   onSubmit: (args: {
     projectName: string
     userContext: string
+    playbookId: PlaybookId
     /** Concatenated extracted text + a leading instruction line that will be
      *  posted as the first user message in the new planning thread. */
     seedMessage: string
     files: IngestedFile[]
+    importedSources: ImportedSource[]
   }) => Promise<void> | void
 }
 
@@ -65,6 +69,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
   const [pasteText, setPasteText] = useState('')
   const [projectName, setProjectName] = useState('')
   const [userContext, setUserContext] = useState('')
+  const [playbookId, setPlaybookId] = useState<PlaybookId>('document-brief')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -78,6 +83,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
       setPasteText('')
       setProjectName('')
       setUserContext('')
+      setPlaybookId('document-brief')
       setIsProcessing(false)
       setIsSubmitting(false)
       setIsDragging(false)
@@ -176,11 +182,26 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
         ...fileBlocks,
       ].filter(Boolean).join('\n\n')
 
+      const importedSources: ImportedSource[] = files.map((f, index) => ({
+        id: `source-${Date.now()}-${index}`,
+        projectId: '',
+        title: f.filename,
+        kind: f.kind,
+        mimeType: f.mimeType,
+        summary: f.summary ?? null,
+        extractedText: f.text || null,
+        charCount: f.charCount,
+        status: f.error ? 'needs_review' : f.needsVisionModel && !f.text ? 'partial' : 'ready',
+        createdAt: new Date().toISOString(),
+      }))
+
       await onSubmit({
         projectName: projectName.trim(),
         userContext: normalizedUserContext,
+        playbookId,
         seedMessage,
         files,
+        importedSources,
       })
     } finally {
       setIsSubmitting(false)
@@ -375,6 +396,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                 }}
               />
             </div>
+            <PlaybookSelect value={playbookId} onChange={setPlaybookId} />
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Extra context for the planning chat

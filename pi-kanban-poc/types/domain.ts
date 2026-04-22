@@ -10,6 +10,86 @@ export type PlanningPhase = 'discovery' | 'blueprint' | 'task_mapping'
 /** Lifecycle of project planning — drives where Recent Journey navigates to. */
 export type PlanningStatus = 'not_started' | 'in_progress' | 'completed'
 
+export type PlaybookId =
+  | 'general-planning'
+  | 'document-brief'
+  | 'marketing-campaign'
+  | 'product-launch'
+  | 'event-rollout'
+  | 'personal-weekly'
+
+export interface ImportedSource {
+  id: string
+  projectId: string
+  title: string
+  kind: 'text' | 'pdf' | 'docx' | 'doc' | 'xlsx' | 'csv' | 'image' | 'unknown' | 'note'
+  mimeType: string
+  category?: 'brief' | 'notes' | 'budget' | 'reference' | 'asset' | 'other'
+  summary: string | null
+  extractedText: string | null
+  charCount: number
+  status: 'ready' | 'partial' | 'needs_review'
+  parseQuality?: 'high' | 'medium' | 'low'
+  usedInPlanning?: boolean
+  createdAt: string
+}
+
+export type PlanningEventType =
+  | 'project_created'
+  | 'playbook_selected'
+  | 'sources_imported'
+  | 'source_added'
+  | 'user_context_saved'
+  | 'assistant_readback_created'
+  | 'message_sent'
+  | 'phase_transition_accepted'
+  | 'phase_transition_rejected'
+  | 'vision_updated'
+  | 'vision_published'
+  | 'vision_restored'
+  | 'tasks_proposed'
+  | 'task_approved'
+  | 'task_dismissed'
+  | 'execution_started'
+
+export type AttentionType =
+  | 'clarification_needed'
+  | 'task_approval_pending'
+  | 'plan_unpublished'
+  | 'source_needs_review'
+  | 'execution_blocked'
+
+export interface AttentionItem {
+  id: string
+  projectId: string
+  threadId: string | null
+  type: AttentionType
+  title: string
+  detail: string
+  status: 'open' | 'resolved'
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export interface PlanningEvent {
+  id: string
+  projectId: string
+  threadId: string | null
+  type: PlanningEventType
+  actor: 'user' | 'ai' | 'system'
+  summary: string
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface PersonalAIContext {
+  preferredLanguage: 'english' | 'vietnamese' | 'bilingual'
+  responseStyle: 'concise' | 'balanced' | 'detailed'
+  planningStyle: 'bullets-first' | 'structured-doc' | 'action-first'
+  note: string
+  updatedAt: string | null
+}
+
 // Legacy lowercase status — kept for compatibility with constants/agents.ts
 export type LegacyTaskStatus =
   | 'todo'
@@ -30,6 +110,9 @@ export interface Project {
   name: string
   description: string | null
   domain: ProjectDomain
+  playbookId?: PlaybookId
+  importedSources?: ImportedSource[]
+  userContext?: string | null
   status: string | null
   createdAt: string
   updatedAt: string
@@ -326,6 +409,7 @@ export interface PlanningThread {
   title: string
   phase: PlanningPhase
   visionDocument: string | null
+  playbookId?: PlaybookId
   createdAt: string
   updatedAt: string
   lastMessage: string | null

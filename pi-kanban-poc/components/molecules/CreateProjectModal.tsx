@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { Plus, X, ArrowRight, Sparkles, Upload } from 'lucide-react'
+import { PlaybookSelect } from '@/components/molecules/PlaybookSelect'
+import type { PlaybookId } from '@/types/domain'
 
 /**
  * Project creation modal (Tier 2.6).
@@ -21,6 +23,8 @@ export interface CreateProjectModalProps {
   onClose: () => void
   projectName: string
   onProjectNameChange: (name: string) => void
+  playbookId: PlaybookId
+  onPlaybookChange: (value: PlaybookId) => void
   importMode: boolean
   isCreating: boolean
   onSubmit: () => void
@@ -32,6 +36,8 @@ export function CreateProjectModal({
   onClose,
   projectName,
   onProjectNameChange,
+  playbookId,
+  onPlaybookChange,
   importMode,
   isCreating,
   onSubmit,
@@ -85,6 +91,7 @@ export function CreateProjectModal({
           </div>
 
           <div className="space-y-3">
+            <PlaybookSelect value={playbookId} onChange={onPlaybookChange} />
             <input
               type="text"
               placeholder="E.g. Spring wedding, Q2 product launch, 6-month SaaS MVP…"

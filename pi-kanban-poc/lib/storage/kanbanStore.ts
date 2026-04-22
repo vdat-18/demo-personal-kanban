@@ -35,6 +35,11 @@ import type {
   TaskActivityEntry,
   TaskActivityType,
   CachedBreakdown,
+  ImportedSource,
+  PlanningEvent,
+  PersonalAIContext,
+  PlaybookId,
+  AttentionItem,
 } from '@/types/domain'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,11 +80,24 @@ interface KanbanState {
   visionVersions: VisionVersion[]
   /** Per-task activity timeline (Tier 3.10). */
   activities: TaskActivityEntry[]
+  /** Project/thread-level planning history inspired by timeline-based systems. */
+  planningEvents: PlanningEvent[]
   /** AI breakdown suggestions cache (Tier 4.15). */
   cachedBreakdowns: CachedBreakdown[]
+  /** Personal planning preferences reused across projects. */
+  personalAIContext: PersonalAIContext
+  /** Lightweight attention system for planning and execution. */
+  attentionItems: AttentionItem[]
 
   // Project ops
-  createProject: (input: { name: string; description?: string; domain?: ProjectDomain }) => Project
+  createProject: (input: {
+    name: string
+    description?: string
+    domain?: ProjectDomain
+    playbookId?: PlaybookId
+    importedSources?: ImportedSource[]
+    userContext?: string | null
+  }) => Project
   updateProject: (id: string, patch: Partial<Omit<Project, 'id' | 'createdAt'>>) => Project | null
   deleteProject: (id: string) => void
 
@@ -213,6 +231,29 @@ interface KanbanState {
   }) => TaskActivityEntry
   getActivitiesForTask: (taskId: string) => TaskActivityEntry[]
 
+  // ─── Planning timeline / personal context ─────────────────────────────────
+  logPlanningEvent: (entry: {
+    projectId: string
+    threadId?: string | null
+    type: PlanningEvent['type']
+    actor: PlanningEvent['actor']
+    summary: string
+    metadata?: Record<string, unknown> | null
+  }) => PlanningEvent
+  getPlanningEventsForProject: (projectId: string, threadId?: string | null) => PlanningEvent[]
+  updatePersonalAIContext: (patch: Partial<Omit<PersonalAIContext, 'updatedAt'>>) => PersonalAIContext
+  addImportedSources: (projectId: string, sources: ImportedSource[]) => Project | null
+  updateImportedSource: (projectId: string, sourceId: string, patch: Partial<ImportedSource>) => Project | null
+  createAttentionItem: (item: {
+    projectId: string
+    threadId?: string | null
+    type: AttentionItem['type']
+    title: string
+    detail: string
+  }) => AttentionItem
+  resolveAttentionItem: (id: string) => AttentionItem | null
+  getAttentionItemsForProject: (projectId: string) => AttentionItem[]
+
   // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────────
   getNextPendingSubtask: (taskId: string) => Subtask | null
   saveDoerResult: (taskId: string, subtaskId: string, result: DoerResult) => Subtask | null
@@ -251,14 +292,33 @@ export const useKanbanStore = create<KanbanState>()(
       planningMessages: [],
       visionVersions: [],
       activities: [],
+      planningEvents: [],
       cachedBreakdowns: [],
+      personalAIContext: {
+        preferredLanguage: 'bilingual',
+        responseStyle: 'balanced',
+        planningStyle: 'structured-doc',
+        note: '',
+        updatedAt: null,
+      },
+      attentionItems: [],
 
-      createProject: ({ name, description, domain = 'GENERAL' }) => {
+      createProject: ({
+        name,
+        description,
+        domain = 'GENERAL',
+        playbookId = 'general-planning',
+        importedSources = [],
+        userContext = null,
+      }) => {
         const project: Project = {
           id: uid('proj'),
           name,
           description: description ?? null,
           domain,
+          playbookId,
+          importedSources,
+          userContext,
           status: null,
           createdAt: now(),
           updatedAt: now(),
@@ -555,12 +615,14 @@ export const useKanbanStore = create<KanbanState>()(
       },
 
       createPlanningThread: ({ projectId, title }) => {
+        const project = get().projects.find((p) => p.id === projectId) ?? null
         const thread: PlanningThread = {
           id: uid('thread'),
           projectId,
           title: title ?? 'New planning session',
           phase: 'discovery',
           visionDocument: null,
+          playbookId: project?.playbookId ?? 'general-planning',
           createdAt: now(),
           updatedAt: now(),
           lastMessage: null,
@@ -846,6 +908,120 @@ export const useKanbanStore = create<KanbanState>()(
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       },
 
+      addImportedSources: (projectId, sources) => {
+        let updated: Project | null = null
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            if (p.id !== projectId) return p
+            updated = {
+              ...p,
+              importedSources: [...(p.importedSources ?? []), ...sources.map((source) => ({ ...source, projectId }))],
+              updatedAt: now(),
+            }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      updateImportedSource: (projectId, sourceId, patch) => {
+        let updated: Project | null = null
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            if (p.id !== projectId) return p
+            updated = {
+              ...p,
+              importedSources: (p.importedSources ?? []).map((source) =>
+                source.id === sourceId ? { ...source, ...patch } : source,
+              ),
+              updatedAt: now(),
+            }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      logPlanningEvent: ({ projectId, threadId = null, type, actor, summary, metadata = null }) => {
+        const entry: PlanningEvent = {
+          id: uid('pevt'),
+          projectId,
+          threadId,
+          type,
+          actor,
+          summary,
+          metadata,
+          createdAt: now(),
+        }
+        set((s) => {
+          const existing = s.planningEvents.filter((e) => e.projectId === projectId)
+          const others = s.planningEvents.filter((e) => e.projectId !== projectId)
+          const combined = [...existing, entry]
+          const trimmed = combined.length > 120
+            ? combined
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 120)
+            : combined
+          return { planningEvents: [...others, ...trimmed] }
+        })
+        return entry
+      },
+
+      getPlanningEventsForProject: (projectId, threadId = null) => {
+        return get()
+          .planningEvents
+          .filter((e) => e.projectId === projectId && (threadId == null || e.threadId === threadId))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      },
+
+      updatePersonalAIContext: (patch) => {
+        let updated: PersonalAIContext = get().personalAIContext
+        set((s) => {
+          updated = {
+            ...s.personalAIContext,
+            ...patch,
+            updatedAt: now(),
+          }
+          return { personalAIContext: updated }
+        })
+        return updated
+      },
+
+      createAttentionItem: ({ projectId, threadId = null, type, title, detail }) => {
+        const item: AttentionItem = {
+          id: uid('attn'),
+          projectId,
+          threadId,
+          type,
+          title,
+          detail,
+          status: 'open',
+          createdAt: now(),
+          resolvedAt: null,
+        }
+        set((s) => ({ attentionItems: [...s.attentionItems, item] }))
+        return item
+      },
+
+      resolveAttentionItem: (id) => {
+        let updated: AttentionItem | null = null
+        set((s) => ({
+          attentionItems: s.attentionItems.map((item) => {
+            if (item.id !== id) return item
+            updated = { ...item, status: 'resolved', resolvedAt: now() }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      getAttentionItemsForProject: (projectId) => {
+        return get()
+          .attentionItems
+          .filter((item) => item.projectId === projectId && item.status === 'open')
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      },
+
       // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────
       getNextPendingSubtask: (taskId) => {
         return get()
@@ -1043,7 +1219,16 @@ export const useKanbanStore = create<KanbanState>()(
           planningMessages: [],
           visionVersions: [],
           activities: [],
+          planningEvents: [],
           cachedBreakdowns: [],
+          attentionItems: [],
+          personalAIContext: {
+            preferredLanguage: 'bilingual',
+            responseStyle: 'balanced',
+            planningStyle: 'structured-doc',
+            note: '',
+            updatedAt: null,
+          },
         })
       },
     }),
@@ -1060,7 +1245,7 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
@@ -1113,7 +1298,17 @@ export const useKanbanStore = create<KanbanState>()(
           ...s,
           visionVersions: migratedVersions.length > 0 ? migratedVersions : rawVersions,
           activities: Array.isArray(s.activities) ? s.activities : [],
+          planningEvents: Array.isArray(s.planningEvents) ? s.planningEvents : [],
           cachedBreakdowns: Array.isArray(s.cachedBreakdowns) ? s.cachedBreakdowns : [],
+          attentionItems: Array.isArray(s.attentionItems) ? s.attentionItems : [],
+          personalAIContext: {
+            preferredLanguage: 'bilingual',
+            responseStyle: 'balanced',
+            planningStyle: 'structured-doc',
+            note: '',
+            updatedAt: null,
+            ...((typeof s.personalAIContext === 'object' && s.personalAIContext) ? s.personalAIContext as Record<string, unknown> : {}),
+          },
           planningMessages: Array.isArray(s.planningMessages)
             ? (s.planningMessages as PlanningMessage[]).map((m) => ({
                 envelope: null,

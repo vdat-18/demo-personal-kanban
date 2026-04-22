@@ -25,6 +25,10 @@ import { TaskProposalCard } from '@/components/molecules/TaskProposalCard'
 import { VisionPanel } from '@/components/molecules/VisionPanel'
 import { VisionHistoryDrawer } from '@/components/molecules/VisionHistoryDrawer'
 import { PhaseStepper } from '@/components/molecules/PhaseStepper'
+import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
+import { PlanningTimelinePanel } from '@/components/molecules/PlanningTimelinePanel'
+import { PlanningAttentionPanel } from '@/components/molecules/PlanningAttentionPanel'
+import { WhereWeLeftOffPanel } from '@/components/molecules/WhereWeLeftOffPanel'
 import {
   usePlanningThreads,
   useCreatePlanningThread,
@@ -39,7 +43,10 @@ import type {
   PlanningPhase,
   QuestionBatchSubmission,
   StructuredTaskProposal,
+  ImportedSource,
+  PlaybookId,
 } from '@/types/domain'
+import { getPlaybook } from '@/lib/planning/playbooks'
 
 interface Task {
   id: string
@@ -53,6 +60,9 @@ interface Project {
   id: string
   name: string
   description: string | null
+  playbookId?: PlaybookId
+  importedSources?: ImportedSource[]
+  userContext?: string | null
   tasks: Task[]
 }
 
@@ -142,10 +152,28 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const restoreVisionVersionFn = useKanbanStore((s) => s.restoreVisionVersion)
   const publishVisionVersionFn = useKanbanStore((s) => s.publishVisionVersion)
   const allVisionVersions = useKanbanStore((s) => s.visionVersions)
+  const planningEvents = useKanbanStore((s) => s.getPlanningEventsForProject(initialProject.id, activeThreadId))
+  const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const attentionItems = useKanbanStore((s) => s.getAttentionItemsForProject(initialProject.id))
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
+  const updateImportedSource = useKanbanStore((s) => s.updateImportedSource)
 
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
   const currentPhase: PlanningPhase = activeThread?.phase ?? 'discovery'
   const currentVisionDoc = activeThread?.visionDocument ?? null
+  const playbook = getPlaybook(initialProject.playbookId)
+  const importedSources = initialProject.importedSources ?? []
+  const latestPlanningEvent = planningEvents[0] ?? null
+  const pendingTaskApprovals = useMemo(
+    () =>
+      messages.reduce((count, msg) => {
+        const proposals = msg.envelope?.tasks ?? []
+        const actions = msg.taskProposalActions ?? []
+        return count + proposals.filter((proposal) => !actions.find((action) => action.taskId === proposal.id)).length
+      }, 0),
+    [messages],
+  )
 
   const versionsForThread = useMemo(
     () => (activeThreadId ? allVisionVersions.filter((v) => v.threadId === activeThreadId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []),
@@ -266,25 +294,94 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     [input, attachedFiles, activeThreadId, sendMessage],
   )
 
+  useEffect(() => {
+    if (!activeThreadId) return
+    const hasSourceReviewNeed = importedSources.some((source) => source.status === 'needs_review')
+    if (hasSourceReviewNeed && !attentionItems.some((item) => item.type === 'source_needs_review')) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'source_needs_review',
+        title: 'Some imported sources need review',
+        detail: 'At least one uploaded source had low extraction quality or needs manual checking.',
+      })
+    }
+  }, [activeThreadId, importedSources, attentionItems, createAttentionItem, initialProject.id])
+
+  useEffect(() => {
+    if (!activeThreadId) return
+    const unresolved = attentionItems.find((item) => item.type === 'task_approval_pending')
+    if (pendingTaskApprovals > 0 && !unresolved) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'task_approval_pending',
+        title: 'Task proposals are waiting for approval',
+        detail: `${pendingTaskApprovals} proposed task${pendingTaskApprovals === 1 ? '' : 's'} still need your decision before execution starts.`,
+      })
+    }
+    if (pendingTaskApprovals === 0) {
+      attentionItems
+        .filter((item) => item.type === 'task_approval_pending')
+        .forEach((item) => resolveAttentionItem(item.id))
+    }
+  }, [activeThreadId, pendingTaskApprovals, attentionItems, createAttentionItem, resolveAttentionItem, initialProject.id])
+
+  useEffect(() => {
+    if (!activeThreadId) return
+    const hasPublished = versionsForThread.some((version) => version.status === 'published' && !version.supersededAt)
+    const openPlanAttention = attentionItems.find((item) => item.type === 'plan_unpublished')
+    if (!hasPublished && currentVisionDoc?.trim() && !openPlanAttention) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'plan_unpublished',
+        title: 'The current plan is still unpublished',
+        detail: 'Publish a stable plan version once the draft is ready so the project has a clear canonical plan.',
+      })
+    }
+    if (hasPublished) {
+      attentionItems
+        .filter((item) => item.type === 'plan_unpublished')
+        .forEach((item) => resolveAttentionItem(item.id))
+    }
+  }, [activeThreadId, versionsForThread, currentVisionDoc, attentionItems, createAttentionItem, resolveAttentionItem, initialProject.id])
+
   // ─── Phase transition handlers ────────────────────────────────────────────
   const handleAcceptTransition = useCallback(
     (messageId: string, targetPhase: PlanningPhase) => {
       if (!activeThreadId) return
       setPhaseTransitionResponseFn(messageId, 'accepted')
       updateThreadFn(activeThreadId, { phase: targetPhase, whyProbesUsed: 0 })
+      logPlanningEvent({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'phase_transition_accepted',
+        actor: 'user',
+        summary: `Moved planning to ${PHASE_DISPLAY[targetPhase].label}.`,
+      })
       handleSendMessage({
         contentOverride: `Yes, let's move to "${PHASE_DISPLAY[targetPhase].label}".`,
         phaseTransitionConfirm: { targetPhase, confirmed: true },
       })
     },
-    [activeThreadId, setPhaseTransitionResponseFn, updateThreadFn, handleSendMessage],
+    [activeThreadId, setPhaseTransitionResponseFn, updateThreadFn, handleSendMessage, logPlanningEvent, initialProject.id],
   )
 
   const handleRejectTransition = useCallback(
     (messageId: string) => {
       setPhaseTransitionResponseFn(messageId, 'rejected')
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'phase_transition_rejected',
+          actor: 'user',
+          summary: 'Kept the planning conversation in the current phase.',
+        })
+      }
     },
-    [setPhaseTransitionResponseFn],
+    [setPhaseTransitionResponseFn, activeThreadId, logPlanningEvent, initialProject.id],
   )
 
   // ─── Stepper jump ─────────────────────────────────────────────────────────
@@ -326,15 +423,34 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         sourceProposal: { messageId, proposalId: proposal.id },
       })
       setTaskProposalActionFn(messageId, proposal.id, 'approved', created.id)
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'task_approved',
+          actor: 'user',
+          summary: `Approved task proposal: ${proposal.title}.`,
+        })
+      }
     },
-    [createTaskFn, setTaskProposalActionFn, initialProject.id],
+    [createTaskFn, setTaskProposalActionFn, initialProject.id, activeThreadId, logPlanningEvent],
   )
 
   const handleDismissTask = useCallback(
     (messageId: string, proposalId: string) => {
       setTaskProposalActionFn(messageId, proposalId, 'dismissed')
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'task_dismissed',
+          actor: 'user',
+          summary: 'Dismissed a proposed task.',
+          metadata: { proposalId },
+        })
+      }
     },
-    [setTaskProposalActionFn],
+    [setTaskProposalActionFn, activeThreadId, logPlanningEvent, initialProject.id],
   )
 
   /** Revert a previously approved/dismissed proposal back to pending. If the
@@ -574,12 +690,12 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   </button>
                 )}
               </div>
-              <div className="min-w-0">
+            <div className="min-w-0">
                 <h1 className="font-black text-sm text-[#0a192f] tracking-tight">
                   {initialProject.name}
                 </h1>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Planning Intelligence
+                  Planning Intelligence · {playbook.label}
                 </p>
               </div>
             </div>
@@ -604,6 +720,25 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
             }
           />
+
+          <div className="px-6 py-4 space-y-4 border-b border-slate-100 bg-[#f8fafc]/80">
+            <WhereWeLeftOffPanel
+              phase={currentPhase}
+              latestEvent={latestPlanningEvent}
+              pendingApprovals={pendingTaskApprovals}
+              openAttention={attentionItems}
+              userContext={initialProject.userContext}
+            />
+            <PlanningAttentionPanel
+              items={attentionItems}
+              onResolve={resolveAttentionItem}
+            />
+            <ImportedSourcesPanel
+              sources={importedSources}
+              onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
+            />
+            <PlanningTimelinePanel events={planningEvents} />
+          </div>
 
           {/* Vision history drawer */}
           <VisionHistoryDrawer

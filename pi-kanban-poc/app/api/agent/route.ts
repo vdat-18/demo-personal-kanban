@@ -151,6 +151,28 @@ interface PlanRequest extends BaseRequest {
   visionDirectEdit?: { newContent: string; previousContent: string | null } | null
   /** Base64-encoded images from the user's last message (Tier 3.12 vision). */
   imageFiles?: Array<{ mimeType: string; base64: string }>
+  playbook?: {
+    id: string
+    label: string
+    description: string
+    starterPrompt: string
+    preferredSections?: string[]
+    discoveryFocus?: string[]
+    taskBias?: string
+  } | null
+  importedSources?: Array<{
+    title: string
+    summary: string | null
+    status: string
+    extractedText: string | null
+  }> | null
+  personalAIContext?: {
+    preferredLanguage: 'english' | 'vietnamese' | 'bilingual'
+    responseStyle: 'concise' | 'balanced' | 'detailed'
+    planningStyle: 'bullets-first' | 'structured-doc' | 'action-first'
+    note: string
+    updatedAt: string | null
+  } | null
   /** Import onboarding mode: the first turn must summarize the uploaded
    *  material in detail before any task proposal cards appear. */
   importReadbackOnly?: boolean
@@ -388,6 +410,40 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
   if (req.projectName) {
     lines.push('', `Project name: ${req.projectName}`)
     if (req.projectDescription) lines.push(`Description: ${req.projectDescription}`)
+  }
+
+  if (req.playbook) {
+    lines.push('', '── Selected playbook ─────────────────────────────────────')
+    lines.push(`${req.playbook.label}: ${req.playbook.description}`)
+    lines.push(`Playbook guidance: ${req.playbook.starterPrompt}`)
+    if (Array.isArray((req.playbook as any).preferredSections)) {
+      lines.push(`Preferred sections: ${((req.playbook as any).preferredSections as string[]).join(', ')}`)
+    }
+    if (Array.isArray((req.playbook as any).discoveryFocus)) {
+      lines.push(`Discovery focus: ${((req.playbook as any).discoveryFocus as string[]).join(', ')}`)
+    }
+    if ((req.playbook as any).taskBias) {
+      lines.push(`Task bias: ${String((req.playbook as any).taskBias)}`)
+    }
+  }
+
+  if (req.personalAIContext) {
+    lines.push('', '── Personal AI context ──────────────────────────────────')
+    lines.push(`Preferred language: ${req.personalAIContext.preferredLanguage}`)
+    lines.push(`Response style: ${req.personalAIContext.responseStyle}`)
+    lines.push(`Planning style: ${req.personalAIContext.planningStyle}`)
+    if (req.personalAIContext.note?.trim()) {
+      lines.push(`Working notes: ${req.personalAIContext.note.trim()}`)
+    }
+  }
+
+  if (req.importedSources && req.importedSources.length > 0) {
+    lines.push('', '── Imported source library ──────────────────────────────')
+    req.importedSources.forEach((source, index) => {
+      lines.push(`${index + 1}. ${source.title} [${source.status}]`)
+      if (source.summary) lines.push(`   Summary: ${source.summary}`)
+      if (source.extractedText) lines.push(`   Extract: ${source.extractedText}`)
+    })
   }
 
   if (req.visionDocument) {

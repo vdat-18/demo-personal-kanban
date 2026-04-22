@@ -12,6 +12,7 @@ import { useProjects, useCreateProject, useDeleteProject } from '@/lib/hooks/use
 import { useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { IngestedFile } from '@/lib/fileIngest'
+import type { ImportedSource, PlaybookId } from '@/types/domain'
 import {
   ensureOnboardingProject,
   isOnboardingSeen,
@@ -27,10 +28,13 @@ export function DashboardTemplate() {
   const sendPlanningMessage = useSendPlanningMessage()
   const { confirm, element: confirmElement } = useConfirm()
   const createPlanningThread = useKanbanStore((s) => s.createPlanningThread)
+  const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
 
   const [showModal, setShowModal] = useState(false)
   const [showImportFlow, setShowImportFlow] = useState(false)
   const [projectName, setProjectName] = useState('')
+  const [playbookId, setPlaybookId] = useState<PlaybookId>('general-planning')
   const [isCreating, setIsCreating] = useState(false)
   const [showOnboardingHint, setShowOnboardingHint] = useState(false)
 
@@ -60,9 +64,24 @@ export function DashboardTemplate() {
         name: projectName,
         description: `Drafting plan for ${projectName}…`,
         domain: 'GENERAL',
+        playbookId,
+      })
+      logPlanningEvent({
+        projectId: project.id,
+        type: 'project_created',
+        actor: 'user',
+        summary: `Started project “${project.name}”.`,
+      })
+      logPlanningEvent({
+        projectId: project.id,
+        type: 'playbook_selected',
+        actor: 'system',
+        summary: `Selected playbook: ${playbookId}.`,
+        metadata: { playbookId },
       })
       setShowModal(false)
       setProjectName('')
+      setPlaybookId('general-planning')
       router.push(`/planning/${project.id}`)
     } catch (err) {
       console.error(err)
@@ -81,23 +100,73 @@ export function DashboardTemplate() {
     async ({
       projectName: name,
       userContext,
-      seedMessage,
-      files,
-    }: {
-      projectName: string
-      userContext: string
-      seedMessage: string
-      files: IngestedFile[]
-    }) => {
+        seedMessage,
+        files,
+        playbookId,
+        importedSources,
+      }: {
+        projectName: string
+        userContext: string
+        seedMessage: string
+        files: IngestedFile[]
+        playbookId: PlaybookId
+        importedSources: ImportedSource[]
+      }) => {
+      const projectScopedSources = importedSources.map((source) => ({ ...source, projectId: 'pending' }))
       const project = await createProject({
         name,
         description: userContext
           ? `Imported from ${files.length} file${files.length === 1 ? '' : 's'} with additional user context`
           : `Imported from ${files.length} file${files.length === 1 ? '' : 's'}`,
         domain: 'GENERAL',
+        playbookId,
+        importedSources: projectScopedSources.map((source) => ({ ...source, projectId: project.id })),
+        userContext,
       })
 
       const thread = createPlanningThread({ projectId: project.id, title: `Imported: ${name}` })
+
+      logPlanningEvent({
+        projectId: project.id,
+        threadId: thread.id,
+        type: 'project_created',
+        actor: 'user',
+        summary: `Created imported project “${project.name}”.`,
+      })
+      logPlanningEvent({
+        projectId: project.id,
+        threadId: thread.id,
+        type: 'playbook_selected',
+        actor: 'system',
+        summary: `Selected playbook: ${playbookId}.`,
+        metadata: { playbookId },
+      })
+      logPlanningEvent({
+        projectId: project.id,
+        threadId: thread.id,
+        type: 'sources_imported',
+        actor: 'user',
+        summary: `Imported ${files.length} source file${files.length === 1 ? '' : 's'}.`,
+        metadata: { sourceCount: files.length },
+      })
+      if (userContext.trim()) {
+        logPlanningEvent({
+          projectId: project.id,
+          threadId: thread.id,
+          type: 'user_context_saved',
+          actor: 'user',
+          summary: 'Added extra planning context to the imported brief.',
+        })
+      }
+      if (files.some((file) => file.error || (file.needsVisionModel && !file.text))) {
+        createAttentionItem({
+          projectId: project.id,
+          threadId: thread.id,
+          type: 'source_needs_review',
+          title: 'Some imported sources need review',
+          detail: 'One or more uploaded files had limited extraction quality. Review the source library before finalising the plan.',
+        })
+      }
 
       await sendPlanningMessage.mutateAsync({
         threadId: thread.id,
@@ -108,7 +177,7 @@ export function DashboardTemplate() {
       setShowImportFlow(false)
       router.push(`/planning/${project.id}`)
     },
-    [createProject, createPlanningThread, sendPlanningMessage, router],
+    [createProject, createPlanningThread, sendPlanningMessage, logPlanningEvent, createAttentionItem, router],
   )
 
   const handleDeleteProject = useCallback(
@@ -141,10 +210,12 @@ export function DashboardTemplate() {
     id: p.id,
     name: p.name,
     description: p.description,
-    domain: p.domain,
-    status: p.status ?? 'planning',
-    planningStatus: p.planningStatus ?? 'not_started',
-    createdAt: p.createdAt,
+      domain: p.domain,
+      status: p.status ?? 'planning',
+      planningStatus: p.planningStatus ?? 'not_started',
+      playbookId: p.playbookId,
+      importedSourceCount: p.importedSources?.length ?? 0,
+      createdAt: p.createdAt,
     tasks: (p.tasks ?? []).map((t) => ({ id: t.id, status: t.status })),
   }))
 
@@ -222,6 +293,8 @@ export function DashboardTemplate() {
         onClose={() => setShowModal(false)}
         projectName={projectName}
         onProjectNameChange={setProjectName}
+        playbookId={playbookId}
+        onPlaybookChange={setPlaybookId}
         importMode={false}
         isCreating={isCreating}
         onSubmit={handleStartProject}

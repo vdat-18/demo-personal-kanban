@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { KanbanBoard } from '@/components/organisms/KanbanBoard'
 import { KanbanHeader } from '@/components/organisms/KanbanHeader'
@@ -29,6 +29,8 @@ interface Project {
   id: string
   name: string
   description: string | null
+  playbookId?: import('@/types/domain').PlaybookId
+  importedSources?: import('@/types/domain').ImportedSource[]
   tasks: Task[]
 }
 
@@ -54,6 +56,8 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const storeProjects = useKanbanStore((s) => s.projects)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const createTaskInStore = useKanbanStore((s) => s.createTask)
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
 
   const liveProject = storeProjects.find((p) => p.id === initialProject.id) ?? null
   const projectTokenUsage = liveProject?.totalTokenUsage ?? null
@@ -129,9 +133,28 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const handleCancelConfirm = async () => {
     if (!cancelTarget) return
     await updateTaskStatus(cancelTarget.id, 'BLOCKED')
+    createAttentionItem({
+      projectId: project.id,
+      type: 'execution_blocked',
+      title: 'A task is blocked during execution',
+      detail: `"${cancelTarget.title}" was marked blocked and may need replanning or clarification.`,
+    })
     setCancelTarget(null)
     setCancelReason('')
   }
+
+  const executionLoggedRef = useRef(false)
+
+  useEffect(() => {
+    if (executionLoggedRef.current) return
+    executionLoggedRef.current = true
+    logPlanningEvent({
+      projectId: initialProject.id,
+      type: 'execution_started',
+      actor: 'user',
+      summary: 'Started execution in Mission Control.',
+    })
+  }, [initialProject.id, logPlanningEvent])
 
   return (
     <div className="flex flex-col h-full w-full bg-[#f0f2f5] overflow-hidden font-sans">
@@ -140,6 +163,8 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <KanbanHeader
         projectName={project.name}
         projectDescription={project.description}
+        playbookId={liveProject?.playbookId ?? project.playbookId}
+        importedSourceCount={liveProject?.importedSources?.length ?? project.importedSources?.length ?? 0}
         isProcessing={isProcessing}
         tokenUsage={projectTokenUsage}
         onBack={() => router.push('/')}
