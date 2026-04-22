@@ -66,7 +66,7 @@ export function VisionHistoryDrawer({
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <aside className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
+      <aside className="relative w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
         <header className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-2xl bg-blue-100 flex items-center justify-center">
@@ -230,8 +230,27 @@ export function VisionHistoryDrawer({
                   </div>
                 </div>
                 {isExpanded && openMode === 'view' && (
-                  <div className="px-4 pb-4 border-t border-slate-100 pt-3 prose prose-xs max-w-none text-slate-700 text-xs">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{v.content}</ReactMarkdown>
+                  <div className="px-4 pb-4 pt-4 border-t border-slate-100 bg-[linear-gradient(180deg,#fcfcfd_0%,#f8fafc_100%)]">
+                    <div className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-sm overflow-hidden">
+                      <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            Revision View
+                          </p>
+                          <p className="text-xs font-semibold text-[#0a192f] mt-1">
+                            {CHANGE_LABEL[v.changeType]}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 shrink-0">
+                          Readable draft
+                        </span>
+                      </div>
+                      <div className="px-6 py-6 md:px-7 md:py-7">
+                        <div className="plan-prose max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{v.content}</ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
                 {isExpanded && openMode === 'compare' && compareTarget && (

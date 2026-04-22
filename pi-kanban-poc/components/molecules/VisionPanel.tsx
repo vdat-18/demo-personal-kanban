@@ -202,23 +202,57 @@ export function VisionPanel({
       )}
 
       {(isExpanded || isEditing) && (
-        <div className="px-6 py-5 max-h-[450px] overflow-y-auto scroll-smooth">
+        <div className="px-5 py-5 max-h-[520px] overflow-y-auto scroll-smooth bg-[linear-gradient(180deg,#fcfcfd_0%,#f8fafc_100%)]">
           {isEditing ? (
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                const el = e.currentTarget
-                el.style.height = 'auto'
-                el.style.height = `${Math.min(el.scrollHeight, 600)}px`
-              }}
-              placeholder="# Your plan"
-              className="w-full min-h-[200px] max-h-[600px] bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-800 font-mono resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 leading-relaxed"
-            />
+            <div className="mx-auto max-w-4xl rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/80">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Revision Draft
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Edit the markdown directly. Keep clear headings, short sections, and readable bullets.
+                  </p>
+                </div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 shrink-0">
+                  Markdown editor
+                </div>
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value)
+                  const el = e.currentTarget
+                  el.style.height = 'auto'
+                  el.style.height = `${Math.min(el.scrollHeight, 600)}px`
+                }}
+                placeholder="# Your plan"
+                className="w-full min-h-[260px] max-h-[600px] bg-white px-6 py-6 text-[14px] text-slate-800 font-mono resize-none focus:outline-none leading-7"
+              />
+            </div>
           ) : (
-            <div className="prose prose-sm max-w-none text-slate-700 prose-headings:text-[#0a192f] prose-headings:font-bold prose-headings:tracking-tight prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-h2:mt-5 prose-h3:mt-4 prose-p:my-2 prose-p:leading-relaxed prose-li:my-1 prose-li:leading-relaxed prose-strong:text-[#0a192f] prose-strong:font-semibold prose-ul:my-2 prose-ol:my-2">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content ?? ''}</ReactMarkdown>
+            <div className="mx-auto max-w-4xl rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)] overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                      Current Revision
+                    </p>
+                    <h3 className="mt-1 text-sm font-bold text-[#0a192f]">
+                      {title ?? 'Plan draft'}
+                    </h3>
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 shrink-0">
+                    Readable draft view
+                  </div>
+                </div>
+              </div>
+              <div className="px-7 py-7 md:px-9 md:py-8">
+                <div className="plan-prose max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{content ?? ''}</ReactMarkdown>
+                </div>
+              </div>
             </div>
           )}
         </div>
