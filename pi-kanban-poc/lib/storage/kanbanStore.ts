@@ -311,13 +311,14 @@ export const useKanbanStore = create<KanbanState>()(
         importedSources = [],
         userContext = null,
       }) => {
+        const projectId = uid('proj')
         const project: Project = {
-          id: uid('proj'),
+          id: projectId,
           name,
           description: description ?? null,
           domain,
           playbookId,
-          importedSources,
+          importedSources: importedSources.map((source) => ({ ...source, projectId })),
           userContext,
           status: null,
           createdAt: now(),

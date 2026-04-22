@@ -112,7 +112,6 @@ export function DashboardTemplate() {
         playbookId: PlaybookId
         importedSources: ImportedSource[]
       }) => {
-      const projectScopedSources = importedSources.map((source) => ({ ...source, projectId: 'pending' }))
       const project = await createProject({
         name,
         description: userContext
@@ -120,7 +119,7 @@ export function DashboardTemplate() {
           : `Imported from ${files.length} file${files.length === 1 ? '' : 's'}`,
         domain: 'GENERAL',
         playbookId,
-        importedSources: projectScopedSources.map((source) => ({ ...source, projectId: project.id })),
+        importedSources,
         userContext,
       })
 

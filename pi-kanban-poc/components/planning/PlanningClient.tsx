@@ -117,6 +117,10 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
+  const [showWhereWeLeftOff, setShowWhereWeLeftOff] = useState(true)
+  const [showAttentionPanel, setShowAttentionPanel] = useState(true)
+  const [showImportedSources, setShowImportedSources] = useState(true)
+  const [showPlanningTimeline, setShowPlanningTimeline] = useState(true)
   const [pendingVisionEdit, setPendingVisionEdit] = useState<
     { newContent: string; previousContent: string | null } | null
   >(null)
@@ -152,9 +156,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const restoreVisionVersionFn = useKanbanStore((s) => s.restoreVisionVersion)
   const publishVisionVersionFn = useKanbanStore((s) => s.publishVisionVersion)
   const allVisionVersions = useKanbanStore((s) => s.visionVersions)
-  const planningEvents = useKanbanStore((s) => s.getPlanningEventsForProject(initialProject.id, activeThreadId))
+  const allPlanningEvents = useKanbanStore((s) => s.planningEvents)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
-  const attentionItems = useKanbanStore((s) => s.getAttentionItemsForProject(initialProject.id))
+  const allAttentionItems = useKanbanStore((s) => s.attentionItems)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
   const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
   const updateImportedSource = useKanbanStore((s) => s.updateImportedSource)
@@ -164,6 +168,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const currentVisionDoc = activeThread?.visionDocument ?? null
   const playbook = getPlaybook(initialProject.playbookId)
   const importedSources = initialProject.importedSources ?? []
+  const planningEvents = useMemo(
+    () =>
+      allPlanningEvents
+        .filter((event) => event.projectId === initialProject.id && (activeThreadId == null || event.threadId === activeThreadId))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allPlanningEvents, initialProject.id, activeThreadId],
+  )
+  const attentionItems = useMemo(
+    () =>
+      allAttentionItems
+        .filter((item) => item.projectId === initialProject.id && item.status === 'open')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allAttentionItems, initialProject.id],
+  )
   const latestPlanningEvent = planningEvents[0] ?? null
   const pendingTaskApprovals = useMemo(
     () =>
@@ -669,10 +687,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
       {/* Center: Chat Panel */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
-          {/* Header */}
-          <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10 relative">
-            <div className="flex items-center gap-5">
-              <div className="flex items-center gap-3">
+          {/* Header — row 1: nav + title + stepper */}
+          <header className="shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10 border-b border-gray-100">
+            {/* Top row */}
+            <div className="h-16 px-8 flex items-center gap-5 relative">
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => router.push('/')}
                   className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
@@ -690,20 +709,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   </button>
                 )}
               </div>
-            <div className="min-w-0">
-                <h1 className="font-black text-sm text-[#0a192f] tracking-tight">
+              <div className="min-w-0">
+                <h1 className="font-black text-sm text-[#0a192f] tracking-tight leading-none">
                   {initialProject.name}
                 </h1>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
                   Planning Intelligence · {playbook.label}
                 </p>
               </div>
-            </div>
 
-            <div className="hidden md:block absolute left-1/2 -translate-x-1/2">
-              <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} />
+              {/* Phase stepper — absolutely centered so it never overlaps text */}
+              <div className="hidden md:block absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+                <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} />
+              </div>
             </div>
-
 
           </header>
 
@@ -719,25 +738,39 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             onPublishLatest={
               latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
             }
+            panelActions={
+              <>
+                <PanelToggleButton active={showWhereWeLeftOff} onClick={() => setShowWhereWeLeftOff((v) => !v)} label="Checkpoint" />
+                <PanelToggleButton active={showAttentionPanel} onClick={() => setShowAttentionPanel((v) => !v)} label="Attention" />
+                <PanelToggleButton active={showImportedSources} onClick={() => setShowImportedSources((v) => !v)} label="Sources" />
+                <PanelToggleButton active={showPlanningTimeline} onClick={() => setShowPlanningTimeline((v) => !v)} label="Timeline" />
+              </>
+            }
           />
 
           <div className="px-6 py-4 space-y-4 border-b border-slate-100 bg-[#f8fafc]/80">
-            <WhereWeLeftOffPanel
-              phase={currentPhase}
-              latestEvent={latestPlanningEvent}
-              pendingApprovals={pendingTaskApprovals}
-              openAttention={attentionItems}
-              userContext={initialProject.userContext}
-            />
-            <PlanningAttentionPanel
-              items={attentionItems}
-              onResolve={resolveAttentionItem}
-            />
-            <ImportedSourcesPanel
-              sources={importedSources}
-              onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
-            />
-            <PlanningTimelinePanel events={planningEvents} />
+            {showWhereWeLeftOff && (
+              <WhereWeLeftOffPanel
+                phase={currentPhase}
+                latestEvent={latestPlanningEvent}
+                pendingApprovals={pendingTaskApprovals}
+                openAttention={attentionItems}
+                userContext={initialProject.userContext}
+              />
+            )}
+            {showAttentionPanel && (
+              <PlanningAttentionPanel
+                items={attentionItems}
+                onResolve={resolveAttentionItem}
+              />
+            )}
+            {showImportedSources && (
+              <ImportedSourcesPanel
+                sources={importedSources}
+                onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
+              />
+            )}
+            {showPlanningTimeline && <PlanningTimelinePanel events={planningEvents} />}
           </div>
 
           {/* Vision history drawer */}
@@ -1077,6 +1110,29 @@ function MessageView({
         )}
       </div>
     </div>
+  )
+}
+
+function PanelToggleButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+        active
+          ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
+          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      {active ? `Hide ${label}` : `Show ${label}`}
+    </button>
   )
 }
 

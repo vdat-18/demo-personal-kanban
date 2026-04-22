@@ -33,6 +33,8 @@ interface VisionPanelProps {
   publishedIsStale?: boolean
   /** Optional callback to publish the latest draft directly from the banner. */
   onPublishLatest?: () => void
+  /** Extra actions (e.g. panel toggle buttons) rendered left of History/Edit/Ask AI. */
+  panelActions?: React.ReactNode
 }
 
 export function VisionPanel({
@@ -45,6 +47,7 @@ export function VisionPanel({
   readOnly,
   publishedIsStale,
   onPublishLatest,
+  panelActions,
 }: VisionPanelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(content ?? '')
@@ -120,7 +123,13 @@ export function VisionPanel({
         </button>
 
         {/* Right: action buttons */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
+          {!isEditing && panelActions && (
+            <>
+              {panelActions}
+              <div className="w-px h-4 bg-gray-200 mx-1" />
+            </>
+          )}
           {!isEditing && versionCount > 0 && !readOnly && (
             <button
               onClick={onOpenHistory}
