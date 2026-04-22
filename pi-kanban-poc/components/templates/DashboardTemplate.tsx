@@ -102,6 +102,7 @@ export function DashboardTemplate() {
       await sendPlanningMessage.mutateAsync({
         threadId: thread.id,
         content: seedMessage,
+        importReadbackOnly: true,
       })
 
       setShowImportFlow(false)

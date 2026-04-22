@@ -26,7 +26,7 @@ export interface PhaseDisplayConfig {
 
 export const PHASE_DISPLAY: Record<PlanningPhase, PhaseDisplayConfig> = {
   discovery: {
-    label: 'Tell me about it',
+    label: 'Discover',
     tagline: "Share your goal — I'll ask the right questions to understand it deeply.",
     description:
       'Share what you want to do. I will ask a few focused questions so the plan fits your situation.',
@@ -37,7 +37,7 @@ export const PHASE_DISPLAY: Record<PlanningPhase, PhaseDisplayConfig> = {
     border: 'border-amber-200',
   },
   blueprint: {
-    label: 'Confirm the plan',
+    label: 'Confirm',
     tagline: "Here's what I understood. Review and tweak before we break it down.",
     description:
       'Review the plan I drafted from our chat. Edit anything directly, or ask me to revise it.',
@@ -48,7 +48,7 @@ export const PHASE_DISPLAY: Record<PlanningPhase, PhaseDisplayConfig> = {
     border: 'border-blue-200',
   },
   task_mapping: {
-    label: 'Break into action items',
+    label: 'Tasks',
     tagline: 'Concrete steps you can start doing today.',
     description:
       'Review each proposed task. Approve the ones you want, skip the rest. They move into your Tasks list.',

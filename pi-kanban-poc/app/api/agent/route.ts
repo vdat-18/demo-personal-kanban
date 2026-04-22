@@ -151,6 +151,9 @@ interface PlanRequest extends BaseRequest {
   visionDirectEdit?: { newContent: string; previousContent: string | null } | null
   /** Base64-encoded images from the user's last message (Tier 3.12 vision). */
   imageFiles?: Array<{ mimeType: string; base64: string }>
+  /** Import onboarding mode: the first turn must summarize the uploaded
+   *  material in detail before any task proposal cards appear. */
+  importReadbackOnly?: boolean
 }
 
 interface ChatRequest extends BaseRequest {
@@ -336,6 +339,28 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     '── Output format ─────────────────────────────────────────────',
     PLAN_SCHEMA_DESCRIPTION,
   ]
+
+  if (req.importReadbackOnly) {
+    lines.push(
+      '',
+      '── Imported document readback mode ─────────────────────────',
+      '- This is the FIRST turn after the user imported files into the project.',
+      '- Your job on THIS turn is to read back the uploaded material carefully',
+      '  before proposing any work.',
+      '- In "content", provide a FULL structured summary with these sections:',
+      '  1. "What I understood overall"',
+      '  2. "File-by-file summary"',
+      '  3. "Additional notes from you" if the user included extra text',
+      '  4. "What still needs clarification"',
+      '- You MUST explicitly reference each uploaded file individually.',
+      '- You MUST summarise each file in detail, not just the whole bundle.',
+      '- Do NOT propose tasks on this turn. Set "tasks" to null.',
+      '- Do NOT transition to task mapping on this turn.',
+      '- Stay in discovery. Ask focused clarifying questions after the readback.',
+      '- You MAY draft or update the visionDocument if helpful, but task cards',
+      '  must not appear yet.',
+    )
+  }
 
   if (req.projectName) {
     lines.push('', `Project name: ${req.projectName}`)
@@ -780,6 +805,13 @@ async function handlePlan(req: PlanRequest): Promise<Response> {
       tasks: null,
       metadata: { confidenceNote: 'fallback_unparsed', openQuestions: null },
     }
+  }
+
+  if (req.importReadbackOnly) {
+    envelope.tasks = null
+    envelope.suggestedPhase = envelope.suggestedPhase === 'task_mapping' ? 'blueprint' : envelope.suggestedPhase
+    envelope.targetPhase = envelope.targetPhase === 'task_mapping' ? null : envelope.targetPhase
+    envelope.readyForNextPhase = false
   }
 
   return Response.json({
