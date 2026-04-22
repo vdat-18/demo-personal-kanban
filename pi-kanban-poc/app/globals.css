@@ -331,3 +331,157 @@
 .ai-prose ol > li:first-child {
   margin-top: 0;
 }
+
+.plan-prose {
+  font-size: 0.985rem;
+  line-height: 1.82;
+  color: #334155;
+  font-family: "Inter", sans-serif;
+  letter-spacing: 0.002em;
+}
+
+.plan-prose > *:first-child {
+  margin-top: 0 !important;
+}
+
+.plan-prose p {
+  margin: 0 0 0.9rem;
+  color: #475569;
+}
+
+.plan-prose h1,
+.plan-prose h2,
+.plan-prose h3,
+.plan-prose h4 {
+  color: #0f172a;
+  font-family: "Plus Jakarta Sans Variable", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.plan-prose h1 {
+  font-size: 1.55rem;
+  margin: 0 0 1.1rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.plan-prose h2 {
+  font-size: 1.12rem;
+  margin: 1.75rem 0 0.8rem;
+  padding-top: 0.15rem;
+}
+
+.plan-prose h3 {
+  font-size: 1rem;
+  margin: 1.3rem 0 0.55rem;
+  color: #1e3a8a;
+}
+
+.plan-prose h4 {
+  font-size: 0.92rem;
+  margin: 1rem 0 0.45rem;
+  color: #334155;
+}
+
+.plan-prose strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.plan-prose em {
+  color: #475569;
+}
+
+.plan-prose ul,
+.plan-prose ol {
+  margin: 0.75rem 0 1rem;
+  padding-left: 1.35rem;
+}
+
+.plan-prose li {
+  margin: 0.34rem 0;
+  color: #475569;
+  padding-left: 0.2rem;
+}
+
+.plan-prose li::marker {
+  color: #6366f1;
+  font-weight: 700;
+}
+
+.plan-prose blockquote {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border-left: 4px solid #818cf8;
+  background: linear-gradient(180deg, #f8faff 0%, #f5f7ff 100%);
+  border-radius: 0 16px 16px 0;
+  color: #475569;
+}
+
+.plan-prose hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 1.5rem 0;
+}
+
+.plan-prose code {
+  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  font-size: 0.86em;
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 0.14rem 0.42rem;
+  border-radius: 6px;
+  border: 1px solid #dbeafe;
+}
+
+.plan-prose pre {
+  margin: 1rem 0;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+  border: 1px solid #1e293b;
+  line-height: 1.65;
+}
+
+.plan-prose pre code {
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 0;
+}
+
+.plan-prose table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.plan-prose th,
+.plan-prose td {
+  padding: 0.78rem 0.9rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.plan-prose th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.plan-prose td {
+  color: #475569;
+  border-top: 1px solid #f1f5f9;
+}

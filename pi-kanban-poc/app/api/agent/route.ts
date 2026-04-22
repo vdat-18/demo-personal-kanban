@@ -151,6 +151,9 @@ interface PlanRequest extends BaseRequest {
   visionDirectEdit?: { newContent: string; previousContent: string | null } | null
   /** Base64-encoded images from the user's last message (Tier 3.12 vision). */
   imageFiles?: Array<{ mimeType: string; base64: string }>
+  /** Import onboarding mode: the first turn must summarize the uploaded
+   *  material in detail before any task proposal cards appear. */
+  importReadbackOnly?: boolean
 }
 
 interface ChatRequest extends BaseRequest {
@@ -300,6 +303,26 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     '  Each subsequent batch should ENRICH/REVISE the draft — never start from',
     '  scratch. Mark it as a draft in the content if confidence is still low.',
     '  Keep "content" short — the user reads the document, not the chat bubble.',
+    '  The visionDocument must be EASY TO SCAN for a non-technical user.',
+    '  Prefer short sections and bullet lists over long dense paragraphs.',
+    '  Good default structure for the visionDocument:',
+    '    # Plan title',
+    '    ## Goal',
+    '    - 2-4 bullets',
+    '    ## Scope',
+    '    - In scope',
+    '    - Out of scope',
+    '    ## Audience / stakeholders',
+    '    - bullets',
+    '    ## Timeline',
+    '    - bullets',
+    '    ## Constraints / risks',
+    '    - bullets',
+    '    ## Open questions',
+    '    - bullets',
+    '  Each bullet should contain ONE idea. Avoid walls of text.',
+    '  If a section has 3 or more points, render them as bullet points.',
+    '  Keep each bullet concise and concrete.',
     '- task_mapping: propose concrete tasks via the "tasks" array. Return them',
     '  in the structured field, NEVER as inline markdown bullets. Group with',
     '  the milestone field when natural. Tasks should be small enough to act on.',
@@ -336,6 +359,31 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     '── Output format ─────────────────────────────────────────────',
     PLAN_SCHEMA_DESCRIPTION,
   ]
+
+  if (req.importReadbackOnly) {
+    lines.push(
+      '',
+      '── Imported document readback mode ─────────────────────────',
+      '- This is the FIRST turn after the user imported files into the project.',
+      '- Your job on THIS turn is to read back the uploaded material carefully',
+      '  before proposing any work.',
+      '- In "content", provide a FULL structured summary with these sections:',
+      '  1. "What I understood overall"',
+      '  2. "File-by-file summary"',
+      '  3. "Additional notes from you" if the user included extra text',
+      '  4. "What still needs clarification"',
+      '- Under "File-by-file summary", use one subsection per file and bullet',
+      '  points for the important details from that file.',
+      '- Under "What still needs clarification", use bullets, not paragraphs.',
+      '- You MUST explicitly reference each uploaded file individually.',
+      '- You MUST summarise each file in detail, not just the whole bundle.',
+      '- Do NOT propose tasks on this turn. Set "tasks" to null.',
+      '- Do NOT transition to task mapping on this turn.',
+      '- Stay in discovery. Ask focused clarifying questions after the readback.',
+      '- You MAY draft or update the visionDocument if helpful, but task cards',
+      '  must not appear yet.',
+    )
+  }
 
   if (req.projectName) {
     lines.push('', `Project name: ${req.projectName}`)
@@ -780,6 +828,13 @@ async function handlePlan(req: PlanRequest): Promise<Response> {
       tasks: null,
       metadata: { confidenceNote: 'fallback_unparsed', openQuestions: null },
     }
+  }
+
+  if (req.importReadbackOnly) {
+    envelope.tasks = null
+    envelope.suggestedPhase = envelope.suggestedPhase === 'task_mapping' ? 'blueprint' : envelope.suggestedPhase
+    envelope.targetPhase = envelope.targetPhase === 'task_mapping' ? null : envelope.targetPhase
+    envelope.readyForNextPhase = false
   }
 
   return Response.json({

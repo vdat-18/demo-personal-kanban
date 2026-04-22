@@ -61,6 +61,9 @@ export function usePlanningMessages(threadId: string | null) {
 export interface SendMessageInput {
   threadId: string
   content: string
+  /** Force the first imported turn into a readback-only mode: summarize files,
+   *  do not propose tasks yet. */
+  importReadbackOnly?: boolean
   /** When the user is submitting an answer to a question batch card (Tier 1.2). */
   batchSubmission?: QuestionBatchSubmission | null
   /** When the user clicked "Yes / Not yet" on a phase-transition card (Tier 2.5). */
@@ -86,9 +89,6 @@ export interface SendResult {
 
 export function useSendPlanningMessage() {
   const createMessage = useKanbanStore((s) => s.createPlanningMessage)
-  const threads = useKanbanStore((s) => s.planningThreads)
-  const messagesAll = useKanbanStore((s) => s.planningMessages)
-  const projects = useKanbanStore((s) => s.projects)
   const updateThread = useKanbanStore((s) => s.updatePlanningThread)
   const createVisionVersion = useKanbanStore((s) => s.createVisionVersion)
 
@@ -98,13 +98,15 @@ export function useSendPlanningMessage() {
   const mutateAsync = useCallback(
     async (input: SendMessageInput): Promise<SendResult> => {
       const { threadId, content, batchSubmission, phaseTransitionConfirm, visionDirectEdit, imageFiles } = input
-      const thread = threads.find((t) => t.id === threadId)
+      const store = useKanbanStore.getState()
+      const thread = store.planningThreads.find((t) => t.id === threadId)
       if (!thread) throw new FetchError('Thread not found', 404)
-      const project = projects.find((p) => p.id === thread.projectId) ?? null
+      const project = store.projects.find((p) => p.id === thread.projectId) ?? null
 
       setIsPending(true)
       setIsError(false)
       try {
+        const isImportedFirstTurn = input.importReadbackOnly === true
         // 1) Persist user message immediately
         const userMessage = createMessage({
           threadId,
@@ -114,7 +116,7 @@ export function useSendPlanningMessage() {
         })
 
         // 2) Build chat history for the agent (user + assistant turns only)
-        const history = messagesAll
+        const history = store.planningMessages
           .filter((m) => m.threadId === threadId && m.role !== 'system')
           .concat(userMessage)
           .map((m) => ({ role: m.role, content: m.content }))
@@ -131,6 +133,7 @@ export function useSendPlanningMessage() {
             projectName: project?.name,
             projectDescription: project?.description,
             whyProbesUsed: thread.whyProbesUsed ?? 0,
+            importReadbackOnly: isImportedFirstTurn,
             userPhaseRequest: phaseTransitionConfirm
               ? { targetPhase: phaseTransitionConfirm.targetPhase, confirmed: phaseTransitionConfirm.confirmed }
               : null,
@@ -194,7 +197,7 @@ export function useSendPlanningMessage() {
         setIsPending(false)
       }
     },
-    [createMessage, messagesAll, threads, projects, updateThread, createVisionVersion],
+    [createMessage, updateThread, createVisionVersion],
   )
 
   const wrapped = useCallback(

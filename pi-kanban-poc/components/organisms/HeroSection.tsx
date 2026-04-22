@@ -74,7 +74,7 @@ export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps)
                   <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400 mb-0.5 font-bold">
                     Method 02
                   </span>
-                  <span className="text-base font-bold">Import Data</span>
+                  <span className="text-base font-bold">Start From Documents</span>
                 </div>
                 <Upload className="w-5 h-5 text-slate-400 group-hover/btn:-translate-y-0.5 transition-transform" />
               </button>
