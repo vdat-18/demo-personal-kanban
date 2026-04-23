@@ -4,8 +4,10 @@ import { Clock3 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import type { PlanningEvent } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 export function PlanningTimelinePanel({ events }: { events: PlanningEvent[] }) {
+  const { t } = useI18n()
   const [filter, setFilter] = useState<'all' | 'sources' | 'revisions' | 'tasks'>('all')
   const visibleEvents = useMemo(() => {
     if (filter === 'all') return events
@@ -23,9 +25,9 @@ export function PlanningTimelinePanel({ events }: { events: PlanningEvent[] }) {
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-            Planning Timeline
+            {t('planning.planningTimeline', 'Planning Timeline')}
           </p>
-          <h3 className="mt-1 text-sm font-bold text-[#0a192f]">Recent planning events</h3>
+          <h3 className="mt-1 text-sm font-bold text-[#0a192f]">{t('planning.recentPlanningEvents', 'Recent planning events')}</h3>
         </div>
         <Clock3 className="w-4 h-4 text-slate-400" />
       </div>
@@ -40,13 +42,13 @@ export function PlanningTimelinePanel({ events }: { events: PlanningEvent[] }) {
                 : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
             }`}
           >
-            {item}
+            {item === 'all' ? t('planning.all', 'all') : item === 'sources' ? t('planning.sourcesFilter', 'sources') : item === 'revisions' ? t('planning.revisions', 'revisions') : t('planning.tasks', 'tasks')}
           </button>
         ))}
       </div>
       <div className="px-6 py-5 space-y-4">
         {visibleEvents.length === 0 ? (
-          <p className="text-sm text-slate-500">Planning milestones will appear here as the project evolves.</p>
+          <p className="text-sm text-slate-500">{t('planning.planningMilestonesEvolve', 'Planning milestones will appear here as the project evolves.')}</p>
         ) : (
           visibleEvents.map((event) => (
             <div key={event.id} className="flex gap-3">

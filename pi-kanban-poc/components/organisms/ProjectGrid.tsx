@@ -3,6 +3,7 @@
 import { Clock, Layout } from 'lucide-react'
 import { ProjectCard } from '@/components/molecules/ProjectCard'
 import type { PlanningStatus, PlaybookId } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 interface Project {
   id: string
@@ -24,6 +25,7 @@ export interface ProjectGridProps {
 }
 
 export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: ProjectGridProps) {
+  const { t } = useI18n()
   return (
     <section className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 ease-out">
       <div className="flex justify-between items-end mb-6 px-1">
@@ -31,15 +33,15 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-3.5 h-3.5 text-blue-500" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
-              Project History
+              {t('dashboard.projectHistory', 'Project History')}
             </span>
           </div>
           <h2 className="text-2xl font-bold text-[#0a192f] tracking-tight">
-            Your recent journeys
+            {t('dashboard.recentJourneys', 'Your recent journeys')}
           </h2>
         </div>
         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.18em] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-          {projects.length > 0 ? `${projects.length} projects` : 'Ready'}
+          {projects.length > 0 ? t('dashboard.projectsCount', `${projects.length} projects`) : t('dashboard.ready', 'Ready')}
         </span>
       </div>
 
@@ -50,10 +52,10 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
               <Layout className="w-7 h-7" />
             </div>
             <p className="text-sm font-bold text-[#0a192f] mb-1">
-              Your journeys will appear here
+              {t('dashboard.journeysEmptyTitle', 'Your journeys will appear here')}
             </p>
             <p className="text-sm text-slate-400 text-center max-w-xs">
-              Start a new project and let AI help you plan and execute it.
+              {t('dashboard.journeysEmptyDescription', 'Start a new project and let AI help you plan and execute it.')}
             </p>
           </div>
         ) : (

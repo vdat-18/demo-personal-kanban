@@ -93,6 +93,9 @@ export function useSendPlanningMessage() {
   const updateThread = useKanbanStore((s) => s.updatePlanningThread)
   const createVisionVersion = useKanbanStore((s) => s.createVisionVersion)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const updateProject = useKanbanStore((s) => s.updateProject)
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
 
   const [isPending, setIsPending] = useState(false)
   const [isError, setIsError] = useState(false)
@@ -143,6 +146,16 @@ export function useSendPlanningMessage() {
           summary: isImportedFirstTurn
             ? 'Started planning from imported sources.'
             : 'Sent a planning message.',
+        })
+        updateProject(thread.projectId, {
+          runtimeStatus: {
+            state: 'planning',
+            summary: isImportedFirstTurn ? 'AI is reading imported sources.' : 'AI is processing the planning request.',
+            lastAction: isImportedFirstTurn ? 'Started imported readback' : 'Started planning response',
+            lastUpdatedAt: new Date().toISOString(),
+            retryCount: project?.runtimeStatus?.retryCount ?? 0,
+            blockedReason: null,
+          },
         })
 
         // 3) Call the unified agent endpoint with full context
@@ -214,6 +227,53 @@ export function useSendPlanningMessage() {
           updateThread(threadId, patch)
         }
 
+        if ((project?.workflowContract?.validationChecklist.length ?? 0) > 0 && !data.envelope.tasks) {
+          const existingValidationAttention = useKanbanStore.getState().attentionItems.find(
+            (item) => item.projectId === thread.projectId && item.type === 'validation_required' && item.status === 'open',
+          )
+          if (!existingValidationAttention) {
+            createAttentionItem({
+              projectId: thread.projectId,
+              threadId,
+              type: 'validation_required',
+              title: 'Validation checklist still needs review',
+              detail: 'Before moving deeper into execution, review the project validation checklist in the workflow contract.',
+            })
+          }
+        }
+        if (data.envelope.tasks && data.envelope.tasks.length > 0) {
+          useKanbanStore.getState().attentionItems
+            .filter((item) => item.projectId === thread.projectId && item.type === 'validation_required' && item.status === 'open')
+            .forEach((item) => resolveAttentionItem(item.id))
+        }
+
+        updateProject(thread.projectId, {
+          runtimeStatus: {
+            state: data.envelope.tasks && data.envelope.tasks.length > 0 ? 'planning' : 'planning',
+            summary: data.envelope.tasks && data.envelope.tasks.length > 0
+              ? `AI proposed ${data.envelope.tasks.length} task${data.envelope.tasks.length === 1 ? '' : 's'}.`
+              : isImportedFirstTurn
+                ? 'AI completed the imported-document readback.'
+                : 'AI updated the planning conversation.',
+            lastAction: data.envelope.tasks && data.envelope.tasks.length > 0
+              ? 'Generated task proposals'
+              : isImportedFirstTurn
+                ? 'Completed imported readback'
+                : 'Updated planning output',
+            lastUpdatedAt: new Date().toISOString(),
+            retryCount: project?.runtimeStatus?.retryCount ?? 0,
+            blockedReason: null,
+          },
+          workpad: project?.workpad
+            ? {
+                ...project.workpad,
+                proofOfWork: data.envelope.tasks && data.envelope.tasks.length > 0
+                  ? [...project.workpad.proofOfWork, `Generated ${data.envelope.tasks.length} task proposal(s).`]
+                  : project.workpad.proofOfWork,
+              }
+            : project?.workpad,
+        })
+
         logPlanningEvent({
           projectId: thread.projectId,
           threadId,
@@ -246,7 +306,7 @@ export function useSendPlanningMessage() {
         setIsPending(false)
       }
     },
-    [createMessage, updateThread, createVisionVersion, logPlanningEvent],
+    [createMessage, updateThread, createVisionVersion, logPlanningEvent, updateProject, createAttentionItem, resolveAttentionItem],
   )
 
   const wrapped = useCallback(

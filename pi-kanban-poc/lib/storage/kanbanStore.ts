@@ -40,7 +40,9 @@ import type {
   PersonalAIContext,
   PlaybookId,
   AttentionItem,
+  UiLocale,
 } from '@/types/domain'
+import { getPlaybook, getDefaultWorkflowContract } from '@/lib/planning/playbooks'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ interface KanbanState {
   cachedBreakdowns: CachedBreakdown[]
   /** Personal planning preferences reused across projects. */
   personalAIContext: PersonalAIContext
+  uiLocale: UiLocale
   /** Lightweight attention system for planning and execution. */
   attentionItems: AttentionItem[]
 
@@ -242,6 +245,7 @@ interface KanbanState {
   }) => PlanningEvent
   getPlanningEventsForProject: (projectId: string, threadId?: string | null) => PlanningEvent[]
   updatePersonalAIContext: (patch: Partial<Omit<PersonalAIContext, 'updatedAt'>>) => PersonalAIContext
+  setUiLocale: (locale: UiLocale) => UiLocale
   addImportedSources: (projectId: string, sources: ImportedSource[]) => Project | null
   updateImportedSource: (projectId: string, sourceId: string, patch: Partial<ImportedSource>) => Project | null
   createAttentionItem: (item: {
@@ -301,6 +305,7 @@ export const useKanbanStore = create<KanbanState>()(
         note: '',
         updatedAt: null,
       },
+      uiLocale: 'en',
       attentionItems: [],
 
       createProject: ({
@@ -312,12 +317,32 @@ export const useKanbanStore = create<KanbanState>()(
         userContext = null,
       }) => {
         const projectId = uid('proj')
+        const playbook = getPlaybook(playbookId)
         const project: Project = {
           id: projectId,
           name,
           description: description ?? null,
           domain,
           playbookId,
+          workflowContract: playbook.workflowContract,
+          workpad: {
+            id: uid('workpad'),
+            projectId,
+            title: `${name} Workpad`,
+            assumptions: [],
+            blockers: [],
+            validationNotes: [],
+            proofOfWork: [],
+            updatedAt: now(),
+          },
+          runtimeStatus: {
+            state: 'planning',
+            summary: 'Planning is active.',
+            lastAction: 'Project created',
+            lastUpdatedAt: now(),
+            retryCount: 0,
+            blockedReason: null,
+          },
           importedSources: importedSources.map((source) => ({ ...source, projectId })),
           userContext,
           status: null,
@@ -334,7 +359,12 @@ export const useKanbanStore = create<KanbanState>()(
         set((s) => ({
           projects: s.projects.map((p) => {
             if (p.id !== id) return p
-            updated = { ...p, ...patch, updatedAt: now() }
+            updated = {
+              ...p,
+              ...patch,
+              workpad: patch.workpad ? { ...patch.workpad, updatedAt: now() } : p.workpad,
+              updatedAt: now(),
+            }
             return updated
           }),
         }))
@@ -988,6 +1018,11 @@ export const useKanbanStore = create<KanbanState>()(
         return updated
       },
 
+      setUiLocale: (locale) => {
+        set({ uiLocale: locale })
+        return locale
+      },
+
       createAttentionItem: ({ projectId, threadId = null, type, title, detail }) => {
         const item: AttentionItem = {
           id: uid('attn'),
@@ -1230,6 +1265,7 @@ export const useKanbanStore = create<KanbanState>()(
             note: '',
             updatedAt: null,
           },
+          uiLocale: 'en',
         })
       },
     }),
@@ -1246,7 +1282,7 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 5,
+      version: 7,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
@@ -1310,6 +1346,7 @@ export const useKanbanStore = create<KanbanState>()(
             updatedAt: null,
             ...((typeof s.personalAIContext === 'object' && s.personalAIContext) ? s.personalAIContext as Record<string, unknown> : {}),
           },
+          uiLocale: (typeof s.uiLocale === 'string' ? s.uiLocale : 'en') as UiLocale,
           planningMessages: Array.isArray(s.planningMessages)
             ? (s.planningMessages as PlanningMessage[]).map((m) => ({
                 envelope: null,
@@ -1327,6 +1364,30 @@ export const useKanbanStore = create<KanbanState>()(
             : [],
           tasks: Array.isArray(s.tasks)
             ? (s.tasks as Task[]).map((t) => ({ hintDismissed: false, ...t }))
+            : [],
+          projects: Array.isArray(s.projects)
+            ? (s.projects as Project[]).map((p) => ({
+                ...p,
+                workflowContract: p.workflowContract ?? getDefaultWorkflowContract(),
+                workpad: p.workpad ?? {
+                  id: uid('workpad'),
+                  projectId: p.id,
+                  title: `${p.name} Workpad`,
+                  assumptions: [],
+                  blockers: [],
+                  validationNotes: [],
+                  proofOfWork: [],
+                  updatedAt: now(),
+                },
+                runtimeStatus: p.runtimeStatus ?? {
+                  state: p.planningStatus === 'completed' ? 'executing' : 'planning',
+                  summary: p.planningStatus === 'completed' ? 'Execution is active.' : 'Planning is active.',
+                  lastAction: null,
+                  lastUpdatedAt: null,
+                  retryCount: 0,
+                  blockedReason: null,
+                },
+              }))
             : [],
         } as KanbanState
       },

@@ -8,6 +8,8 @@ import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
 import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/TaskFormDialog'
 import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
+import { StatusPanel } from '@/components/molecules/StatusPanel'
+import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -29,8 +31,12 @@ interface Project {
   id: string
   name: string
   description: string | null
+  planningStatus?: import('@/types/domain').PlanningStatus
   playbookId?: import('@/types/domain').PlaybookId
   importedSources?: import('@/types/domain').ImportedSource[]
+  workflowContract?: import('@/types/domain').WorkflowContract
+  workpad?: import('@/types/domain').WorkpadEntry | null
+  runtimeStatus?: import('@/types/domain').RuntimeStatus | null
   tasks: Task[]
 }
 
@@ -58,6 +64,9 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const createTaskInStore = useKanbanStore((s) => s.createTask)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const getPlanningEventsForProject = useKanbanStore((s) => s.getPlanningEventsForProject)
+  const getAttentionItemsForProject = useKanbanStore((s) => s.getAttentionItemsForProject)
+  const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
 
   const liveProject = storeProjects.find((p) => p.id === initialProject.id) ?? null
   const projectTokenUsage = liveProject?.totalTokenUsage ?? null
@@ -79,6 +88,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
     })) as Task[]
 
   const project = { ...initialProject, tasks }
+  const effectiveWorkflowContract = liveProject?.workflowContract ?? project.workflowContract
 
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
@@ -171,6 +181,31 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         onAddTask={() => setAddDialog({ open: true, status: 'TODO' })}
       />
 
+      <div className="px-6 pt-5 grid xl:grid-cols-3 gap-4 shrink-0 bg-[linear-gradient(180deg,#f7f9fc_0%,#f3f7fb_100%)] border-b border-slate-100">
+        <StatusPanel
+          phase={project.planningStatus === 'completed' ? 'task_mapping' : 'blueprint'}
+          latestEvent={getPlanningEventsForProject(project.id)[0] ?? null}
+          pendingApprovals={0}
+          attentionItems={getAttentionItemsForProject(project.id)}
+          runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
+          userContext={null}
+          onResolveAttention={resolveAttentionItem}
+        />
+        {effectiveWorkflowContract && (
+          <WorkflowNotesPanel
+            contract={effectiveWorkflowContract}
+            workpad={liveProject?.workpad ?? project.workpad}
+            onUpdateWorkpad={(patch) => {
+              const currentWorkpad = liveProject?.workpad ?? project.workpad
+              if (!currentWorkpad) return
+              useKanbanStore.getState().updateProject(project.id, {
+                workpad: { ...currentWorkpad, ...patch },
+              })
+            }}
+          />
+        )}
+      </div>
+
       <KanbanBoard
         tasks={tasks}
         autoModeStates={autoModeStates}
@@ -195,6 +230,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <KanbanFooter
         tasks={tasks}
         autoModeStates={autoModeStates}
+        runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
         onCloseProject={() => router.push(`/summary/${project.id}`)}
       />
 

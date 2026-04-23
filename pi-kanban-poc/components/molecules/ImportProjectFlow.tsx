@@ -16,6 +16,7 @@ import {
 import { ingestFile, type IngestedFile } from '@/lib/fileIngest'
 import { PlaybookSelect } from '@/components/molecules/PlaybookSelect'
 import type { ImportedSource, PlaybookId } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 /**
  * Dashboard "Start From Documents" multi-step flow (#1).
@@ -64,6 +65,7 @@ const KIND_ICON: Record<IngestedFile['kind'], React.ComponentType<{ className?: 
 }
 
 export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFlowProps) {
+  const { t } = useI18n()
   const [step, setStep] = useState<Step>('pick')
   const [files, setFiles] = useState<IngestedFile[]>([])
   const [pasteText, setPasteText] = useState('')
@@ -220,9 +222,10 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
             </div>
             <div>
               <h3 className="text-base font-bold text-[#0a192f] tracking-tight">Import a project brief</h3>
+              <h3 className="text-base font-bold text-[#0a192f] tracking-tight">{t('importFlow.title', 'Import a project brief')}</h3>
               <p className="text-xs text-slate-500">
                 Step {step === 'pick' ? 1 : step === 'review' ? 2 : 3} of 3 ·{' '}
-                {step === 'pick' ? 'Pick source' : step === 'review' ? 'Review extraction' : 'Name & start'}
+                {step === 'pick' ? t('importFlow.pickSource', 'Pick source') : step === 'review' ? t('importFlow.reviewExtraction', 'Review extraction') : t('importFlow.nameAndStart', 'Name & start')}
               </p>
             </div>
           </div>
@@ -255,7 +258,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
               {isProcessing ? (
                 <div className="flex flex-col items-center gap-3 text-slate-500">
                   <Loader2 className="w-7 h-7 animate-spin text-blue-500" />
-                  <span className="text-sm font-semibold">Reading your files…</span>
+                  <span className="text-sm font-semibold">{t('importFlow.readingFiles', 'Reading your files…')}</span>
                 </div>
               ) : (
                 <>
@@ -263,10 +266,10 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                     <Upload className="w-6 h-6 text-blue-500" />
                   </div>
                   <p className="text-sm font-bold text-[#0a192f] mb-1">
-                    Drop files here or click to browse
+                    {t('importFlow.dropFiles', 'Drop files here or click to browse')}
                   </p>
                   <p className="text-xs text-slate-500">
-                    PDF, Word, Excel, CSV, text, images · up to 5 files
+                    {t('importFlow.supportedFiles', 'PDF, Word, Excel, CSV, text, images · up to 5 files')}
                   </p>
                 </>
               )}
@@ -282,9 +285,9 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
 
             <div className="relative flex items-center gap-3">
               <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Or paste text
-              </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {t('importFlow.orPaste', 'Or paste text')}
+                </span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 
@@ -292,7 +295,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                placeholder="Paste the project brief, an email, meeting notes, or any starting context…"
+                placeholder={t('importFlow.pastePlaceholder', 'Paste the project brief, an email, meeting notes, or any starting context…')}
                 className="w-full min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-400 resize-y"
               />
               <button
@@ -300,7 +303,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                 disabled={!pasteText.trim()}
                 className="px-4 py-2 rounded-xl bg-[#0a192f] text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Use pasted text
+                {t('importFlow.usePastedText', 'Use pasted text')}
               </button>
             </div>
           </div>
@@ -311,7 +314,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
           <div className="p-6 space-y-4">
             <div className="text-sm text-slate-600">
               <Sparkles className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-blue-500" />
-              We extracted the following from your import. Verify before continuing.
+              {t('importFlow.reviewIntro', 'We extracted the following from your import. Verify before continuing.')}
             </div>
             <ul className="space-y-2 max-h-[320px] overflow-y-auto">
               {files.map((f, i) => {
@@ -331,14 +334,12 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                         <div className="text-xs text-rose-600 mt-1 font-semibold">⚠ {f.error}</div>
                       )}
                       {f.needsVisionModel && !f.text && (
-                        <div className="text-xs text-amber-700 mt-1">
-                          ℹ This file needs a vision-capable AI model to be interpreted. It will still be attached as a reference.
-                        </div>
-                      )}
+                          <div className="text-xs text-amber-700 mt-1">ℹ {t('importFlow.importWarning', 'This file needs a vision-capable AI model to be interpreted. It will still be attached as a reference.')}</div>
+                        )}
                       {f.text && (
                         <details className="mt-2">
                           <summary className="text-xs text-blue-600 cursor-pointer font-semibold hover:underline">
-                            Preview extracted text
+                            {t('importFlow.previewExtractedText', 'Preview extracted text')}
                           </summary>
                           <pre className="mt-2 text-[11px] text-slate-700 bg-slate-50 p-2 rounded-lg max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
                             {f.text.slice(0, 800)}
@@ -349,7 +350,7 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
                     </div>
                     <button
                       onClick={() => handleRemoveFile(i)}
-                      aria-label="Remove file"
+                      aria-label={t('importFlow.removeFile', 'Remove file')}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

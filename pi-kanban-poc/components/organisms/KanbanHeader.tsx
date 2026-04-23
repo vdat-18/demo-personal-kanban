@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Loader2 } from 'lucide-react'
 import { TokenCounter } from '@/components/molecules/TokenCounter'
 import { getPlaybook } from '@/lib/planning/playbooks'
 import type { PlaybookId } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 export interface KanbanHeaderProps {
   projectName: string
@@ -20,6 +21,7 @@ export interface KanbanHeaderProps {
 
 export function KanbanHeader({ projectName, projectDescription, playbookId, importedSourceCount = 0, isProcessing = false, tokenUsage, onBack, onAddTask }: KanbanHeaderProps) {
   const playbook = getPlaybook(playbookId)
+  const { t } = useI18n()
   return (
     <header className="h-28 px-12 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between shrink-0 sticky top-0 z-40 transition-all">
       <div className="flex items-center gap-8">
@@ -39,7 +41,7 @@ export function KanbanHeader({ projectName, projectDescription, playbookId, impo
             </span>
             {importedSourceCount > 0 && (
               <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
-                {importedSourceCount} source{importedSourceCount === 1 ? '' : 's'}
+                {importedSourceCount} {t('planning.sources', 'Sources')}
               </span>
             )}
           </div>
@@ -52,7 +54,7 @@ export function KanbanHeader({ projectName, projectDescription, playbookId, impo
         {isProcessing && (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-[1rem] border border-blue-100">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-[11px] font-black uppercase tracking-[0.1em]">AI Processing</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.1em]">{t('mission.aiProcessing', 'AI Processing')}</span>
           </div>
         )}
         <button
@@ -60,7 +62,7 @@ export function KanbanHeader({ projectName, projectDescription, playbookId, impo
           className="flex items-center gap-2.5 px-8 py-4 bg-[#0a192f] text-white rounded-[1.5rem] text-[13px] font-black uppercase tracking-[0.15em] hover:bg-blue-600 transition-all shadow-2xl shadow-blue-900/20 active:scale-95 group"
         >
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" /> 
-          New Task
+          {t('mission.newTask', 'New Task')}
         </button>
       </div>
     </header>

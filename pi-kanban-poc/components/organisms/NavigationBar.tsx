@@ -2,20 +2,47 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Settings, User } from 'lucide-react'
-import { useState } from 'react'
+import { Bell, ChevronDown, Languages, User } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { PersonalAIContextDrawer } from '@/components/molecules/PersonalAIContextDrawer'
-
-const navLinks = [
-  { href: '/', label: 'Projects' },
-  { href: '/directory', label: 'Directory' },
-  { href: '/timeline', label: 'Timeline' },
-  { href: '/insights', label: 'Insights' },
-]
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import { useI18n } from '@/lib/i18n/context'
+import type { UiLocale } from '@/types/domain'
 
 export function Navigation() {
   const pathname = usePathname()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const uiLocale = useKanbanStore((s) => s.uiLocale)
+  const setUiLocale = useKanbanStore((s) => s.setUiLocale)
+  const { t } = useI18n()
+
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    return () => window.removeEventListener('mousedown', onPointerDown)
+  }, [userMenuOpen])
+
+  const navLinks = [
+    { href: '/', label: t('nav.projects', 'Projects') },
+    { href: '/directory', label: t('nav.directory', 'Directory') },
+    { href: '/timeline', label: t('nav.timeline', 'Timeline') },
+    { href: '/insights', label: t('nav.insights', 'Insights') },
+  ]
+
+  const localeOptions: Array<{ value: UiLocale; label: string }> = [
+    { value: 'en', label: t('locale.en', 'English') },
+    { value: 'vi', label: t('locale.vi', 'Tiếng Việt') },
+    { value: 'th', label: t('locale.th', 'ไทย') },
+    { value: 'ko', label: t('locale.ko', '한국어') },
+    { value: 'ja', label: t('locale.ja', '日本語') },
+  ]
 
   return (
     <>
@@ -58,22 +85,64 @@ export function Navigation() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              aria-label="Notifications"
+              aria-label={t('nav.notifications', 'Notifications')}
               className="p-2 hover:bg-gray-100 rounded-2xl transition-all hover:text-[#0a192f] active:scale-95"
             >
               <Bell className="w-5 h-5" />
             </button>
+          </div>
+          <div ref={menuRef} className="relative">
             <button
               type="button"
-              aria-label="Settings"
-              onClick={() => setSettingsOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-2xl transition-all hover:text-[#0a192f] active:scale-95"
+              onClick={() => setUserMenuOpen((v) => !v)}
+              className="flex items-center gap-2 pl-3 pr-2 h-10 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white cursor-pointer hover:shadow-lg hover:shadow-slate-200 transition-all active:scale-95 border-2 border-white"
             >
-              <Settings className="w-5 h-5" />
+              <User className="w-5 h-5" />
+              <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
             </button>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-slate-200 transition-all active:scale-95 border-2 border-white">
-            <User className="w-5 h-5" />
+
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-3 w-64 rounded-3xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.12)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    {t('nav.language', 'Language')}
+                  </p>
+                </div>
+                <div className="p-3 space-y-1">
+                  {localeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setUiLocale(option.value)
+                        setUserMenuOpen(false)
+                      }}
+                      className={`w-full flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition-colors ${
+                        uiLocale === option.value
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Languages className="w-4 h-4" />
+                        {option.label}
+                      </span>
+                      {uiLocale === option.value && <span className="text-[10px] font-black uppercase tracking-[0.14em]">Active</span>}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 p-3">
+                  <button
+                    onClick={() => {
+                      setSettingsOpen(true)
+                      setUserMenuOpen(false)
+                    }}
+                    className="w-full rounded-2xl px-3 py-2.5 text-sm text-left text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    {t('nav.aiContext', 'Personal AI Context')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>

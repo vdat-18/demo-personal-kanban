@@ -18,6 +18,35 @@ export type PlaybookId =
   | 'event-rollout'
   | 'personal-weekly'
 
+export interface WorkflowContract {
+  objective: string
+  executionEntryCriteria: string[]
+  acceptanceCriteria: string[]
+  validationChecklist: string[]
+  reviewGate: string
+  doneCriteria: string[]
+}
+
+export interface WorkpadEntry {
+  id: string
+  projectId: string
+  title: string
+  assumptions: string[]
+  blockers: string[]
+  validationNotes: string[]
+  proofOfWork: string[]
+  updatedAt: string
+}
+
+export interface RuntimeStatus {
+  state: 'idle' | 'planning' | 'executing' | 'blocked' | 'retrying'
+  summary: string
+  lastAction: string | null
+  lastUpdatedAt: string | null
+  retryCount: number
+  blockedReason: string | null
+}
+
 export interface ImportedSource {
   id: string
   projectId: string
@@ -58,6 +87,7 @@ export type AttentionType =
   | 'plan_unpublished'
   | 'source_needs_review'
   | 'execution_blocked'
+  | 'validation_required'
 
 export interface AttentionItem {
   id: string
@@ -90,6 +120,8 @@ export interface PersonalAIContext {
   updatedAt: string | null
 }
 
+export type UiLocale = 'en' | 'vi' | 'th' | 'ko' | 'ja'
+
 // Legacy lowercase status — kept for compatibility with constants/agents.ts
 export type LegacyTaskStatus =
   | 'todo'
@@ -111,6 +143,9 @@ export interface Project {
   description: string | null
   domain: ProjectDomain
   playbookId?: PlaybookId
+  workflowContract?: WorkflowContract
+  workpad?: WorkpadEntry | null
+  runtimeStatus?: RuntimeStatus | null
   importedSources?: ImportedSource[]
   userContext?: string | null
   status: string | null

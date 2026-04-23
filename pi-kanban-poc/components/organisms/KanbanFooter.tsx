@@ -1,11 +1,12 @@
 'use client'
 
-import { Rocket, Sparkles } from 'lucide-react'
+import { Rocket, Sparkles, RefreshCw } from 'lucide-react'
 import type { UITaskStatus } from '@/types/domain'
 import { AUTO_MODE_COLUMNS } from '@/lib/auto-mode/constants'
 import type { AutoModeColumnState } from '@/lib/auto-mode/constants'
 import { useBreakdownConcurrency } from '@/lib/hooks/useBreakdownConcurrency'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import { useI18n } from '@/lib/i18n/context'
 
 interface Task {
   id: string
@@ -16,9 +17,11 @@ export interface KanbanFooterProps {
   tasks: Task[]
   autoModeStates: Record<string, AutoModeColumnState>
   onCloseProject: () => void
+  runtimeStatus?: import('@/types/domain').RuntimeStatus | null
 }
 
-export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFooterProps) {
+export function KanbanFooter({ tasks, autoModeStates, onCloseProject, runtimeStatus }: KanbanFooterProps) {
+  const { t } = useI18n()
   const canClose = !tasks.some((t) => t.status !== 'DONE' && t.status !== 'BLOCKED')
   const enabledCount = AUTO_MODE_COLUMNS.filter((col) => autoModeStates[col]?.enabled).length
 
@@ -39,10 +42,10 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
     <footer className="h-14 px-6 flex items-center justify-between bg-white/70 backdrop-blur-xl border-t border-gray-100 shrink-0 z-40">
       <div className="flex items-center gap-8">
         {[
-          { label: 'Total Tasks', value: tasks.length, color: 'text-[#0a192f]' },
-          { label: 'In Execution', value: tasks.filter((t) => t.status !== 'DONE' && t.status !== 'BLOCKED').length, color: 'text-blue-600' },
-          { label: 'Completed', value: tasks.filter((t) => t.status === 'DONE').length, color: 'text-green-600' },
-          { label: 'Archived', value: tasks.filter((t) => t.status === 'BLOCKED').length, color: 'text-slate-400' },
+          { label: t('mission.totalTasks', 'Total Tasks'), value: tasks.length, color: 'text-[#0a192f]' },
+          { label: t('mission.inExecution', 'In Execution'), value: tasks.filter((t) => t.status !== 'DONE' && t.status !== 'BLOCKED').length, color: 'text-blue-600' },
+          { label: t('mission.completed', 'Completed'), value: tasks.filter((t) => t.status === 'DONE').length, color: 'text-green-600' },
+          { label: t('mission.archived', 'Archived'), value: tasks.filter((t) => t.status === 'BLOCKED').length, color: 'text-slate-400' },
         ].map(({ label, value, color }) => (
           <div key={label} className="flex items-baseline gap-2">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{label}</span>
@@ -52,6 +55,7 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
         {enabledCount > 0 && (
           <div className="flex items-baseline gap-2 border-l border-gray-100 pl-8">
             <span className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em]">Agents</span>
+            <span className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em]">{t('mission.agents', 'Agents')}</span>
             <span className="font-black text-sm text-violet-600">{enabledCount}/{AUTO_MODE_COLUMNS.length}</span>
           </div>
         )}
@@ -72,6 +76,17 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
             </ul>
           </div>
         )}
+        {runtimeStatus && (
+          <div className="flex flex-col gap-1 border-l border-gray-100 pl-8 max-w-[260px]">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" />
+              {t('mission.runtime', 'Runtime')}
+            </span>
+            <p className="text-[10px] text-slate-600 font-semibold leading-snug">
+              {runtimeStatus.summary}
+            </p>
+          </div>
+        )}
       </div>
       <button
         onClick={onCloseProject}
@@ -82,7 +97,7 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
             : 'bg-[#0a192f] text-white hover:bg-blue-600 shadow-2xl shadow-blue-900/20 active:scale-95 border border-[#0a192f]'
         }`}
       >
-        Close Mission <Rocket className="w-3.5 h-3.5" />
+        {t('mission.closeMission', 'Close Mission')} <Rocket className="w-3.5 h-3.5" />
       </button>
     </footer>
   )

@@ -2,6 +2,7 @@
 
 import type { PlaybookId } from '@/types/domain'
 import { PLAYBOOKS } from '@/lib/planning/playbooks'
+import { useI18n } from '@/lib/i18n/context'
 
 export function PlaybookSelect({
   value,
@@ -10,10 +11,11 @@ export function PlaybookSelect({
   value: PlaybookId
   onChange: (value: PlaybookId) => void
 }) {
+  const { t } = useI18n()
   return (
     <div className="space-y-2">
       <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        Playbook
+        {t('playbook.label', 'Playbook')}
       </label>
       <select
         value={value}

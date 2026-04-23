@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
+import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import {
   AUTO_MODE_COLUMNS,
   COLUMN_AGENT_MAP,
@@ -56,6 +57,9 @@ export function useColumnAutoMode({
   tasks,
   updateTaskStatus,
 }: UseColumnAutoModeOptions): UseColumnAutoModeReturn {
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const updateProject = useKanbanStore((s) => s.updateProject)
+  const projects = useKanbanStore((s) => s.projects)
   const [columnStates, setColumnStates] = useState<Record<string, AutoModeColumnState>>(() => {
     const initial: Record<string, AutoModeColumnState> = {}
     for (const col of AUTO_MODE_COLUMNS) {
@@ -95,8 +99,32 @@ export function useColumnAutoMode({
       // current column and let the dedicated workspace + explicit human action
       // decide the transition.
 
+      const finishedTask = tasksRef.current.find((task) => task.id === taskId)
+      const owningProject = projects.find((project) =>
+        useKanbanStore.getState().tasks.find((task) => task.id === taskId)?.projectId === project.id,
+      )
+
       activeTaskIdRef.current = null
       activeColumnRef.current = null
+
+      if (owningProject && finishedTask) {
+        updateProject(owningProject.id, {
+          runtimeStatus: {
+            state: 'executing',
+            summary: `Auto mode completed a ${columnId.toLowerCase()} run.`,
+            lastAction: `Completed auto mode on ${finishedTask.title}`,
+            lastUpdatedAt: new Date().toISOString(),
+            retryCount: owningProject.runtimeStatus?.retryCount ?? 0,
+            blockedReason: null,
+          },
+          workpad: owningProject.workpad
+            ? {
+                ...owningProject.workpad,
+                proofOfWork: [...owningProject.workpad.proofOfWork, `Auto mode completed ${columnId.toLowerCase()} work for ${finishedTask.title}.`],
+              }
+            : owningProject.workpad,
+        })
+      }
 
       setColumnStates((prev) => ({
         ...prev,
@@ -107,8 +135,39 @@ export function useColumnAutoMode({
     onError: (errorMsg) => {
       const columnId = activeColumnRef.current
       if (!columnId) return
+      const taskId = activeTaskIdRef.current
+      const failedTask = tasksRef.current.find((task) => task.id === taskId)
+      const owningProject = projects.find((project) =>
+        useKanbanStore.getState().tasks.find((task) => task.id === taskId)?.projectId === project.id,
+      )
       activeTaskIdRef.current = null
       activeColumnRef.current = null
+
+      if (owningProject && failedTask) {
+        createAttentionItem({
+          projectId: owningProject.id,
+          type: 'execution_blocked',
+          title: 'Auto mode stopped on an execution error',
+          detail: `The ${columnId.toLowerCase()} auto run for "${failedTask.title}" failed and needs review.`,
+        })
+        updateProject(owningProject.id, {
+          runtimeStatus: {
+            state: 'retrying',
+            summary: `Auto mode hit an error in ${columnId.toLowerCase()}.`,
+            lastAction: `Auto mode failed on ${failedTask.title}`,
+            lastUpdatedAt: new Date().toISOString(),
+            retryCount: (owningProject.runtimeStatus?.retryCount ?? 0) + 1,
+            blockedReason: errorMsg,
+          },
+          workpad: owningProject.workpad
+            ? {
+                ...owningProject.workpad,
+                blockers: [...owningProject.workpad.blockers, errorMsg],
+              }
+            : owningProject.workpad,
+        })
+      }
+
       setColumnStates((prev) => ({
         ...prev,
         [columnId]: {
@@ -142,7 +201,7 @@ export function useColumnAutoMode({
 
       startStream(agentRole, prompt, task.id)
     },
-    [startStream],
+    [startStream, createAttentionItem, updateProject, projects],
   )
 
   const pickupNextTask = useCallback(
