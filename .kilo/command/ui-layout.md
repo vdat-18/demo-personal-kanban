@@ -1,7 +1,7 @@
 ---
 description: Fix layout and spacing on a UI surface
 ---
-Use the `impeccable-ui` skill.
+Use the `impeccable-ui` skill, which wraps the vendored upstream `impeccable` repository in `vendor/impeccable`.
 
 Improve layout and spacing for $ARGUMENTS.
 
