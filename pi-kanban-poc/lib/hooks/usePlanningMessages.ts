@@ -15,6 +15,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
+import { getPlaybook } from '@/lib/planning/playbooks'
 import type {
   PlanningMessage as StoreMessage,
   MutationActionState,
@@ -91,6 +92,7 @@ export function useSendPlanningMessage() {
   const createMessage = useKanbanStore((s) => s.createPlanningMessage)
   const updateThread = useKanbanStore((s) => s.updatePlanningThread)
   const createVisionVersion = useKanbanStore((s) => s.createVisionVersion)
+  const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
 
   const [isPending, setIsPending] = useState(false)
   const [isError, setIsError] = useState(false)
@@ -121,6 +123,28 @@ export function useSendPlanningMessage() {
           .concat(userMessage)
           .map((m) => ({ role: m.role, content: m.content }))
 
+        const playbook = getPlaybook(project?.playbookId)
+        const importedSources = project?.importedSources ?? []
+        const personalAIContext = store.personalAIContext
+        const sourceContext = importedSources.length > 0
+          ? importedSources.map((source) => ({
+              title: source.title,
+              summary: source.summary,
+              status: source.status,
+              extractedText: source.extractedText ? source.extractedText.slice(0, 1500) : null,
+            }))
+          : null
+
+        logPlanningEvent({
+          projectId: thread.projectId,
+          threadId,
+          type: 'message_sent',
+          actor: 'user',
+          summary: isImportedFirstTurn
+            ? 'Started planning from imported sources.'
+            : 'Sent a planning message.',
+        })
+
         // 3) Call the unified agent endpoint with full context
         const res = await fetch('/api/agent', {
           method: 'POST',
@@ -132,6 +156,9 @@ export function useSendPlanningMessage() {
             visionDocument: thread.visionDocument,
             projectName: project?.name,
             projectDescription: project?.description,
+            playbook,
+            importedSources: sourceContext,
+            personalAIContext,
             whyProbesUsed: thread.whyProbesUsed ?? 0,
             importReadbackOnly: isImportedFirstTurn,
             userPhaseRequest: phaseTransitionConfirm
@@ -187,6 +214,28 @@ export function useSendPlanningMessage() {
           updateThread(threadId, patch)
         }
 
+        logPlanningEvent({
+          projectId: thread.projectId,
+          threadId,
+          type: isImportedFirstTurn ? 'assistant_readback_created' : 'vision_updated',
+          actor: 'ai',
+          summary: isImportedFirstTurn
+            ? 'AI finished the imported-document readback.'
+            : data.envelope.tasks && data.envelope.tasks.length > 0
+              ? `AI proposed ${data.envelope.tasks.length} task${data.envelope.tasks.length === 1 ? '' : 's'}.`
+              : 'AI updated the planning conversation.',
+        })
+        if (data.envelope.tasks && data.envelope.tasks.length > 0) {
+          logPlanningEvent({
+            projectId: thread.projectId,
+            threadId,
+            type: 'tasks_proposed',
+            actor: 'ai',
+            summary: `AI proposed ${data.envelope.tasks.length} task${data.envelope.tasks.length === 1 ? '' : 's'} for review.`,
+            metadata: { taskCount: data.envelope.tasks.length },
+          })
+        }
+
         return {
           userMessage,
           assistantMessage,
@@ -197,7 +246,7 @@ export function useSendPlanningMessage() {
         setIsPending(false)
       }
     },
-    [createMessage, updateThread, createVisionVersion],
+    [createMessage, updateThread, createVisionVersion, logPlanningEvent],
   )
 
   const wrapped = useCallback(

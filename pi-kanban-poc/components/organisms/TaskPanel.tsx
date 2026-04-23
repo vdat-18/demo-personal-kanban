@@ -135,10 +135,10 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
     : null
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative">
+    <div className="flex flex-col h-full overflow-hidden relative bg-[linear-gradient(180deg,#fbfcfe_0%,#f6f8fb_100%)]">
       <div className="flex-1 overflow-y-auto p-6 pb-32">
         <div className="flex flex-col gap-4 mb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-[1.75rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
             <div className="flex items-center gap-3">
               <ListTodo className="w-5 h-5 text-blue-600" />
               <h2 className="font-black text-[#0a192f] text-lg">Tasks</h2>
@@ -155,7 +155,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
             </div>
             <button
               onClick={openAdd}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#0a192f] text-white rounded-xl text-sm font-semibold hover:bg-blue-900 transition-colors shrink-0"
+              className="flex items-center gap-2 px-3.5 py-2 bg-[#0a192f] text-white rounded-2xl text-sm font-semibold hover:bg-blue-900 transition-colors shrink-0 shadow-lg shadow-blue-900/15"
             >
               <Plus className="w-4 h-4" /> Add Task
             </button>
@@ -163,7 +163,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
 
           {/* Active task banner (#6) — only shown when at least one task is IN_PROGRESS */}
           {activeTask ? (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/50 border border-blue-200 animate-in slide-in-from-top-1 duration-300">
+            <div className="flex items-start gap-2 px-4 py-3 rounded-[1.25rem] bg-gradient-to-r from-blue-50 to-indigo-50/50 border border-blue-200 animate-in slide-in-from-top-1 duration-300 shadow-[0_10px_25px_rgba(59,130,246,0.08)]">
               <div className="relative shrink-0 mt-0.5">
                 <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-50" />
                 <Play className="w-3.5 h-3.5 text-blue-600 relative" />
@@ -184,7 +184,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
               )}
             </div>
           ) : (
-            <div className="text-[11px] text-gray-400 text-center mt-1.5 bg-gray-50 rounded-lg py-2 border border-dashed border-gray-200">
+            <div className="text-[11px] text-slate-400 text-center mt-1.5 bg-white rounded-2xl py-3 border border-dashed border-slate-200 shadow-sm">
               Drag to reorder · hover for details · click edit to change
             </div>
           )}
@@ -235,7 +235,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
       </div>
 
       {sorted.length > 0 && (
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/80 backdrop-blur border-t border-slate-100">
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/85 backdrop-blur border-t border-slate-100 shadow-[0_-8px_24px_rgba(15,23,42,0.04)]">
           <button
             onClick={handleStartExecution}
             className="group w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-blue-500/30 hover:shadow-2xl hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
@@ -293,10 +293,10 @@ function SortableTaskRow({ task, idx, onEdit, onDelete }: SortableTaskRowProps) 
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-3xl p-5 border ${
-        isActive ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-100'
-      } shadow-sm flex items-start gap-3 group transition-shadow hover:shadow-md ${
-        isDragging ? 'shadow-xl opacity-80' : ''
+      className={`bg-white rounded-[1.75rem] p-5 border ${
+        isActive ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200/80'
+      } shadow-[0_10px_30px_rgba(15,23,42,0.05)] flex items-start gap-3 group transition-all hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)] ${
+        isDragging ? 'shadow-xl opacity-80 scale-[1.01]' : ''
       }`}
     >
       <button
@@ -316,9 +316,9 @@ function SortableTaskRow({ task, idx, onEdit, onDelete }: SortableTaskRowProps) 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-sm text-[#0a192f] mb-1">{task.title}</p>
+        <p className="font-bold text-sm text-[#0a192f] mb-1 leading-snug">{task.title}</p>
         {task.description && (
-          <p className="text-xs text-gray-500 pr-2 leading-relaxed max-h-0 overflow-hidden group-hover:max-h-40 transition-all duration-300 ease-in-out">
+          <p className="text-xs text-slate-500 pr-2 leading-relaxed max-h-0 overflow-hidden group-hover:max-h-40 transition-all duration-300 ease-in-out">
             {task.description}
           </p>
         )}

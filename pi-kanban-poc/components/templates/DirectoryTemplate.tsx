@@ -38,6 +38,8 @@ interface Project {
   description: string | null
   status: string
   createdAt: string
+  playbookId?: import('@/types/domain').PlaybookId
+  importedSources?: import('@/types/domain').ImportedSource[]
   tasks: Task[]
 }
 
@@ -221,6 +223,8 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
                   projects={filteredProjects.map((p) => ({
                     ...p,
                     artifactCount: artifactCountByProject[p.id] ?? 0,
+                    playbookId: p.playbookId,
+                    importedSourceCount: p.importedSources?.length ?? 0,
                   }))}
                   onProjectClick={(id) => router.push(`/planning/${id}`)}
                 />

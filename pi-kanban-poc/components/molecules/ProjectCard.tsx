@@ -1,13 +1,16 @@
 'use client'
 
 import { Trash2, PlayCircle, Compass, Sparkles } from 'lucide-react'
-import type { PlanningStatus } from '@/types/domain'
+import { getPlaybook } from '@/lib/planning/playbooks'
+import type { PlanningStatus, PlaybookId } from '@/types/domain'
 
 export interface ProjectCardProps {
   id: string
   name: string
   status: string
   planningStatus?: PlanningStatus
+  playbookId?: PlaybookId
+  importedSourceCount?: number
   tasks: Array<{ id: string; status: string }>
   onClick: () => void
   onDelete: (e: React.MouseEvent, id: string) => void
@@ -31,13 +34,14 @@ const PLANNING_BADGE: Record<PlanningStatus, { label: string; className: string;
   },
 }
 
-export function ProjectCard({ id, name, status, planningStatus = 'not_started', tasks, onClick, onDelete }: ProjectCardProps) {
+export function ProjectCard({ id, name, status, planningStatus = 'not_started', playbookId, importedSourceCount = 0, tasks, onClick, onDelete }: ProjectCardProps) {
   const completedTasks = tasks?.filter((t) => t.status === 'DONE').length || 0
   const totalTasks = tasks?.length || 0
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   const badge = PLANNING_BADGE[planningStatus]
   const Icon = badge.icon
+  const playbook = getPlaybook(playbookId)
   const destinationHint =
     planningStatus === 'completed'
       ? 'Opens Kanban board'
@@ -83,6 +87,17 @@ export function ProjectCard({ id, name, status, planningStatus = 'not_started', 
       <p className="text-[10px] text-slate-400 font-semibold mb-4 uppercase tracking-wider">
         → {destinationHint}
       </p>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          {playbook.label}
+        </span>
+        {importedSourceCount > 0 && (
+          <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
+            {importedSourceCount} source{importedSourceCount === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
 
       <div className="space-y-1.5">
         <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-[0.12em]">

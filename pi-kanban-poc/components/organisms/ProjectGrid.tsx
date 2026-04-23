@@ -2,7 +2,7 @@
 
 import { Clock, Layout } from 'lucide-react'
 import { ProjectCard } from '@/components/molecules/ProjectCard'
-import type { PlanningStatus } from '@/types/domain'
+import type { PlanningStatus, PlaybookId } from '@/types/domain'
 
 interface Project {
   id: string
@@ -11,6 +11,8 @@ interface Project {
   domain?: string
   status: string
   planningStatus?: PlanningStatus
+  playbookId?: PlaybookId
+  importedSourceCount?: number
   createdAt: string
   tasks: Array<{ id: string; status: string }>
 }
@@ -62,6 +64,8 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
               name={project.name}
               status={project.status}
               planningStatus={project.planningStatus ?? 'not_started'}
+              playbookId={project.playbookId}
+              importedSourceCount={project.importedSourceCount ?? 0}
               tasks={project.tasks}
               onClick={() => onProjectClick(project.id)}
               onDelete={onDeleteProject}

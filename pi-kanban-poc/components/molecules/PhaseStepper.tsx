@@ -21,7 +21,7 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
   const currentStep = PHASE_DISPLAY[current].step
 
   return (
-    <div className="flex items-center gap-0">
+    <div className={`inline-flex items-center ${compact ? 'rounded-2xl px-1 py-1 gap-0.5' : 'rounded-[1.5rem] px-2 py-2 gap-0'} border border-slate-200/90 bg-white/90 shadow-[0_4px_16px_rgba(15,23,42,0.06)] backdrop-blur-sm`}>
       {PHASE_ORDER.map((phase, idx) => {
         const cfg = PHASE_DISPLAY[phase]
         const Icon = ICON_MAP[cfg.iconKey]
@@ -31,31 +31,28 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
 
         const content = (
           <div
-            className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-[10px] font-black transition-all duration-300 ${
-              isActive
-                ? `${cfg.bg} ${cfg.color} shadow-sm border ${cfg.border} scale-105`
-                : isDone
-                ? 'bg-green-50 text-green-600 border border-green-100 opacity-80'
-                : 'bg-transparent text-gray-400 opacity-50'
-            } ${clickable ? 'cursor-pointer hover:opacity-100 hover:scale-105' : ''}`}
+            className={`flex items-center transition-all duration-300 ${
+              compact
+                ? `gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold ${isActive ? `${cfg.bg} ${cfg.color} border ${cfg.border}` : isDone ? 'text-emerald-600' : 'text-slate-400'}`
+                : `min-w-[138px] gap-3 px-4 py-3 rounded-[1.2rem] text-[10px] font-black ${isActive ? `${cfg.bg} ${cfg.color} shadow-sm border ${cfg.border}` : isDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-transparent text-slate-400 hover:text-slate-600'}`
+            } ${clickable ? 'cursor-pointer hover:opacity-90' : ''}`}
           >
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                isActive ? 'bg-white shadow-sm' : 'bg-transparent'
-              }`}
-            >
-              <Icon
-                className={`w-3 h-3 ${
-                  isActive ? cfg.color : isDone ? 'text-green-500' : 'text-gray-400'
-                }`}
-              />
-            </div>
-            {!compact && <span className="uppercase tracking-[0.1em]">{cfg.label}</span>}
-            {isDone && !compact && (
-              <div className="ml-1 w-3.5 h-3.5 rounded-full bg-green-500 flex items-center justify-center">
-                <span className="text-[7px] text-white">✓</span>
+            {compact ? (
+              <Icon className={`w-3 h-3 shrink-0 ${isActive ? cfg.color : isDone ? 'text-emerald-500' : 'text-slate-400'}`} />
+            ) : (
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-white shadow-sm border border-white/80' : isDone ? 'bg-white border border-emerald-100' : 'bg-slate-50 border border-slate-100'}`}>
+                <Icon className={`w-3.5 h-3.5 ${isActive ? cfg.color : isDone ? 'text-emerald-600' : 'text-slate-400'}`} />
               </div>
             )}
+            <div className="min-w-0">
+              <div className="uppercase tracking-[0.14em] text-[10px]">{cfg.label}</div>
+            </div>
+            {isDone && !compact && (
+              <div className="ml-auto w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm shrink-0">
+                <span className="text-[9px] text-white">✓</span>
+              </div>
+            )}
+            {isDone && compact && <span className="text-emerald-500 text-[9px]">✓</span>}
           </div>
         )
 
@@ -73,12 +70,8 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
               <div title={cfg.tagline}>{content}</div>
             )}
             {idx < PHASE_ORDER.length - 1 && (
-              <div className="px-4">
-                <div
-                  className={`h-[1px] w-12 rounded-full transition-all duration-500 ${
-                    isDone ? 'bg-green-200' : 'bg-gray-100'
-                  }`}
-                />
+              <div className={compact ? 'px-1' : 'px-2 md:px-3'}>
+                <div className={`h-[2px] rounded-full transition-all duration-500 ${compact ? 'w-4' : 'w-6 md:w-8'} ${isDone ? 'bg-emerald-200' : 'bg-slate-200'}`} />
               </div>
             )}
           </div>

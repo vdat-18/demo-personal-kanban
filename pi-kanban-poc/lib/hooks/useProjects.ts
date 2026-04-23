@@ -6,7 +6,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { Project as StoreProject, ProjectDomain } from '@/types/domain'
+import type { Project as StoreProject, ProjectDomain, ImportedSource, PlaybookId } from '@/types/domain'
 
 export interface Project extends StoreProject {
   tasks?: Array<{ id: string; title: string; status: string; priority: string }>
@@ -68,7 +68,14 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const createProject = useKanbanStore((s) => s.createProject)
   const mutateAsync = useCallback(
-    async (data: { name: string; description?: string; domain?: ProjectDomain }) =>
+    async (data: {
+      name: string
+      description?: string
+      domain?: ProjectDomain
+      playbookId?: PlaybookId
+      importedSources?: ImportedSource[]
+      userContext?: string | null
+    }) =>
       createProject(data),
     [createProject],
   )

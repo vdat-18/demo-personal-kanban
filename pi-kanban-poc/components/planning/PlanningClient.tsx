@@ -25,6 +25,11 @@ import { TaskProposalCard } from '@/components/molecules/TaskProposalCard'
 import { VisionPanel } from '@/components/molecules/VisionPanel'
 import { VisionHistoryDrawer } from '@/components/molecules/VisionHistoryDrawer'
 import { PhaseStepper } from '@/components/molecules/PhaseStepper'
+import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
+import { PlanningTimelinePanel } from '@/components/molecules/PlanningTimelinePanel'
+import { PlanningAttentionPanel } from '@/components/molecules/PlanningAttentionPanel'
+import { WhereWeLeftOffPanel } from '@/components/molecules/WhereWeLeftOffPanel'
+import { ContextDrawer } from '@/components/molecules/ContextDrawer'
 import {
   usePlanningThreads,
   useCreatePlanningThread,
@@ -39,7 +44,10 @@ import type {
   PlanningPhase,
   QuestionBatchSubmission,
   StructuredTaskProposal,
+  ImportedSource,
+  PlaybookId,
 } from '@/types/domain'
+import { getPlaybook } from '@/lib/planning/playbooks'
 
 interface Task {
   id: string
@@ -53,6 +61,9 @@ interface Project {
   id: string
   name: string
   description: string | null
+  playbookId?: PlaybookId
+  importedSources?: ImportedSource[]
+  userContext?: string | null
   tasks: Task[]
 }
 
@@ -107,6 +118,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
+  const [activeContextTab, setActiveContextTab] = useState<'checkpoint' | 'attention' | 'sources' | 'timeline' | null>(null)
   const [pendingVisionEdit, setPendingVisionEdit] = useState<
     { newContent: string; previousContent: string | null } | null
   >(null)
@@ -142,10 +154,42 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const restoreVisionVersionFn = useKanbanStore((s) => s.restoreVisionVersion)
   const publishVisionVersionFn = useKanbanStore((s) => s.publishVisionVersion)
   const allVisionVersions = useKanbanStore((s) => s.visionVersions)
+  const allPlanningEvents = useKanbanStore((s) => s.planningEvents)
+  const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const allAttentionItems = useKanbanStore((s) => s.attentionItems)
+  const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
+  const updateImportedSource = useKanbanStore((s) => s.updateImportedSource)
 
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null
   const currentPhase: PlanningPhase = activeThread?.phase ?? 'discovery'
   const currentVisionDoc = activeThread?.visionDocument ?? null
+  const playbook = getPlaybook(initialProject.playbookId)
+  const importedSources = initialProject.importedSources ?? []
+  const planningEvents = useMemo(
+    () =>
+      allPlanningEvents
+        .filter((event) => event.projectId === initialProject.id && (activeThreadId == null || event.threadId === activeThreadId))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allPlanningEvents, initialProject.id, activeThreadId],
+  )
+  const attentionItems = useMemo(
+    () =>
+      allAttentionItems
+        .filter((item) => item.projectId === initialProject.id && item.status === 'open')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allAttentionItems, initialProject.id],
+  )
+  const latestPlanningEvent = planningEvents[0] ?? null
+  const pendingTaskApprovals = useMemo(
+    () =>
+      messages.reduce((count, msg) => {
+        const proposals = msg.envelope?.tasks ?? []
+        const actions = msg.taskProposalActions ?? []
+        return count + proposals.filter((proposal) => !actions.find((action) => action.taskId === proposal.id)).length
+      }, 0),
+    [messages],
+  )
 
   const versionsForThread = useMemo(
     () => (activeThreadId ? allVisionVersions.filter((v) => v.threadId === activeThreadId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []),
@@ -266,25 +310,94 @@ export function PlanningClient({ project: initialProject }: { project: Project }
     [input, attachedFiles, activeThreadId, sendMessage],
   )
 
+  useEffect(() => {
+    if (!activeThreadId) return
+    const hasSourceReviewNeed = importedSources.some((source) => source.status === 'needs_review')
+    if (hasSourceReviewNeed && !attentionItems.some((item) => item.type === 'source_needs_review')) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'source_needs_review',
+        title: 'Some imported sources need review',
+        detail: 'At least one uploaded source had low extraction quality or needs manual checking.',
+      })
+    }
+  }, [activeThreadId, importedSources, attentionItems, createAttentionItem, initialProject.id])
+
+  useEffect(() => {
+    if (!activeThreadId) return
+    const unresolved = attentionItems.find((item) => item.type === 'task_approval_pending')
+    if (pendingTaskApprovals > 0 && !unresolved) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'task_approval_pending',
+        title: 'Task proposals are waiting for approval',
+        detail: `${pendingTaskApprovals} proposed task${pendingTaskApprovals === 1 ? '' : 's'} still need your decision before execution starts.`,
+      })
+    }
+    if (pendingTaskApprovals === 0) {
+      attentionItems
+        .filter((item) => item.type === 'task_approval_pending')
+        .forEach((item) => resolveAttentionItem(item.id))
+    }
+  }, [activeThreadId, pendingTaskApprovals, attentionItems, createAttentionItem, resolveAttentionItem, initialProject.id])
+
+  useEffect(() => {
+    if (!activeThreadId) return
+    const hasPublished = versionsForThread.some((version) => version.status === 'published' && !version.supersededAt)
+    const openPlanAttention = attentionItems.find((item) => item.type === 'plan_unpublished')
+    if (!hasPublished && currentVisionDoc?.trim() && !openPlanAttention) {
+      createAttentionItem({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'plan_unpublished',
+        title: 'The current plan is still unpublished',
+        detail: 'Publish a stable plan version once the draft is ready so the project has a clear canonical plan.',
+      })
+    }
+    if (hasPublished) {
+      attentionItems
+        .filter((item) => item.type === 'plan_unpublished')
+        .forEach((item) => resolveAttentionItem(item.id))
+    }
+  }, [activeThreadId, versionsForThread, currentVisionDoc, attentionItems, createAttentionItem, resolveAttentionItem, initialProject.id])
+
   // ─── Phase transition handlers ────────────────────────────────────────────
   const handleAcceptTransition = useCallback(
     (messageId: string, targetPhase: PlanningPhase) => {
       if (!activeThreadId) return
       setPhaseTransitionResponseFn(messageId, 'accepted')
       updateThreadFn(activeThreadId, { phase: targetPhase, whyProbesUsed: 0 })
+      logPlanningEvent({
+        projectId: initialProject.id,
+        threadId: activeThreadId,
+        type: 'phase_transition_accepted',
+        actor: 'user',
+        summary: `Moved planning to ${PHASE_DISPLAY[targetPhase].label}.`,
+      })
       handleSendMessage({
         contentOverride: `Yes, let's move to "${PHASE_DISPLAY[targetPhase].label}".`,
         phaseTransitionConfirm: { targetPhase, confirmed: true },
       })
     },
-    [activeThreadId, setPhaseTransitionResponseFn, updateThreadFn, handleSendMessage],
+    [activeThreadId, setPhaseTransitionResponseFn, updateThreadFn, handleSendMessage, logPlanningEvent, initialProject.id],
   )
 
   const handleRejectTransition = useCallback(
     (messageId: string) => {
       setPhaseTransitionResponseFn(messageId, 'rejected')
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'phase_transition_rejected',
+          actor: 'user',
+          summary: 'Kept the planning conversation in the current phase.',
+        })
+      }
     },
-    [setPhaseTransitionResponseFn],
+    [setPhaseTransitionResponseFn, activeThreadId, logPlanningEvent, initialProject.id],
   )
 
   // ─── Stepper jump ─────────────────────────────────────────────────────────
@@ -326,15 +439,34 @@ export function PlanningClient({ project: initialProject }: { project: Project }
         sourceProposal: { messageId, proposalId: proposal.id },
       })
       setTaskProposalActionFn(messageId, proposal.id, 'approved', created.id)
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'task_approved',
+          actor: 'user',
+          summary: `Approved task proposal: ${proposal.title}.`,
+        })
+      }
     },
-    [createTaskFn, setTaskProposalActionFn, initialProject.id],
+    [createTaskFn, setTaskProposalActionFn, initialProject.id, activeThreadId, logPlanningEvent],
   )
 
   const handleDismissTask = useCallback(
     (messageId: string, proposalId: string) => {
       setTaskProposalActionFn(messageId, proposalId, 'dismissed')
+      if (activeThreadId) {
+        logPlanningEvent({
+          projectId: initialProject.id,
+          threadId: activeThreadId,
+          type: 'task_dismissed',
+          actor: 'user',
+          summary: 'Dismissed a proposed task.',
+          metadata: { proposalId },
+        })
+      }
     },
-    [setTaskProposalActionFn],
+    [setTaskProposalActionFn, activeThreadId, logPlanningEvent, initialProject.id],
   )
 
   /** Revert a previously approved/dismissed proposal back to pending. If the
@@ -521,7 +653,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   )
 
   return (
-    <div className="flex h-full w-full bg-[#f0f2f5] font-sans">
+    <div className="flex h-full w-full bg-[radial-gradient(circle_at_top,#fbfdff_0%,#f4f7fb_45%,#eef3f8_100%)] font-sans">
       {/* Left: Thread Sidebar */}
       <div
         className={`shrink-0 overflow-hidden ${isSidebarOpen ? '' : 'w-0'}`}
@@ -552,14 +684,15 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       )}
 
       {/* Center: Chat Panel */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-gray-200 bg-white">
+      <div className="flex flex-col flex-1 min-w-0 border-r border-slate-200/60 bg-white">
           {/* Header */}
-          <header className="h-20 px-8 border-b border-gray-100 flex items-center justify-between gap-5 shrink-0 bg-white/70 backdrop-blur-xl sticky top-0 z-10 relative">
-            <div className="flex items-center gap-5">
-              <div className="flex items-center gap-3">
+          <header className="shrink-0 bg-white/95 backdrop-blur-xl sticky top-0 z-10 border-b border-slate-100/80 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
+            {/* Row 1: nav + project info */}
+            <div className="h-14 px-5 flex items-center gap-3">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => router.push('/')}
-                  className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-500 hover:text-slate-900 active:scale-95"
                   title="Back to Projects"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -567,27 +700,21 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 {!isSidebarOpen && (
                   <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-500 hover:text-black hover:shadow-sm active:scale-95"
+                    className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-500 hover:text-slate-900 active:scale-95"
                     title="Expand Sidebar"
                   >
                     <PanelLeftOpen className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <div className="min-w-0">
-                <h1 className="font-black text-sm text-[#0a192f] tracking-tight">
-                  {initialProject.name}
-                </h1>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Planning Intelligence
-                </p>
+              <div className="w-px h-5 bg-slate-200 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <h1 className="font-bold text-[15px] text-slate-900 truncate leading-none">{initialProject.name}</h1>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">{playbook.label}</span>
+                </div>
               </div>
             </div>
-
-            <div className="hidden md:block absolute left-1/2 -translate-x-1/2">
-              <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} />
-            </div>
-
 
           </header>
 
@@ -603,7 +730,73 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             onPublishLatest={
               latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
             }
+            centerContent={<PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />}
+            panelActions={
+              <>
+                {(
+                  [
+                    { key: 'checkpoint' as const, label: 'Checkpoint', badge: undefined as number | undefined },
+                    { key: 'attention' as const, label: 'Attention', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
+                    { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
+                    { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
+                  ]
+                ).map(({ key, label, badge }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveContextTab((prev) => (prev === key ? null : key))}
+                    className={`flex items-center gap-1 text-[11px] font-semibold transition-colors px-1 py-0.5 rounded ${
+                      activeContextTab === key
+                        ? 'text-indigo-600'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {label}
+                    {badge !== undefined && (
+                      <span className={`text-[9px] font-black px-1 rounded-full ${activeContextTab === key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                        {badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </>
+            }
           />
+
+          {/* Context drawer — slides in from the right like History */}
+          <ContextDrawer
+            open={activeContextTab !== null}
+            onClose={() => setActiveContextTab(null)}
+            title={
+              activeContextTab === 'checkpoint' ? 'Checkpoint'
+              : activeContextTab === 'attention' ? 'Attention Items'
+              : activeContextTab === 'sources' ? 'Imported Sources'
+              : activeContextTab === 'timeline' ? 'Planning Timeline'
+              : ''
+            }
+          >
+            {activeContextTab === 'checkpoint' && (
+              <WhereWeLeftOffPanel
+                phase={currentPhase}
+                latestEvent={latestPlanningEvent}
+                pendingApprovals={pendingTaskApprovals}
+                openAttention={attentionItems}
+                userContext={initialProject.userContext}
+              />
+            )}
+            {activeContextTab === 'attention' && (
+              <PlanningAttentionPanel
+                items={attentionItems}
+                onResolve={resolveAttentionItem}
+              />
+            )}
+            {activeContextTab === 'sources' && (
+              <ImportedSourcesPanel
+                sources={importedSources}
+                onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
+              />
+            )}
+            {activeContextTab === 'timeline' && <PlanningTimelinePanel events={planningEvents} />}
+          </ContextDrawer>
 
           {/* Vision history drawer */}
           <VisionHistoryDrawer
@@ -618,7 +811,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           />
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          <div className="flex-1 overflow-y-auto px-6 py-6 md:px-10 md:py-7 space-y-5 bg-[linear-gradient(160deg,#f8fafc_0%,#f3f7fb_60%,#eef2f8_100%)]">
             {messagesLoading ? (
               <div className="flex justify-center py-12">
                 <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
@@ -626,11 +819,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             ) : (
               <>
                 {showWelcome && (
-                  <div className="flex justify-start">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black mr-4 shrink-0 mt-1 shadow-lg shadow-blue-500/20 ring-4 ring-blue-50">
+                  <div className="flex justify-start items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
                       AI
                     </div>
-                    <div className="max-w-[90%] rounded-[2rem] rounded-bl-lg px-6 py-4 text-sm leading-relaxed bg-white border border-slate-100 text-[#0a192f] shadow-sm text-justify">
+                    <div className="max-w-[82%] rounded-2xl rounded-bl-sm px-5 py-3.5 text-[14px] leading-[1.65] bg-white border border-slate-100/80 text-slate-800 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
                       <div className="prose prose-slate max-w-none ai-prose">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{welcomeText}</ReactMarkdown>
                       </div>
@@ -658,11 +851,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 ))}
 
                 {sendMessage.isPending && (
-                  <div className="flex justify-start">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 shadow-lg shadow-blue-500/30">
+                  <div className="flex justify-start items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
                       AI
                     </div>
-                    <div className="bg-slate-50 rounded-[32px] rounded-bl-lg px-6 py-4 shadow-sm">
+                    <div className="bg-white border border-slate-100/80 rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
                       <div className="flex gap-1.5">
                         <span
                           className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
@@ -687,13 +880,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           </div>
 
           {/* Input Area */}
-          <div className="px-8 pb-8 pt-2">
-            <div
-              className={`mb-3 px-4 py-2.5 rounded-2xl text-[11px] font-black ${phaseConfig.bg} ${phaseConfig.color} flex items-center gap-2 shadow-sm border ${phaseConfig.border}`}
-            >
-              <PhaseIcon className="w-3.5 h-3.5 shrink-0" />
-              <span className="uppercase tracking-widest">{phaseConfig.tagline}</span>
-            </div>
+          <div className="px-6 pb-6 pt-2 bg-[linear-gradient(180deg,rgba(243,247,251,0)_0%,rgba(243,247,251,0.95)_20%,#f3f7fb_100%)]">
             {sendMessage.isError && (
               <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
                 Failed to send message. Please try again.
@@ -729,7 +916,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 ))}
               </div>
             )}
-            <div className="flex gap-4 items-end bg-white border border-gray-100 rounded-[2.5rem] px-6 py-5 shadow-2xl shadow-gray-200/60 transition-all focus-within:shadow-blue-500/10 focus-within:border-blue-200">
+            <div className="flex gap-3 items-end bg-white border border-slate-200/80 rounded-[1.75rem] px-4 py-3 shadow-[0_8px_32px_rgba(15,23,42,0.08),0_2px_8px_rgba(15,23,42,0.04)] transition-all focus-within:shadow-[0_8px_32px_rgba(99,102,241,0.12),0_2px_8px_rgba(99,102,241,0.06)] focus-within:border-indigo-200/80">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -740,14 +927,14 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!activeThreadId}
-                className="w-7 h-7 rounded-xl text-gray-400 flex items-center justify-center hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-30 shrink-0"
+                className="w-8 h-8 rounded-xl text-slate-400 flex items-center justify-center hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-30 shrink-0"
                 title="Attach files"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
               <textarea
                 ref={textareaRef}
-                className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[24px] max-h-[450px] overflow-y-auto transition-[height] duration-75"
+                className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-slate-400 resize-none outline-none min-h-[24px] max-h-[450px] overflow-y-auto transition-[height] duration-75 leading-6"
                 placeholder={
                   currentPhase === 'discovery'
                     ? 'Tell me about your project…'
@@ -773,9 +960,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                   || sendMessage.isPending
                   || !activeThreadId
                 }
-                className="w-11 h-11 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-all shadow-lg shadow-blue-900/20 active:scale-95 disabled:opacity-30 shrink-0"
+                className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/25 active:scale-95 disabled:opacity-30 shrink-0"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -842,18 +1029,18 @@ function MessageView({
   const batchSubmission = msg.batchSubmission ?? null
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-3`}>
       {!isUser && (
-        <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xs font-black mr-4 shrink-0 mt-1 shadow-lg shadow-blue-500/30">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mb-1 shadow-md shadow-indigo-500/25">
           AI
         </div>
       )}
-      <div
-        className={`max-w-[90%] rounded-[2rem] px-6 py-4 text-sm leading-relaxed shadow-sm text-justify transition-all hover:shadow-md ${isUser
-            ? 'bg-gradient-to-br from-[#0a192f] to-[#1e293b] text-white rounded-br-lg whitespace-pre-wrap shadow-blue-900/10'
-            : 'bg-white border border-slate-100 text-[#0a192f] rounded-bl-lg'
+        <div
+          className={`rounded-2xl px-5 py-3.5 text-[14px] leading-[1.65] transition-all ${isUser
+            ? 'max-w-[68%] bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-br-sm whitespace-pre-wrap shadow-[0_8px_24px_rgba(99,102,241,0.2)]'
+            : 'max-w-[82%] bg-white border border-slate-100/80 text-slate-800 rounded-bl-sm shadow-[0_4px_16px_rgba(15,23,42,0.06)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.09)] border-l-2 border-l-indigo-200'
           }`}
-      >
+        >
         {isUser ? (
           msg.content
         ) : (
@@ -873,7 +1060,7 @@ function MessageView({
             )}
 
             {hasTasks && (
-              <div className="mt-3 space-y-2">
+              <div className="mt-4 space-y-3">
                 {(() => {
                   const proposals = envelope!.tasks!
                   const decisions = msg.taskProposalActions ?? []
@@ -882,7 +1069,7 @@ function MessageView({
                   ).length
                   const approvedCount = decisions.filter((d) => d.action === 'approved').length
                   return (
-                    <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
                         Proposed tasks · {approvedCount}/{proposals.length} approved
                       </div>
@@ -942,6 +1129,29 @@ function MessageView({
         )}
       </div>
     </div>
+  )
+}
+
+function PanelToggleButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-colors border ${
+        active
+          ? 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100'
+          : 'text-slate-500 border-slate-200 hover:text-slate-700 hover:bg-white'
+      }`}
+    >
+      {active ? `Hide ${label}` : `Show ${label}`}
+    </button>
   )
 }
 

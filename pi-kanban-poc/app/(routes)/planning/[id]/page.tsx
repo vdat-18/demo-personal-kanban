@@ -21,6 +21,9 @@ export default function PlanningPage({ params }: Props) {
       id: project.id,
       name: project.name,
       description: project.description,
+      playbookId: project.playbookId,
+      importedSources: project.importedSources,
+      userContext: project.userContext,
       tasks: (project.tasks ?? []).map((t) => ({
         id: t.id,
         title: t.title,

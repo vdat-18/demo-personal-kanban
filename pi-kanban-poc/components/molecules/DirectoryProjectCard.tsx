@@ -2,6 +2,8 @@
 
 import { ArrowRight, Calendar, Package } from 'lucide-react'
 import { ProgressBar } from '@/components/atoms/ProgressBar'
+import { getPlaybook } from '@/lib/planning/playbooks'
+import type { PlaybookId } from '@/types/domain'
 
 export interface DirectoryProjectCardProps {
   id: string
@@ -11,6 +13,8 @@ export interface DirectoryProjectCardProps {
   doneCount: number
   createdAt?: string
   artifactCount?: number
+  playbookId?: PlaybookId
+  importedSourceCount?: number
   onClick: () => void
 }
 
@@ -21,9 +25,12 @@ export function DirectoryProjectCard({
   doneCount,
   createdAt,
   artifactCount,
+  playbookId,
+  importedSourceCount = 0,
   onClick,
 }: DirectoryProjectCardProps) {
   const progress = taskCount > 0 ? (doneCount / taskCount) * 100 : 0
+  const playbook = getPlaybook(playbookId)
 
   return (
     <div
@@ -40,6 +47,17 @@ export function DirectoryProjectCard({
       {description && (
         <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">{description}</p>
       )}
+
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          {playbook.label}
+        </span>
+        {importedSourceCount > 0 && (
+          <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
+            {importedSourceCount} source{importedSourceCount === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
         <span className="font-semibold">

@@ -2,10 +2,14 @@
 
 import { ArrowLeft, Plus, Loader2 } from 'lucide-react'
 import { TokenCounter } from '@/components/molecules/TokenCounter'
+import { getPlaybook } from '@/lib/planning/playbooks'
+import type { PlaybookId } from '@/types/domain'
 
 export interface KanbanHeaderProps {
   projectName: string
   projectDescription: string | null
+  playbookId?: PlaybookId
+  importedSourceCount?: number
   isProcessing?: boolean
   /** Cumulative project token usage to show as a tiny chip in the header.
    *  PoC scope: count only, no $ amount. */
@@ -14,7 +18,8 @@ export interface KanbanHeaderProps {
   onAddTask: () => void
 }
 
-export function KanbanHeader({ projectName, projectDescription, isProcessing = false, tokenUsage, onBack, onAddTask }: KanbanHeaderProps) {
+export function KanbanHeader({ projectName, projectDescription, playbookId, importedSourceCount = 0, isProcessing = false, tokenUsage, onBack, onAddTask }: KanbanHeaderProps) {
+  const playbook = getPlaybook(playbookId)
   return (
     <header className="h-28 px-12 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between shrink-0 sticky top-0 z-40 transition-all">
       <div className="flex items-center gap-8">
@@ -28,6 +33,16 @@ export function KanbanHeader({ projectName, projectDescription, isProcessing = f
         <div>
           <h1 className="font-black text-4xl text-[#0a192f] tracking-tighter leading-none mb-2">{projectName}</h1>
           <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{projectDescription || 'MISSION CONTROL CENTER'}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+              {playbook.label}
+            </span>
+            {importedSourceCount > 0 && (
+              <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
+                {importedSourceCount} source{importedSourceCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-4">
