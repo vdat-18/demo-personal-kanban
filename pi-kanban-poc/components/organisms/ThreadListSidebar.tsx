@@ -57,9 +57,9 @@ export function ThreadListSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 border-r border-gray-100">
+    <div className="flex flex-col h-full bg-[linear-gradient(180deg,#f8fafc_0%,#f3f6fa_100%)] border-r border-slate-200/70">
       {/* Header */}
-      <div className="h-20 px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white/50 backdrop-blur-md">
+      <div className="h-20 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/75 backdrop-blur-xl shadow-[0_8px_24px_rgba(15,23,42,0.03)]">
         <div className="flex items-center gap-2.5">
           <MessageSquare className="w-4 h-4 text-blue-600" />
           <span className="font-black text-[11px] text-[#0a192f] uppercase tracking-[0.2em]">Threads</span>
@@ -90,7 +90,7 @@ export function ThreadListSidebar({
       </div>
 
       {/* Thread List */}
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
         {isLoading ? (
           <div className="px-4 py-12 text-center">
             <div className="w-6 h-6 border-2 border-gray-100 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
@@ -114,10 +114,10 @@ export function ThreadListSidebar({
                     onSelectThread(thread.id)
                   }
                 }}
-                className={`w-full text-left px-5 py-5 rounded-[1.5rem] transition-all cursor-pointer relative ${
+                className={`w-full text-left px-5 py-5 rounded-[1.5rem] transition-all cursor-pointer relative border ${
                   activeThreadId === thread.id
-                    ? 'bg-white shadow-xl shadow-slate-200/50 z-10 scale-[1.02]'
-                    : 'hover:bg-white/60'
+                    ? 'bg-white border-white shadow-[0_16px_40px_rgba(15,23,42,0.08)] z-10 scale-[1.01]'
+                    : 'bg-white/55 border-transparent hover:bg-white/85 hover:border-slate-200/70'
                 }`}
               >
                 {activeThreadId === thread.id && (
@@ -151,9 +151,9 @@ export function ThreadListSidebar({
                     thread.title
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1 truncate font-medium">
-                  {thread.lastMessage || 'Starting session...'}
-                </p>
+                  <p className="text-[11px] text-slate-400 mt-1 truncate font-medium leading-relaxed">
+                    {thread.lastMessage || 'Starting session...'}
+                  </p>
                 <p className="text-[9px] font-black text-slate-300 mt-2 uppercase tracking-widest">
                   {formatRelativeTime(thread.updatedAt)}
                 </p>

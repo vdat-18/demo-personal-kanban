@@ -19,7 +19,7 @@ export function PlanningTimelinePanel({ events }: { events: PlanningEvent[] }) {
   }, [events, filter])
 
   return (
-    <section className="rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)] overflow-hidden">
+    <section className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)] overflow-hidden h-fit">
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -34,17 +34,17 @@ export function PlanningTimelinePanel({ events }: { events: PlanningEvent[] }) {
           <button
             key={item}
             onClick={() => setFilter(item)}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.14em] transition-colors ${
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.14em] transition-colors border ${
               filter === item
-                ? 'bg-[#0a192f] text-white'
-                : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-[#0a192f] text-white border-[#0a192f]'
+                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
             }`}
           >
             {item}
           </button>
         ))}
       </div>
-      <div className="px-6 py-5 max-h-[240px] overflow-y-auto space-y-4">
+      <div className="px-6 py-5 space-y-4">
         {visibleEvents.length === 0 ? (
           <p className="text-sm text-slate-500">Planning milestones will appear here as the project evolves.</p>
         ) : (

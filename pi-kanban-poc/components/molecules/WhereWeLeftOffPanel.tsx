@@ -16,7 +16,7 @@ export function WhereWeLeftOffPanel({
   userContext: string | null | undefined
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)] overflow-hidden">
+    <section className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)] overflow-hidden h-fit">
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Where We Left Off</p>
         <h3 className="mt-1 text-sm font-bold text-[#0a192f]">Current planning checkpoint</h3>
@@ -39,7 +39,7 @@ export function WhereWeLeftOffPanel({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
+    <div className="rounded-[1.15rem] bg-slate-50 border border-slate-100 px-4 py-3">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400 mb-1.5">{label}</p>
       <p className="text-sm text-[#0a192f] leading-relaxed">{value}</p>
     </div>

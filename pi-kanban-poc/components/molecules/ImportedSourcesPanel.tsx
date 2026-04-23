@@ -24,19 +24,19 @@ export function ImportedSourcesPanel({
   onUpdateSource?: (sourceId: string, patch: Partial<ImportedSource>) => void
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)] overflow-hidden">
+    <section className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)] overflow-hidden h-fit">
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Imported Sources</p>
         <h3 className="mt-1 text-sm font-bold text-[#0a192f]">Project context library</h3>
       </div>
-      <div className="px-6 py-5 space-y-3 max-h-[260px] overflow-y-auto">
+      <div className="px-6 py-5 space-y-3">
         {sources.length === 0 ? (
           <p className="text-sm text-slate-500">No imported source documents are linked to this project yet.</p>
         ) : (
           sources.map((source) => {
             const Icon = ICONS[source.kind] ?? FileText
             return (
-              <div key={source.id} className="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+              <div key={source.id} className="rounded-[1.25rem] border border-slate-100 bg-slate-50/55 px-4 py-3 shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center border border-slate-100 shrink-0">
                     <Icon className="w-4 h-4 text-slate-500" />
