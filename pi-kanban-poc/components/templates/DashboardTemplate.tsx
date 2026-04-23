@@ -157,6 +157,24 @@ export function DashboardTemplate() {
           summary: 'Added extra planning context to the imported brief.',
         })
       }
+      useKanbanStore.getState().updateProject(project.id, {
+        runtimeStatus: {
+          state: 'planning',
+          summary: 'Imported planning is underway.',
+          lastAction: 'Imported sources and started AI readback',
+          lastUpdatedAt: new Date().toISOString(),
+          retryCount: 0,
+          blockedReason: null,
+        },
+        workpad: project.workpad
+          ? {
+              ...project.workpad,
+              assumptions: userContext.trim() ? [userContext.trim()] : [],
+              validationNotes: ['Imported source review should happen before execution.'],
+              proofOfWork: [`${files.length} source file${files.length === 1 ? '' : 's'} imported.`],
+            }
+          : project.workpad,
+      })
       if (files.some((file) => file.error || (file.needsVisionModel && !file.text))) {
         createAttentionItem({
           projectId: project.id,
@@ -171,6 +189,17 @@ export function DashboardTemplate() {
         threadId: thread.id,
         content: seedMessage,
         importReadbackOnly: true,
+      })
+
+      useKanbanStore.getState().updateProject(project.id, {
+        runtimeStatus: {
+          state: 'planning',
+          summary: 'AI finished the imported-document readback.',
+          lastAction: 'Created first planning readback',
+          lastUpdatedAt: new Date().toISOString(),
+          retryCount: 0,
+          blockedReason: null,
+        },
       })
 
       setShowImportFlow(false)

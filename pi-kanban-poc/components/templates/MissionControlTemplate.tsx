@@ -8,6 +8,9 @@ import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
 import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/TaskFormDialog'
 import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
+import { RuntimeStatusPanel } from '@/components/molecules/RuntimeStatusPanel'
+import { WorkflowContractPanel } from '@/components/molecules/WorkflowContractPanel'
+import { WorkpadPanel } from '@/components/molecules/WorkpadPanel'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -31,6 +34,9 @@ interface Project {
   description: string | null
   playbookId?: import('@/types/domain').PlaybookId
   importedSources?: import('@/types/domain').ImportedSource[]
+  workflowContract?: import('@/types/domain').WorkflowContract
+  workpad?: import('@/types/domain').WorkpadEntry | null
+  runtimeStatus?: import('@/types/domain').RuntimeStatus | null
   tasks: Task[]
 }
 
@@ -79,6 +85,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
     })) as Task[]
 
   const project = { ...initialProject, tasks }
+  const effectiveWorkflowContract = liveProject?.workflowContract ?? project.workflowContract
 
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
@@ -171,6 +178,21 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         onAddTask={() => setAddDialog({ open: true, status: 'TODO' })}
       />
 
+      <div className="px-6 pt-5 grid xl:grid-cols-3 gap-4 shrink-0 bg-[linear-gradient(180deg,#f7f9fc_0%,#f3f7fb_100%)] border-b border-slate-100">
+        <RuntimeStatusPanel status={liveProject?.runtimeStatus ?? project.runtimeStatus} />
+        {effectiveWorkflowContract && <WorkflowContractPanel contract={effectiveWorkflowContract} />}
+        <WorkpadPanel
+          workpad={liveProject?.workpad ?? project.workpad}
+          onUpdate={(patch) => {
+            const currentWorkpad = liveProject?.workpad ?? project.workpad
+            if (!currentWorkpad) return
+            useKanbanStore.getState().updateProject(project.id, {
+              workpad: { ...currentWorkpad, ...patch },
+            })
+          }}
+        />
+      </div>
+
       <KanbanBoard
         tasks={tasks}
         autoModeStates={autoModeStates}
@@ -195,6 +217,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <KanbanFooter
         tasks={tasks}
         autoModeStates={autoModeStates}
+        runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
         onCloseProject={() => router.push(`/summary/${project.id}`)}
       />
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Rocket, Sparkles } from 'lucide-react'
+import { Rocket, Sparkles, RefreshCw } from 'lucide-react'
 import type { UITaskStatus } from '@/types/domain'
 import { AUTO_MODE_COLUMNS } from '@/lib/auto-mode/constants'
 import type { AutoModeColumnState } from '@/lib/auto-mode/constants'
@@ -16,9 +16,10 @@ export interface KanbanFooterProps {
   tasks: Task[]
   autoModeStates: Record<string, AutoModeColumnState>
   onCloseProject: () => void
+  runtimeStatus?: import('@/types/domain').RuntimeStatus | null
 }
 
-export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFooterProps) {
+export function KanbanFooter({ tasks, autoModeStates, onCloseProject, runtimeStatus }: KanbanFooterProps) {
   const canClose = !tasks.some((t) => t.status !== 'DONE' && t.status !== 'BLOCKED')
   const enabledCount = AUTO_MODE_COLUMNS.filter((col) => autoModeStates[col]?.enabled).length
 
@@ -70,6 +71,17 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject }: KanbanFo
                 <li key={t.id} className="truncate text-indigo-300">⏳ {t.title}</li>
               ))}
             </ul>
+          </div>
+        )}
+        {runtimeStatus && (
+          <div className="flex flex-col gap-1 border-l border-gray-100 pl-8 max-w-[260px]">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] flex items-center gap-1">
+              <RefreshCw className="w-3 h-3" />
+              Runtime
+            </span>
+            <p className="text-[10px] text-slate-600 font-semibold leading-snug">
+              {runtimeStatus.summary}
+            </p>
           </div>
         )}
       </div>

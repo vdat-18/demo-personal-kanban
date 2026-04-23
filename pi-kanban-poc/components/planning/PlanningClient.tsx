@@ -30,6 +30,9 @@ import { PlanningTimelinePanel } from '@/components/molecules/PlanningTimelinePa
 import { PlanningAttentionPanel } from '@/components/molecules/PlanningAttentionPanel'
 import { WhereWeLeftOffPanel } from '@/components/molecules/WhereWeLeftOffPanel'
 import { ContextDrawer } from '@/components/molecules/ContextDrawer'
+import { WorkflowContractPanel } from '@/components/molecules/WorkflowContractPanel'
+import { WorkpadPanel } from '@/components/molecules/WorkpadPanel'
+import { RuntimeStatusPanel } from '@/components/molecules/RuntimeStatusPanel'
 import {
   usePlanningThreads,
   useCreatePlanningThread,
@@ -62,6 +65,9 @@ interface Project {
   name: string
   description: string | null
   playbookId?: PlaybookId
+  workflowContract?: import('@/types/domain').WorkflowContract
+  workpad?: import('@/types/domain').WorkpadEntry | null
+  runtimeStatus?: import('@/types/domain').RuntimeStatus | null
   importedSources?: ImportedSource[]
   userContext?: string | null
   tasks: Task[]
@@ -118,7 +124,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
-  const [activeContextTab, setActiveContextTab] = useState<'checkpoint' | 'attention' | 'sources' | 'timeline' | null>(null)
+  const [activeContextTab, setActiveContextTab] = useState<'checkpoint' | 'attention' | 'sources' | 'timeline' | 'workflow' | 'workpad' | 'runtime' | null>(null)
   const [pendingVisionEdit, setPendingVisionEdit] = useState<
     { newContent: string; previousContent: string | null } | null
   >(null)
@@ -166,6 +172,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const currentVisionDoc = activeThread?.visionDocument ?? null
   const playbook = getPlaybook(initialProject.playbookId)
   const importedSources = initialProject.importedSources ?? []
+  const workflowContract = initialProject.workflowContract ?? playbook.workflowContract
   const planningEvents = useMemo(
     () =>
       allPlanningEvents
@@ -733,14 +740,17 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             centerContent={<PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />}
             panelActions={
               <>
-                {(
-                  [
-                    { key: 'checkpoint' as const, label: 'Checkpoint', badge: undefined as number | undefined },
-                    { key: 'attention' as const, label: 'Attention', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
-                    { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
-                    { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
-                  ]
-                ).map(({ key, label, badge }) => (
+                    {(
+                      [
+                        { key: 'checkpoint' as const, label: 'Checkpoint', badge: undefined as number | undefined },
+                        { key: 'attention' as const, label: 'Attention', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
+                        { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
+                        { key: 'workflow' as const, label: 'Workflow', badge: undefined as number | undefined },
+                        { key: 'workpad' as const, label: 'Workpad', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
+                        { key: 'runtime' as const, label: 'Runtime', badge: initialProject.runtimeStatus?.retryCount ? initialProject.runtimeStatus.retryCount : undefined },
+                        { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
+                      ]
+                    ).map(({ key, label, badge }) => (
                   <button
                     key={key}
                     onClick={() => setActiveContextTab((prev) => (prev === key ? null : key))}
@@ -770,6 +780,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               activeContextTab === 'checkpoint' ? 'Checkpoint'
               : activeContextTab === 'attention' ? 'Attention Items'
               : activeContextTab === 'sources' ? 'Imported Sources'
+              : activeContextTab === 'workflow' ? 'Workflow Contract'
+              : activeContextTab === 'workpad' ? 'Project Workpad'
+              : activeContextTab === 'runtime' ? 'AI Runtime'
               : activeContextTab === 'timeline' ? 'Planning Timeline'
               : ''
             }
@@ -795,6 +808,19 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
               />
             )}
+            {activeContextTab === 'workflow' && <WorkflowContractPanel contract={workflowContract} />}
+            {activeContextTab === 'workpad' && (
+              <WorkpadPanel
+                workpad={initialProject.workpad}
+                onUpdate={(patch) => {
+                  if (!initialProject.workpad) return
+                  useKanbanStore.getState().updateProject(initialProject.id, {
+                    workpad: { ...initialProject.workpad, ...patch },
+                  })
+                }}
+              />
+            )}
+            {activeContextTab === 'runtime' && <RuntimeStatusPanel status={initialProject.runtimeStatus} />}
             {activeContextTab === 'timeline' && <PlanningTimelinePanel events={planningEvents} />}
           </ContextDrawer>
 

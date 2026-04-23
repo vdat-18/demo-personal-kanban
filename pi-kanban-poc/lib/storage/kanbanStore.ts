@@ -41,6 +41,7 @@ import type {
   PlaybookId,
   AttentionItem,
 } from '@/types/domain'
+import { getPlaybook, getDefaultWorkflowContract } from '@/lib/planning/playbooks'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -312,12 +313,32 @@ export const useKanbanStore = create<KanbanState>()(
         userContext = null,
       }) => {
         const projectId = uid('proj')
+        const playbook = getPlaybook(playbookId)
         const project: Project = {
           id: projectId,
           name,
           description: description ?? null,
           domain,
           playbookId,
+          workflowContract: playbook.workflowContract,
+          workpad: {
+            id: uid('workpad'),
+            projectId,
+            title: `${name} Workpad`,
+            assumptions: [],
+            blockers: [],
+            validationNotes: [],
+            proofOfWork: [],
+            updatedAt: now(),
+          },
+          runtimeStatus: {
+            state: 'planning',
+            summary: 'Planning is active.',
+            lastAction: 'Project created',
+            lastUpdatedAt: now(),
+            retryCount: 0,
+            blockedReason: null,
+          },
           importedSources: importedSources.map((source) => ({ ...source, projectId })),
           userContext,
           status: null,
@@ -334,7 +355,12 @@ export const useKanbanStore = create<KanbanState>()(
         set((s) => ({
           projects: s.projects.map((p) => {
             if (p.id !== id) return p
-            updated = { ...p, ...patch, updatedAt: now() }
+            updated = {
+              ...p,
+              ...patch,
+              workpad: patch.workpad ? { ...patch.workpad, updatedAt: now() } : p.workpad,
+              updatedAt: now(),
+            }
             return updated
           }),
         }))
@@ -1246,7 +1272,7 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 5,
+      version: 6,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
@@ -1327,6 +1353,30 @@ export const useKanbanStore = create<KanbanState>()(
             : [],
           tasks: Array.isArray(s.tasks)
             ? (s.tasks as Task[]).map((t) => ({ hintDismissed: false, ...t }))
+            : [],
+          projects: Array.isArray(s.projects)
+            ? (s.projects as Project[]).map((p) => ({
+                ...p,
+                workflowContract: p.workflowContract ?? getDefaultWorkflowContract(),
+                workpad: p.workpad ?? {
+                  id: uid('workpad'),
+                  projectId: p.id,
+                  title: `${p.name} Workpad`,
+                  assumptions: [],
+                  blockers: [],
+                  validationNotes: [],
+                  proofOfWork: [],
+                  updatedAt: now(),
+                },
+                runtimeStatus: p.runtimeStatus ?? {
+                  state: p.planningStatus === 'completed' ? 'executing' : 'planning',
+                  summary: p.planningStatus === 'completed' ? 'Execution is active.' : 'Planning is active.',
+                  lastAction: null,
+                  lastUpdatedAt: null,
+                  retryCount: 0,
+                  blockedReason: null,
+                },
+              }))
             : [],
         } as KanbanState
       },

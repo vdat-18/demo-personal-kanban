@@ -22,6 +22,8 @@ export default function MissionControlPage({ params }: Props) {
       id: project.id,
       name: project.name,
       description: project.description,
+      playbookId: project.playbookId,
+      importedSources: project.importedSources,
       tasks: tasks
         .filter((t) => t.projectId === project.id)
         .map((t) => ({
