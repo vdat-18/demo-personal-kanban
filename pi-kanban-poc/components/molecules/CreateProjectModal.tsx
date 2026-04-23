@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Plus, X, ArrowRight, Sparkles, Upload } from 'lucide-react'
 import { PlaybookSelect } from '@/components/molecules/PlaybookSelect'
 import type { PlaybookId } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 /**
  * Project creation modal (Tier 2.6).
@@ -43,6 +44,7 @@ export function CreateProjectModal({
   onSubmit,
   onImportSubmit,
 }: CreateProjectModalProps) {
+  const { t } = useI18n()
   // ESC closes the modal; keeps keyboard users unstuck.
   useEffect(() => {
     if (!isOpen) return
@@ -80,12 +82,12 @@ export function CreateProjectModal({
             </div>
             <div>
               <h3 className="text-xl font-bold text-[#0a192f] tracking-tight">
-                {importMode ? 'Import a project brief' : 'What are you planning?'}
+                {importMode ? t('createProject.importTitle', 'Import a project brief') : t('createProject.newTitle', 'What are you planning?')}
               </h3>
               <p className="text-sm text-slate-500 mt-0.5">
                 {importMode
-                  ? 'Pick a file and we\'ll turn it into a planning workspace.'
-                  : 'Give it a name. We\'ll figure out the rest together.'}
+                  ? t('createProject.importDescription', "Pick a file and we'll turn it into a planning workspace.")
+                  : t('createProject.newDescription', "Give it a name. We'll figure out the rest together.")}
               </p>
             </div>
           </div>
@@ -94,7 +96,7 @@ export function CreateProjectModal({
             <PlaybookSelect value={playbookId} onChange={onPlaybookChange} />
             <input
               type="text"
-              placeholder="E.g. Spring wedding, Q2 product launch, 6-month SaaS MVP…"
+              placeholder={t('createProject.namePlaceholder', 'E.g. Spring wedding, Q2 product launch, 6-month SaaS MVP…')}
               autoFocus
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0a192f] font-medium placeholder:text-slate-400 focus:border-blue-400 focus:bg-white outline-none transition-all"
               value={projectName}
@@ -112,14 +114,14 @@ export function CreateProjectModal({
                   : 'bg-[#0a192f] hover:bg-blue-700 shadow-md hover:shadow-lg active:scale-[0.98]'
               }`}
             >
-              {isCreating ? 'Creating…' : importMode ? 'Upload & start' : 'Start planning'}
+              {isCreating ? t('createProject.creating', 'Creating…') : importMode ? t('createProject.uploadAndStart', 'Upload & start') : t('createProject.startPlanning', 'Start planning')}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
         <div className="bg-slate-50 px-6 py-3 flex items-center justify-center border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
           <Sparkles className="w-3 h-3 mr-2 text-blue-400" />
-          AI-powered planning
+          {t('createProject.aiPlanning', 'AI-powered planning')}
         </div>
       </div>
     </div>

@@ -120,6 +120,8 @@ export interface PersonalAIContext {
   updatedAt: string | null
 }
 
+export type UiLocale = 'en' | 'vi' | 'th' | 'ko' | 'ja'
+
 // Legacy lowercase status — kept for compatibility with constants/agents.ts
 export type LegacyTaskStatus =
   | 'todo'

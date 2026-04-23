@@ -1,6 +1,7 @@
 'use client'
 
 import { Plus, Upload, ArrowRight, Sparkles } from 'lucide-react'
+import { useI18n } from '@/lib/i18n/context'
 
 export interface HeroSectionProps {
   onNewProject: () => void
@@ -21,19 +22,20 @@ export interface HeroSectionProps {
  * visible above the fold without aggressive scrolling.
  */
 export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps) {
+  const { t } = useI18n()
   return (
     <>
       {/* Hero Header */}
       <header className="animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-[0.18em] mb-5 border border-blue-100">
           <Sparkles className="w-3 h-3" />
-          Powered by AI agents
+          {t('dashboard.heroBadge', 'Powered by AI agents')}
         </div>
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#0a192f] leading-tight mb-4">
-          Hi! What shall we <span className="text-blue-600">create</span> today?
+          {t('dashboard.titlePrefix', 'Hi! What shall we')} <span className="text-blue-600">{t('dashboard.titleAccent', 'create')}</span> {t('dashboard.titleSuffix', 'today?')}
         </h1>
         <p className="text-base md:text-lg text-slate-500 font-normal max-w-2xl leading-relaxed">
-          Organize, plan, and execute your projects with a team of specialized AI agents.
+          {t('dashboard.subtitle', 'Organize, plan, and execute your projects with a team of specialized AI agents.')}
         </p>
       </header>
 
@@ -47,10 +49,10 @@ export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps)
                 <Plus className="w-6 h-6" />
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-[#0a192f] mb-3 tracking-tight leading-snug">
-                Initiate a new project journey
+                {t('dashboard.createJourney', 'Initiate a new project journey')}
               </h2>
               <p className="text-sm text-slate-500 max-w-md leading-relaxed mb-6">
-                Start from a simple idea or import documents to let AI build your execution blueprint.
+                {t('dashboard.createJourneyDescription', 'Start from a simple idea or import documents to let AI build your execution blueprint.')}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -60,9 +62,9 @@ export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps)
               >
                 <div className="flex flex-col items-start text-left">
                   <span className="text-[10px] uppercase tracking-[0.18em] text-blue-300 mb-0.5 font-bold">
-                    Method 01
+                    {t('dashboard.method1', 'Method 01')}
                   </span>
-                  <span className="text-base font-bold">New Project</span>
+                  <span className="text-base font-bold">{t('dashboard.newProject', 'New Project')}</span>
                 </div>
                 <ArrowRight className="w-5 h-5 text-blue-300 group-hover/btn:translate-x-1 transition-transform" />
               </button>
@@ -72,9 +74,9 @@ export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps)
               >
                 <div className="flex flex-col items-start text-left">
                   <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400 mb-0.5 font-bold">
-                    Method 02
+                    {t('dashboard.method2', 'Method 02')}
                   </span>
-                  <span className="text-base font-bold">Start From Documents</span>
+                  <span className="text-base font-bold">{t('dashboard.startFromDocuments', 'Start From Documents')}</span>
                 </div>
                 <Upload className="w-5 h-5 text-slate-400 group-hover/btn:-translate-y-0.5 transition-transform" />
               </button>
@@ -87,14 +89,15 @@ export function HeroSection({ onNewProject, onImportProject }: HeroSectionProps)
             <Sparkles className="absolute -top-4 -right-4 w-24 h-24 text-white/10 rotate-12" />
             <div>
               <h3 className="text-xl font-bold mb-3 tracking-tight">AI Agents Ready</h3>
+              <h3 className="text-xl font-bold mb-3 tracking-tight">{t('dashboard.aiAgentsReady', 'AI Agents Ready')}</h3>
               <p className="text-blue-100 text-sm font-normal leading-relaxed opacity-90">
-                Our collective of specialized agents is standing by to help you strategize and automate your workflow instantly.
+                {t('dashboard.aiAgentsReadyDescription', 'Our collective of specialized agents is standing by to help you strategize and automate your workflow instantly.')}
               </p>
             </div>
             <div className="flex items-center gap-2 bg-white/10 w-fit px-3 py-1.5 rounded-full backdrop-blur-md mt-6">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white">
-                Systems online
+                {t('dashboard.systemsOnline', 'Systems online')}
               </span>
             </div>
           </div>

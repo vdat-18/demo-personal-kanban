@@ -40,6 +40,7 @@ import type {
   PersonalAIContext,
   PlaybookId,
   AttentionItem,
+  UiLocale,
 } from '@/types/domain'
 import { getPlaybook, getDefaultWorkflowContract } from '@/lib/planning/playbooks'
 
@@ -87,6 +88,7 @@ interface KanbanState {
   cachedBreakdowns: CachedBreakdown[]
   /** Personal planning preferences reused across projects. */
   personalAIContext: PersonalAIContext
+  uiLocale: UiLocale
   /** Lightweight attention system for planning and execution. */
   attentionItems: AttentionItem[]
 
@@ -243,6 +245,7 @@ interface KanbanState {
   }) => PlanningEvent
   getPlanningEventsForProject: (projectId: string, threadId?: string | null) => PlanningEvent[]
   updatePersonalAIContext: (patch: Partial<Omit<PersonalAIContext, 'updatedAt'>>) => PersonalAIContext
+  setUiLocale: (locale: UiLocale) => UiLocale
   addImportedSources: (projectId: string, sources: ImportedSource[]) => Project | null
   updateImportedSource: (projectId: string, sourceId: string, patch: Partial<ImportedSource>) => Project | null
   createAttentionItem: (item: {
@@ -302,6 +305,7 @@ export const useKanbanStore = create<KanbanState>()(
         note: '',
         updatedAt: null,
       },
+      uiLocale: 'en',
       attentionItems: [],
 
       createProject: ({
@@ -1014,6 +1018,11 @@ export const useKanbanStore = create<KanbanState>()(
         return updated
       },
 
+      setUiLocale: (locale) => {
+        set({ uiLocale: locale })
+        return locale
+      },
+
       createAttentionItem: ({ projectId, threadId = null, type, title, detail }) => {
         const item: AttentionItem = {
           id: uid('attn'),
@@ -1256,6 +1265,7 @@ export const useKanbanStore = create<KanbanState>()(
             note: '',
             updatedAt: null,
           },
+          uiLocale: 'en',
         })
       },
     }),
@@ -1272,7 +1282,7 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 6,
+      version: 7,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
@@ -1336,6 +1346,7 @@ export const useKanbanStore = create<KanbanState>()(
             updatedAt: null,
             ...((typeof s.personalAIContext === 'object' && s.personalAIContext) ? s.personalAIContext as Record<string, unknown> : {}),
           },
+          uiLocale: (typeof s.uiLocale === 'string' ? s.uiLocale : 'en') as UiLocale,
           planningMessages: Array.isArray(s.planningMessages)
             ? (s.planningMessages as PlanningMessage[]).map((m) => ({
                 envelope: null,

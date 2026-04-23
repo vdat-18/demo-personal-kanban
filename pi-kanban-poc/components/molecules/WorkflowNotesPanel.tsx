@@ -1,6 +1,7 @@
 'use client'
 
 import type { WorkflowContract, WorkpadEntry } from '@/types/domain'
+import { useI18n } from '@/lib/i18n/context'
 
 export function WorkflowNotesPanel({
   contract,
@@ -11,11 +12,12 @@ export function WorkflowNotesPanel({
   workpad: WorkpadEntry | null | undefined
   onUpdateWorkpad: (patch: Partial<WorkpadEntry>) => void
 }) {
+  const { t } = useI18n()
   return (
     <section className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)] overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Workflow Notes</p>
-        <h3 className="mt-1 text-sm font-bold text-[#0a192f]">Rules, validation, and live project notes</h3>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{t('planning.workflowNotes', 'Workflow Notes')}</p>
+        <h3 className="mt-1 text-sm font-bold text-[#0a192f]">{t('planning.workflowNotesDescription', 'Rules, validation, and live project notes')}</h3>
       </div>
 
       <div className="px-6 py-5 space-y-5">

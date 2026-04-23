@@ -64,6 +64,9 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const createTaskInStore = useKanbanStore((s) => s.createTask)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
+  const getPlanningEventsForProject = useKanbanStore((s) => s.getPlanningEventsForProject)
+  const getAttentionItemsForProject = useKanbanStore((s) => s.getAttentionItemsForProject)
+  const resolveAttentionItem = useKanbanStore((s) => s.resolveAttentionItem)
 
   const liveProject = storeProjects.find((p) => p.id === initialProject.id) ?? null
   const projectTokenUsage = liveProject?.totalTokenUsage ?? null
@@ -181,12 +184,12 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       <div className="px-6 pt-5 grid xl:grid-cols-3 gap-4 shrink-0 bg-[linear-gradient(180deg,#f7f9fc_0%,#f3f7fb_100%)] border-b border-slate-100">
         <StatusPanel
           phase={project.planningStatus === 'completed' ? 'task_mapping' : 'blueprint'}
-          latestEvent={null}
+          latestEvent={getPlanningEventsForProject(project.id)[0] ?? null}
           pendingApprovals={0}
-          attentionItems={useKanbanStore.getState().getAttentionItemsForProject(project.id)}
+          attentionItems={getAttentionItemsForProject(project.id)}
           runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
           userContext={null}
-          onResolveAttention={(id) => useKanbanStore.getState().resolveAttentionItem(id)}
+          onResolveAttention={resolveAttentionItem}
         />
         {effectiveWorkflowContract && (
           <WorkflowNotesPanel
