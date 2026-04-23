@@ -8,9 +8,8 @@ import { KanbanFooter } from '@/components/organisms/KanbanFooter'
 import { CancelTaskDialog } from '@/components/organisms/CancelTaskDialog'
 import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/TaskFormDialog'
 import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
-import { RuntimeStatusPanel } from '@/components/molecules/RuntimeStatusPanel'
-import { WorkflowContractPanel } from '@/components/molecules/WorkflowContractPanel'
-import { WorkpadPanel } from '@/components/molecules/WorkpadPanel'
+import { StatusPanel } from '@/components/molecules/StatusPanel'
+import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -32,6 +31,7 @@ interface Project {
   id: string
   name: string
   description: string | null
+  planningStatus?: import('@/types/domain').PlanningStatus
   playbookId?: import('@/types/domain').PlaybookId
   importedSources?: import('@/types/domain').ImportedSource[]
   workflowContract?: import('@/types/domain').WorkflowContract
@@ -179,18 +179,28 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       />
 
       <div className="px-6 pt-5 grid xl:grid-cols-3 gap-4 shrink-0 bg-[linear-gradient(180deg,#f7f9fc_0%,#f3f7fb_100%)] border-b border-slate-100">
-        <RuntimeStatusPanel status={liveProject?.runtimeStatus ?? project.runtimeStatus} />
-        {effectiveWorkflowContract && <WorkflowContractPanel contract={effectiveWorkflowContract} />}
-        <WorkpadPanel
-          workpad={liveProject?.workpad ?? project.workpad}
-          onUpdate={(patch) => {
-            const currentWorkpad = liveProject?.workpad ?? project.workpad
-            if (!currentWorkpad) return
-            useKanbanStore.getState().updateProject(project.id, {
-              workpad: { ...currentWorkpad, ...patch },
-            })
-          }}
+        <StatusPanel
+          phase={project.planningStatus === 'completed' ? 'task_mapping' : 'blueprint'}
+          latestEvent={null}
+          pendingApprovals={0}
+          attentionItems={useKanbanStore.getState().getAttentionItemsForProject(project.id)}
+          runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
+          userContext={null}
+          onResolveAttention={(id) => useKanbanStore.getState().resolveAttentionItem(id)}
         />
+        {effectiveWorkflowContract && (
+          <WorkflowNotesPanel
+            contract={effectiveWorkflowContract}
+            workpad={liveProject?.workpad ?? project.workpad}
+            onUpdateWorkpad={(patch) => {
+              const currentWorkpad = liveProject?.workpad ?? project.workpad
+              if (!currentWorkpad) return
+              useKanbanStore.getState().updateProject(project.id, {
+                workpad: { ...currentWorkpad, ...patch },
+              })
+            }}
+          />
+        )}
       </div>
 
       <KanbanBoard

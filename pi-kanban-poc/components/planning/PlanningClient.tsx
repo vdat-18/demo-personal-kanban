@@ -27,12 +27,9 @@ import { VisionHistoryDrawer } from '@/components/molecules/VisionHistoryDrawer'
 import { PhaseStepper } from '@/components/molecules/PhaseStepper'
 import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
 import { PlanningTimelinePanel } from '@/components/molecules/PlanningTimelinePanel'
-import { PlanningAttentionPanel } from '@/components/molecules/PlanningAttentionPanel'
-import { WhereWeLeftOffPanel } from '@/components/molecules/WhereWeLeftOffPanel'
 import { ContextDrawer } from '@/components/molecules/ContextDrawer'
-import { WorkflowContractPanel } from '@/components/molecules/WorkflowContractPanel'
-import { WorkpadPanel } from '@/components/molecules/WorkpadPanel'
-import { RuntimeStatusPanel } from '@/components/molecules/RuntimeStatusPanel'
+import { StatusPanel } from '@/components/molecules/StatusPanel'
+import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
 import {
   usePlanningThreads,
   useCreatePlanningThread,
@@ -124,7 +121,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
-  const [activeContextTab, setActiveContextTab] = useState<'checkpoint' | 'attention' | 'sources' | 'timeline' | 'workflow' | 'workpad' | 'runtime' | null>(null)
+  const [activeContextTab, setActiveContextTab] = useState<'status' | 'sources' | 'workflow-notes' | 'timeline' | null>(null)
   const [pendingVisionEdit, setPendingVisionEdit] = useState<
     { newContent: string; previousContent: string | null } | null
   >(null)
@@ -742,12 +739,9 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               <>
                     {(
                       [
-                        { key: 'checkpoint' as const, label: 'Checkpoint', badge: undefined as number | undefined },
-                        { key: 'attention' as const, label: 'Attention', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
+                        { key: 'status' as const, label: 'Status', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
                         { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
-                        { key: 'workflow' as const, label: 'Workflow', badge: undefined as number | undefined },
-                        { key: 'workpad' as const, label: 'Workpad', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
-                        { key: 'runtime' as const, label: 'Runtime', badge: initialProject.runtimeStatus?.retryCount ? initialProject.runtimeStatus.retryCount : undefined },
+                        { key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
                         { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
                       ]
                     ).map(({ key, label, badge }) => (
@@ -777,29 +771,22 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             open={activeContextTab !== null}
             onClose={() => setActiveContextTab(null)}
             title={
-              activeContextTab === 'checkpoint' ? 'Checkpoint'
-              : activeContextTab === 'attention' ? 'Attention Items'
+              activeContextTab === 'status' ? 'Status'
               : activeContextTab === 'sources' ? 'Imported Sources'
-              : activeContextTab === 'workflow' ? 'Workflow Contract'
-              : activeContextTab === 'workpad' ? 'Project Workpad'
-              : activeContextTab === 'runtime' ? 'AI Runtime'
+              : activeContextTab === 'workflow-notes' ? 'Workflow Notes'
               : activeContextTab === 'timeline' ? 'Planning Timeline'
               : ''
             }
           >
-            {activeContextTab === 'checkpoint' && (
-              <WhereWeLeftOffPanel
+            {activeContextTab === 'status' && (
+              <StatusPanel
                 phase={currentPhase}
                 latestEvent={latestPlanningEvent}
                 pendingApprovals={pendingTaskApprovals}
-                openAttention={attentionItems}
+                attentionItems={attentionItems}
+                runtimeStatus={initialProject.runtimeStatus}
                 userContext={initialProject.userContext}
-              />
-            )}
-            {activeContextTab === 'attention' && (
-              <PlanningAttentionPanel
-                items={attentionItems}
-                onResolve={resolveAttentionItem}
+                onResolveAttention={resolveAttentionItem}
               />
             )}
             {activeContextTab === 'sources' && (
@@ -808,11 +795,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 onUpdateSource={(sourceId, patch) => updateImportedSource(initialProject.id, sourceId, patch)}
               />
             )}
-            {activeContextTab === 'workflow' && <WorkflowContractPanel contract={workflowContract} />}
-            {activeContextTab === 'workpad' && (
-              <WorkpadPanel
+            {activeContextTab === 'workflow-notes' && (
+              <WorkflowNotesPanel
+                contract={workflowContract}
                 workpad={initialProject.workpad}
-                onUpdate={(patch) => {
+                onUpdateWorkpad={(patch) => {
                   if (!initialProject.workpad) return
                   useKanbanStore.getState().updateProject(initialProject.id, {
                     workpad: { ...initialProject.workpad, ...patch },
@@ -820,7 +807,6 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 }}
               />
             )}
-            {activeContextTab === 'runtime' && <RuntimeStatusPanel status={initialProject.runtimeStatus} />}
             {activeContextTab === 'timeline' && <PlanningTimelinePanel events={planningEvents} />}
           </ContextDrawer>
 
