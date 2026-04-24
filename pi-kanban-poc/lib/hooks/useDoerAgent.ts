@@ -306,6 +306,81 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     void start(currentSubtaskId)
   }, [currentSubtaskId, start])
 
+  const refineOutput = useCallback(async (instruction: string) => {
+    const currentId = currentSubtaskId
+    if (!currentId || !task) return
+    const ctx = buildContext(currentId)
+    if (!ctx?.currentSubtask) return
+
+    const currentDraft = envelope?.result
+      ? { summary: envelope.result.summary, artifact: envelope.result.artifact }
+      : null
+
+    setState('working')
+    setError(null)
+
+    const prompt = buildDoerPrompt(ctx, undefined, instruction, currentDraft)
+
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      const response = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'doer',
+          messages: [{ role: 'user', content: `Revise the output based on: ${instruction}` }],
+          taskId,
+          taskTitle,
+          taskDescription,
+          systemPromptOverride: prompt,
+        }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error ?? `Doer request failed (${response.status})`)
+      }
+      const data = (await response.json()) as { envelope?: DoerEnvelope; tokenUsage?: { input: number; output: number } }
+      const parsed = data.envelope ?? null
+      if (!parsed) throw new Error('Doer response was not valid JSON')
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      if (data.tokenUsage && task) {
+        addTokenUsage(task.projectId, data.tokenUsage)
+      }
+
+      setEnvelope(parsed)
+
+      if (parsed.result) {
+        saveDoerResult(taskId, currentId, parsed.result)
+      }
+      setState(parsed.needsHumanInput ? 'needs-input' : 'result')
+
+      logActivity({
+        taskId,
+        type: 'doer_started_subtask',
+        actor: 'user',
+        summary: `Output refined based on: "${instruction}"`,
+        metadata: { subtaskId: currentId },
+        resourceLink: { type: 'subtask', id: currentId },
+      })
+    } catch (e) {
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState('idle')
+        return
+      }
+      setError(formatError(e))
+      setState('error')
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
+    }
+  }, [addTokenUsage, buildContext, currentSubtaskId, envelope, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle])
+
   return {
     state,
     error,
@@ -315,6 +390,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     answerClarification,
     acceptCurrentStep,
     retryCurrentStep,
+    refineOutput,
     abort,
   }
 }
@@ -322,6 +398,8 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 function buildDoerPrompt(
   ctx: DoerContext,
   clarificationAnswer?: string,
+  refineInstruction?: string,
+  currentDraft?: { summary: string; artifact: string } | null,
 ): string {
   const current = ctx.currentSubtask
   const lines: string[] = [
@@ -381,6 +459,14 @@ function buildDoerPrompt(
 
   if (clarificationAnswer) {
     lines.push('', `User clarification: ${clarificationAnswer}`)
+  }
+
+  if (refineInstruction && currentDraft) {
+    lines.push('', 'EXISTING DRAFT (the user wants you to revise it):')
+    lines.push(`Summary: ${currentDraft.summary}`)
+    lines.push(`Artifact:\n${currentDraft.artifact}`)
+    lines.push('', `User revision request: ${refineInstruction}`)
+    lines.push('Produce an improved version of the artifact based on the user request above.')
   }
 
   return lines.join('\n')

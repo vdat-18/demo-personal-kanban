@@ -18,25 +18,33 @@ export default function MissionControlPage({ params }: Props) {
 
   const serialized = useMemo(() => {
     if (!project) return null
-    return {
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      planningStatus: project.planningStatus,
-      playbookId: project.playbookId,
-      importedSources: project.importedSources,
-      tasks: tasks
-        .filter((t) => t.projectId === project.id)
-        .map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          priority: t.priority,
-          createdAt: t.createdAt,
-          updatedAt: t.updatedAt,
-        })),
-    }
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        planningStatus: project.planningStatus,
+        playbookId: project.playbookId,
+        importedSources: project.importedSources,
+        workflowContract: project.workflowContract,
+        workpad: project.workpad,
+        runtimeStatus: project.runtimeStatus,
+        tasks: tasks
+          .filter((t) => t.projectId === project.id)
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            dependsOnTaskIds: t.dependsOnTaskIds,
+            blockedByTaskIds: t.blockedByTaskIds,
+            runtimeState: t.runtimeState,
+            runtimeLastAction: t.runtimeLastAction,
+            runtimeNextAction: t.runtimeNextAction,
+          })),
+      }
   }, [project, tasks])
 
   useEffect(() => {

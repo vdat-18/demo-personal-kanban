@@ -10,6 +10,7 @@ import { TaskFormDialog, type TaskFormValues } from '@/components/molecules/Task
 import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakdownAutoRunner'
 import { StatusPanel } from '@/components/molecules/StatusPanel'
 import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
+import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -85,11 +86,17 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
       priority: t.priority,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
+      dependsOnTaskIds: t.dependsOnTaskIds,
+      blockedByTaskIds: t.blockedByTaskIds,
+      runtimeState: t.runtimeState,
+      runtimeLastAction: t.runtimeLastAction,
+      runtimeNextAction: t.runtimeNextAction,
     })) as Task[]
 
   const project = { ...initialProject, tasks }
   const effectiveWorkflowContract = liveProject?.workflowContract ?? project.workflowContract
 
+  const [contextDrawerTab, setContextDrawerTab] = useState<'status' | 'sources' | 'notes' | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<UITaskStatus | null>(null)
@@ -179,32 +186,56 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         tokenUsage={projectTokenUsage}
         onBack={() => router.push('/')}
         onAddTask={() => setAddDialog({ open: true, status: 'TODO' })}
+        onPlanning={() => router.push(`/planning/${project.id}`)}
       />
 
-      <div className="px-6 pt-5 grid xl:grid-cols-3 gap-4 shrink-0 bg-[linear-gradient(180deg,#f7f9fc_0%,#f3f7fb_100%)] border-b border-slate-100">
-        <StatusPanel
-          phase={project.planningStatus === 'completed' ? 'task_mapping' : 'blueprint'}
-          latestEvent={getPlanningEventsForProject(project.id)[0] ?? null}
-          pendingApprovals={0}
-          attentionItems={getAttentionItemsForProject(project.id)}
-          runtimeStatus={liveProject?.runtimeStatus ?? project.runtimeStatus}
-          userContext={null}
-          onResolveAttention={resolveAttentionItem}
-        />
-        {effectiveWorkflowContract && (
-          <WorkflowNotesPanel
-            contract={effectiveWorkflowContract}
-            workpad={liveProject?.workpad ?? project.workpad}
-            onUpdateWorkpad={(patch) => {
-              const currentWorkpad = liveProject?.workpad ?? project.workpad
-              if (!currentWorkpad) return
-              useKanbanStore.getState().updateProject(project.id, {
-                workpad: { ...currentWorkpad, ...patch },
-              })
-            }}
-          />
-        )}
+      {/* Context tab bar */}
+      <div className="flex items-center gap-0.5 px-8 border-b border-gray-100 bg-white shrink-0">
+        {(['status', 'sources', 'notes'] as const).filter(tab => {
+          if (tab === 'sources') return (liveProject?.importedSources?.length ?? project.importedSources?.length ?? 0) > 0
+          if (tab === 'notes') return !!effectiveWorkflowContract
+          return true
+        }).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setContextDrawerTab(contextDrawerTab === tab ? null : tab)}
+            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] border-b-2 transition-colors ${
+              contextDrawerTab === tab
+                ? 'border-indigo-500 text-indigo-700'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            {tab === 'status' ? 'Status' : tab === 'sources' ? 'Sources' : 'Workflow Notes'}
+          </button>
+        ))}
       </div>
+
+      {/* Context Drawer */}
+      {contextDrawerTab && (
+        <div className="bg-white border-b border-gray-100 px-8 py-4 overflow-y-auto max-h-80 animate-in slide-in-from-top duration-200">
+          {contextDrawerTab === 'status' && (
+            <StatusPanel
+              phase={'discovery'}
+              latestEvent={null}
+              pendingApprovals={0}
+              attentionItems={getAttentionItemsForProject(initialProject.id)}
+              runtimeStatus={liveProject?.runtimeStatus ?? null}
+              userContext={null}
+              onResolveAttention={resolveAttentionItem}
+            />
+          )}
+          {contextDrawerTab === 'sources' && (
+            <ImportedSourcesPanel sources={liveProject?.importedSources ?? project.importedSources ?? []} />
+          )}
+          {contextDrawerTab === 'notes' && effectiveWorkflowContract && (
+            <WorkflowNotesPanel
+              contract={effectiveWorkflowContract}
+              workpad={liveProject?.workpad ?? null}
+              onUpdateWorkpad={() => {}}
+            />
+          )}
+        </div>
+      )}
 
       <KanbanBoard
         tasks={tasks}

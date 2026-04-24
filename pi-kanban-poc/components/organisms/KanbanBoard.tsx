@@ -21,6 +21,11 @@ interface Task {
   priority: string
   createdAt: string
   updatedAt: string
+  dependsOnTaskIds?: string[]
+  blockedByTaskIds?: string[]
+  runtimeState?: string
+  runtimeLastAction?: string | null
+  runtimeNextAction?: string | null
 }
 
 export interface KanbanBoardProps {

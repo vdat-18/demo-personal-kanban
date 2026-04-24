@@ -39,6 +39,15 @@ export const messages = {
     personalAI: {
       title: 'Personal AI Context', subtitle: 'These preferences are reused across projects so planning can feel more consistent.', preferredLanguage: 'Preferred language', responseStyle: 'Response style', planningFormat: 'Planning format', workingNotes: 'Working notes for the AI', notePlaceholder: 'Examples: Use Vietnamese by default. Keep outputs structured and easy to scan. Prefer action items with clear owners and deadlines.', english: 'English', vietnamese: 'Vietnamese', bilingual: 'Bilingual', concise: 'Concise', balanced: 'Balanced', detailed: 'Detailed', bulletsFirst: 'Bullets first', structuredDoc: 'Structured document', actionFirst: 'Action first', savePreferences: 'Save preferences',
     },
+    batchQuestion: {
+      yourAnswers: 'Your answers', editingAnswers: 'Editing answers', fillBlanks: 'Fill in {n} quick blanks',
+      edit: 'Edit', cancel: 'Cancel', skipAll: 'Skip all', resubmit: 'Resubmit', submitAnswers: 'Submit answers', answerPlaceholder: 'Enter your answer…',
+    },
+    taskPanel: {
+      tasks: 'Tasks', addTask: 'Add Task', workingNow: 'Working now',
+      dragHint: 'Drag to reorder · hover for details · click edit to change',
+      loadingTasks: 'Loading tasks…', emptyTitle: 'Your task list is empty', emptyDesc: 'Chat with the AI to draft your task list.',
+    },
     mission: {
       runtime: 'Runtime', totalTasks: 'Total Tasks', inExecution: 'In Execution', completed: 'Completed', archived: 'Archived', agents: 'Agents', closeMission: 'Close Mission', aiProcessing: 'AI Processing', newTask: 'New Task',
     },
@@ -80,6 +89,15 @@ export const messages = {
     personalAI: {
       title: 'Ngữ cảnh AI cá nhân', subtitle: 'Các tuỳ chọn này sẽ được dùng lại giữa nhiều project để planning nhất quán hơn.', preferredLanguage: 'Ngôn ngữ ưu tiên', responseStyle: 'Phong cách phản hồi', planningFormat: 'Định dạng planning', workingNotes: 'Ghi chú làm việc cho AI', notePlaceholder: 'Ví dụ: Dùng tiếng Việt mặc định. Giữ output có cấu trúc và dễ scan. Ưu tiên action items rõ owner và deadline.', english: 'Tiếng Anh', vietnamese: 'Tiếng Việt', bilingual: 'Song ngữ', concise: 'Ngắn gọn', balanced: 'Cân bằng', detailed: 'Chi tiết', bulletsFirst: 'Ưu tiên bullet', structuredDoc: 'Tài liệu có cấu trúc', actionFirst: 'Ưu tiên hành động', savePreferences: 'Lưu tuỳ chọn',
     },
+    batchQuestion: {
+      yourAnswers: 'Câu trả lời của bạn', editingAnswers: 'Đang chỉnh sửa câu trả lời', fillBlanks: 'Điền {n} thông tin nhanh',
+      edit: 'Sửa', cancel: 'Huỷ', skipAll: 'Bỏ qua tất cả', resubmit: 'Gửi lại', submitAnswers: 'Gửi câu trả lời', answerPlaceholder: 'Nhập câu trả lời…',
+    },
+    taskPanel: {
+      tasks: 'Nhiệm vụ', addTask: 'Thêm nhiệm vụ', workingNow: 'Đang thực hiện',
+      dragHint: 'Kéo để sắp xếp · rê để xem chi tiết · nhấn để sửa',
+      loadingTasks: 'Đang tải nhiệm vụ…', emptyTitle: 'Danh sách nhiệm vụ trống', emptyDesc: 'Chat với AI để lên danh sách nhiệm vụ.',
+    },
     mission: {
       runtime: 'Runtime', totalTasks: 'Tổng task', inExecution: 'Đang thực thi', completed: 'Hoàn thành', archived: 'Lưu trữ', agents: 'Agents', closeMission: 'Đóng mission', aiProcessing: 'AI đang xử lý', newTask: 'Task mới',
     },
@@ -94,6 +112,8 @@ export const messages = {
     importFlow: { title: 'นำเข้าโปรเจกต์บรีฟ', pickSource: 'เลือกแหล่งข้อมูล', reviewExtraction: 'ตรวจการดึงข้อมูล', nameAndStart: 'ตั้งชื่อและเริ่ม', readingFiles: 'กำลังอ่านไฟล์ของคุณ…', dropFiles: 'ลากไฟล์มาที่นี่หรือคลิกเพื่อเลือก', supportedFiles: 'PDF, Word, Excel, CSV, ข้อความ, รูปภาพ · สูงสุด 5 ไฟล์', orPaste: 'หรือวางข้อความ', pastePlaceholder: 'วางบรีฟโปรเจกต์ อีเมล บันทึกการประชุม หรือบริบทเริ่มต้นใดๆ…', usePastedText: 'ใช้ข้อความที่วาง', reviewIntro: 'เราได้ดึงข้อมูลต่อไปนี้จากการนำเข้า กรุณาตรวจสอบก่อนดำเนินการต่อ', previewExtractedText: 'ดูตัวอย่างข้อความที่ดึงได้', removeFile: 'ลบไฟล์', importWarning: 'ไฟล์นี้ต้องใช้โมเดล AI ที่รองรับ vision เพื่อทำความเข้าใจ แต่จะยังถูกแนบเป็นข้อมูลอ้างอิง' },
     planning: { status: 'สถานะ', sources: 'แหล่งข้อมูล', workflowNotes: 'บันทึก workflow', timeline: 'ไทม์ไลน์', history: 'ประวัติ', currentPhase: 'เฟสปัจจุบัน', pendingApprovals: 'การอนุมัติที่รออยู่', latestEvent: 'เหตุการณ์ล่าสุด', attentionItems: 'รายการที่ต้องสนใจ', aiRuntime: 'AI runtime', noPlanningMilestones: 'ยังไม่มีหลักไมล์การวางแผน', noActionRecorded: 'ยังไม่มีการบันทึกการกระทำ', currentPlanningAndRuntime: 'สถานะการวางแผนและ runtime ปัจจุบัน', importedSources: 'แหล่งข้อมูลที่นำเข้า', workflowNotesDescription: 'กติกา การตรวจสอบ และบันทึกการทำงาน', planningTimeline: 'ไทม์ไลน์การวางแผน', recentPlanningEvents: 'เหตุการณ์การวางแผนล่าสุด', all: 'ทั้งหมด', sourcesFilter: 'แหล่งข้อมูล', revisions: 'การแก้ไข', tasks: 'งาน', planningMilestonesEvolve: 'หลักไมล์การวางแผนจะปรากฏที่นี่เมื่อโปรเจกต์พัฒนาไป', savedUserContext: 'บริบทผู้ใช้ที่บันทึกไว้', needsAttention: 'ต้องใส่ใจ' },
     personalAI: { title: 'บริบท AI ส่วนตัว', subtitle: 'การตั้งค่าเหล่านี้จะถูกใช้ซ้ำในหลายโปรเจกต์เพื่อให้การวางแผนสม่ำเสมอขึ้น', preferredLanguage: 'ภาษาที่ต้องการ', responseStyle: 'รูปแบบการตอบ', planningFormat: 'รูปแบบการวางแผน', workingNotes: 'บันทึกการทำงานสำหรับ AI', notePlaceholder: 'ตัวอย่าง: ใช้ภาษาไทยเป็นค่าเริ่มต้น จัดโครงสร้างให้อ่านง่าย และเน้น action items ที่มี owner และ deadline ชัดเจน', english: 'อังกฤษ', vietnamese: 'เวียดนาม', bilingual: 'สองภาษา', concise: 'กระชับ', balanced: 'สมดุล', detailed: 'ละเอียด', bulletsFirst: 'ใช้ bullet ก่อน', structuredDoc: 'เอกสารมีโครงสร้าง', actionFirst: 'เน้นการลงมือทำ', savePreferences: 'บันทึกการตั้งค่า' },
+    batchQuestion: { yourAnswers: 'คำตอบของคุณ', editingAnswers: 'กำลังแก้ไขคำตอบ', fillBlanks: 'กรอก {n} ช่องให้ครบ', edit: 'แก้ไข', cancel: 'ยกเลิก', skipAll: 'ข้ามทั้งหมด', resubmit: 'ส่งอีกครั้ง', submitAnswers: 'ส่งคำตอบ', answerPlaceholder: 'กรอกคำตอบ…' },
+    taskPanel: { tasks: 'งาน', addTask: 'เพิ่มงาน', workingNow: 'กำลังทำอยู่', dragHint: 'ลากเพื่อจัดเรียง · รอเพื่อดูรายละเอียด · คลิกเพื่อแก้ไข', loadingTasks: 'กำลังโหลดงาน…', emptyTitle: 'รายการงานยังว่างอยู่', emptyDesc: 'แชทกับ AI เพื่อสร้างรายการงาน' },
     mission: { runtime: 'Runtime', totalTasks: 'งานทั้งหมด', inExecution: 'กำลังดำเนินการ', completed: 'เสร็จแล้ว', archived: 'เก็บถาวร', agents: 'Agents', closeMission: 'ปิด mission', aiProcessing: 'AI กำลังประมวลผล', newTask: 'งานใหม่' },
     locale: { en: 'English', vi: 'Tiếng Việt', th: 'ไทย', ko: '한국어', ja: '日本語' },
   },
@@ -106,6 +126,8 @@ export const messages = {
     importFlow: { title: '프로젝트 브리프 가져오기', pickSource: '소스 선택', reviewExtraction: '추출 검토', nameAndStart: '이름 지정 및 시작', readingFiles: '파일을 읽는 중…', dropFiles: '파일을 여기로 드래그하거나 클릭해 선택하세요', supportedFiles: 'PDF, Word, Excel, CSV, 텍스트, 이미지 · 최대 5개 파일', orPaste: '또는 텍스트 붙여넣기', pastePlaceholder: '프로젝트 브리프, 이메일, 회의 메모 또는 시작 컨텍스트를 붙여넣으세요…', usePastedText: '붙여넣은 텍스트 사용', reviewIntro: '가져온 자료에서 다음 내용을 추출했습니다. 계속하기 전에 확인하세요.', previewExtractedText: '추출된 텍스트 미리보기', removeFile: '파일 제거', importWarning: '이 파일은 해석을 위해 vision 지원 AI 모델이 필요하지만 참조 자료로는 계속 첨부됩니다.' },
     planning: { status: '상태', sources: '소스', workflowNotes: '워크플로 노트', timeline: '타임라인', history: '히스토리', currentPhase: '현재 단계', pendingApprovals: '대기 중인 승인', latestEvent: '최근 이벤트', attentionItems: '주의 항목', aiRuntime: 'AI 런타임', noPlanningMilestones: '아직 계획 마일스톤이 없습니다', noActionRecorded: '기록된 작업이 없습니다', currentPlanningAndRuntime: '현재 계획 및 런타임 상태', importedSources: '가져온 소스', workflowNotesDescription: '규칙, 검증, 실시간 프로젝트 노트', planningTimeline: '계획 타임라인', recentPlanningEvents: '최근 계획 이벤트', all: '전체', sourcesFilter: '소스', revisions: '수정', tasks: '작업', planningMilestonesEvolve: '프로젝트가 진행되면 계획 마일스톤이 여기에 표시됩니다.', savedUserContext: '저장된 사용자 컨텍스트', needsAttention: '주의 필요' },
     personalAI: { title: '개인 AI 컨텍스트', subtitle: '이 설정은 여러 프로젝트에서 재사용되어 계획 경험을 더 일관되게 만듭니다.', preferredLanguage: '선호 언어', responseStyle: '응답 스타일', planningFormat: '계획 형식', workingNotes: 'AI를 위한 작업 메모', notePlaceholder: '예: 가능하면 한국어 사용. 읽기 쉬운 구조로 정리. 담당자와 마감일이 있는 action item 선호.', english: '영어', vietnamese: '베트남어', bilingual: '이중 언어', concise: '간결하게', balanced: '균형 있게', detailed: '상세하게', bulletsFirst: '불릿 우선', structuredDoc: '구조화된 문서', actionFirst: '행동 우선', savePreferences: '설정 저장' },
+    batchQuestion: { yourAnswers: '내 답변', editingAnswers: '답변 수정 중', fillBlanks: '{n}가지 정보 입력', edit: '수정', cancel: '취소', skipAll: '모두 건너뛰기', resubmit: '다시 제출', submitAnswers: '답변 제출', answerPlaceholder: '답변을 입력하세요…' },
+    taskPanel: { tasks: '작업', addTask: '작업 추가', workingNow: '진행 중', dragHint: '드래그하여 순서 변경 · 호버로 상세 보기 · 클릭하여 수정', loadingTasks: '작업 불러오는 중…', emptyTitle: '작업 목록이 비어 있습니다', emptyDesc: 'AI와 대화하여 작업 목록을 만드세요.' },
     mission: { runtime: '런타임', totalTasks: '전체 작업', inExecution: '실행 중', completed: '완료', archived: '보관됨', agents: '에이전트', closeMission: '미션 닫기', aiProcessing: 'AI 처리 중', newTask: '새 작업' },
     locale: { en: 'English', vi: 'Tiếng Việt', th: 'ไทย', ko: '한국어', ja: '日本語' },
   },
@@ -118,6 +140,8 @@ export const messages = {
     importFlow: { title: 'プロジェクトブリーフを取り込む', pickSource: 'ソースを選択', reviewExtraction: '抽出内容を確認', nameAndStart: '名前を付けて開始', readingFiles: 'ファイルを読み込み中…', dropFiles: 'ここにファイルをドロップするかクリックして選択', supportedFiles: 'PDF、Word、Excel、CSV、テキスト、画像 · 最大5ファイル', orPaste: 'またはテキストを貼り付け', pastePlaceholder: 'プロジェクトブリーフ、メール、会議メモ、または開始コンテキストを貼り付けてください…', usePastedText: '貼り付けたテキストを使う', reviewIntro: '取り込み内容から以下を抽出しました。続行前に確認してください。', previewExtractedText: '抽出テキストをプレビュー', removeFile: 'ファイルを削除', importWarning: 'このファイルを理解するには vision 対応AIモデルが必要ですが、参照資料としては引き続き添付されます。' },
     planning: { status: 'ステータス', sources: 'ソース', workflowNotes: 'ワークフローノート', timeline: 'タイムライン', history: '履歴', currentPhase: '現在のフェーズ', pendingApprovals: '保留中の承認', latestEvent: '最新イベント', attentionItems: '注意項目', aiRuntime: 'AIランタイム', noPlanningMilestones: 'まだ計画マイルストーンはありません', noActionRecorded: 'まだ記録されたアクションはありません', currentPlanningAndRuntime: '現在の計画とランタイムの状態', importedSources: '取り込んだソース', workflowNotesDescription: 'ルール、検証、ライブノート', planningTimeline: '計画タイムライン', recentPlanningEvents: '最近の計画イベント', all: 'すべて', sourcesFilter: 'ソース', revisions: '改訂', tasks: 'タスク', planningMilestonesEvolve: 'プロジェクトが進むと計画マイルストーンがここに表示されます。', savedUserContext: '保存されたユーザーコンテキスト', needsAttention: '対応が必要' },
     personalAI: { title: '個人AIコンテキスト', subtitle: 'これらの設定は複数のプロジェクトで再利用され、より一貫した計画体験になります。', preferredLanguage: '希望言語', responseStyle: '応答スタイル', planningFormat: '計画フォーマット', workingNotes: 'AIへの作業メモ', notePlaceholder: '例: 可能なら日本語を使う。読みやすい構造を保つ。担当者と期限が明確なアクションアイテムを優先する。', english: '英語', vietnamese: 'ベトナム語', bilingual: 'バイリンガル', concise: '簡潔', balanced: 'バランス', detailed: '詳細', bulletsFirst: '箇条書き優先', structuredDoc: '構造化ドキュメント', actionFirst: '行動優先', savePreferences: '設定を保存' },
+    batchQuestion: { yourAnswers: 'あなたの回答', editingAnswers: '回答を編集中', fillBlanks: '{n}つの項目を入力', edit: '編集', cancel: 'キャンセル', skipAll: 'すべてスキップ', resubmit: '再送信', submitAnswers: '回答を送信', answerPlaceholder: '回答を入力…' },
+    taskPanel: { tasks: 'タスク', addTask: 'タスクを追加', workingNow: '進行中', dragHint: 'ドラッグして並べ替え · ホバーで詳細 · クリックして編集', loadingTasks: 'タスク読み込み中…', emptyTitle: 'タスクリストは空です', emptyDesc: 'AIと話してタスクリストを作成しましょう。' },
     mission: { runtime: 'ランタイム', totalTasks: '総タスク数', inExecution: '実行中', completed: '完了', archived: 'アーカイブ済み', agents: 'エージェント', closeMission: 'ミッションを閉じる', aiProcessing: 'AI処理中', newTask: '新しいタスク' },
     locale: { en: 'English', vi: 'Tiếng Việt', th: 'ไทย', ko: '한국어', ja: '日本語' },
   },

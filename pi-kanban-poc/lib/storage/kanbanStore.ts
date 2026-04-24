@@ -425,6 +425,16 @@ export const useKanbanStore = create<KanbanState>()(
           order: nextOrder,
           statusChangedAt: now(),
           sourceProposal,
+          dependsOnTaskIds: [],
+          blockedByTaskIds: [],
+          runtimeState: status === 'BLOCKED' ? 'blocked' : status === 'DONE' ? 'done' : status === 'IN_REVIEW' ? 'waiting_review' : status === 'IN_PROGRESS' ? 'running' : 'idle',
+          runtimeLastAction: 'Task created',
+          runtimeNextAction: status === 'TODO' ? 'Refine or start this task.' : status === 'IN_PROGRESS' ? 'Continue execution work.' : status === 'IN_REVIEW' ? 'Review the current output.' : null,
+          runtimeRetryCount: 0,
+          runtimeBlockedReason: null,
+          validationChecklist: [],
+          acceptanceCriteria: [],
+          proofOfWork: [],
         }
         const activity: TaskActivityEntry = {
           id: uid('act'),
@@ -459,6 +469,16 @@ export const useKanbanStore = create<KanbanState>()(
           updatedAt: now(),
           order: nextOrder++,
           statusChangedAt: now(),
+          dependsOnTaskIds: [],
+          blockedByTaskIds: [],
+          runtimeState: (it.status ?? 'TODO') === 'IN_REVIEW' ? 'waiting_review' : (it.status ?? 'TODO') === 'IN_PROGRESS' ? 'running' : (it.status ?? 'TODO') === 'DONE' ? 'done' : (it.status ?? 'TODO') === 'BLOCKED' ? 'blocked' : 'idle',
+          runtimeLastAction: 'Task created',
+          runtimeNextAction: (it.status ?? 'TODO') === 'TODO' ? 'Refine or start this task.' : null,
+          runtimeRetryCount: 0,
+          runtimeBlockedReason: null,
+          validationChecklist: [],
+          acceptanceCriteria: [],
+          proofOfWork: [],
         }))
         const newActivities: TaskActivityEntry[] = created.map((t) => ({
           id: uid('act'),
@@ -488,9 +508,23 @@ export const useKanbanStore = create<KanbanState>()(
             // "active task" indicator can compute a meaningful "in
             // progress for X minutes" label.
             const statusChanged = patch.status && patch.status !== t.status
+            const nextRuntimeState = patch.status
+              ? patch.status === 'BLOCKED'
+                ? 'blocked'
+                : patch.status === 'DONE'
+                  ? 'done'
+                  : patch.status === 'IN_REVIEW'
+                    ? 'waiting_review'
+                    : patch.status === 'IN_PROGRESS'
+                      ? 'running'
+                      : 'idle'
+              : t.runtimeState
             updated = {
               ...t,
               ...patch,
+              runtimeState: nextRuntimeState,
+              runtimeLastAction: patch.status ? `Status moved to ${patch.status}` : (patch.runtimeLastAction ?? t.runtimeLastAction),
+              runtimeBlockedReason: patch.status === 'BLOCKED' ? (patch.runtimeBlockedReason ?? t.runtimeBlockedReason ?? 'Task was manually blocked.') : patch.status ? null : (patch.runtimeBlockedReason ?? t.runtimeBlockedReason),
               updatedAt: now(),
               ...(statusChanged ? { statusChangedAt: now() } : {}),
             } as Task

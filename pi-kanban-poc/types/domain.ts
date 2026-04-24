@@ -246,6 +246,17 @@ export interface Task {
   /** Latest reviewer verdict for quick UI consumption, mirroring the
    *  field on ReviewerEnvelope. */
   lastReviewVerdict?: 'approve' | 'minor_revision' | 'major_revision' | 'replan_needed'
+  /** Task dependency graph inspired by execution-first kanban systems. */
+  dependsOnTaskIds?: string[]
+  blockedByTaskIds?: string[]
+  runtimeState?: 'idle' | 'ready' | 'running' | 'waiting_review' | 'blocked' | 'retrying' | 'done'
+  runtimeLastAction?: string | null
+  runtimeNextAction?: string | null
+  runtimeRetryCount?: number
+  runtimeBlockedReason?: string | null
+  validationChecklist?: string[]
+  acceptanceCriteria?: string[]
+  proofOfWork?: string[]
   /**
    * Soft-delete timestamp. When set, the task is hidden from all selectors
    * but kept in the store so the user can hit "Undo" within the toast

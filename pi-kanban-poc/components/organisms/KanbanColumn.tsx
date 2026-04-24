@@ -27,6 +27,11 @@ interface Task {
   priority: string
   createdAt: string
   updatedAt: string
+  dependsOnTaskIds?: string[]
+  blockedByTaskIds?: string[]
+  runtimeState?: string
+  runtimeLastAction?: string | null
+  runtimeNextAction?: string | null
 }
 
 export interface KanbanColumnProps {
@@ -129,15 +134,20 @@ export function KanbanColumn({
 
       <div className="p-4 overflow-y-auto flex flex-col gap-4 flex-1">
         {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            id={task.id}
-            title={task.title}
-            description={task.description}
-            status={task.status}
-            onDragStart={onDragStart}
-            onClick={() => onTaskClick(task.id, task.status)}
-            onUpdateStatus={onUpdateStatus}
+            <TaskCard
+              key={task.id}
+              id={task.id}
+              title={task.title}
+              description={task.description}
+              status={task.status}
+              dependsOnTaskIds={task.dependsOnTaskIds}
+              blockedByTaskIds={task.blockedByTaskIds}
+              runtimeState={task.runtimeState}
+              runtimeLastAction={task.runtimeLastAction}
+              runtimeNextAction={task.runtimeNextAction}
+              onDragStart={onDragStart}
+              onClick={() => onTaskClick(task.id, task.status)}
+              onUpdateStatus={onUpdateStatus}
             onCancelRequest={() => onCancelRequest(task)}
             getNextStatus={getNextStatus}
           />

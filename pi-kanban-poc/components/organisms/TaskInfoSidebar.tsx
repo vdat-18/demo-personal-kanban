@@ -6,7 +6,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ConversationHistoryPanel } from '@/components/molecules/ConversationHistoryPanel'
 import { TokenCounter } from '@/components/molecules/TokenCounter'
-import type { UITaskStatus, UIConversation, SubtaskApprovalStatus, TaskStatus, TaskPriority } from '@/types/domain'
+import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
+import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
+import type { UITaskStatus, UIConversation, SubtaskApprovalStatus, TaskStatus, TaskPriority, ImportedSource, WorkflowContract, WorkpadEntry } from '@/types/domain'
 import { getAllowedTransitions } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
 import { formatTaskStatus, formatPriority } from '@/lib/display/format'
@@ -16,6 +18,16 @@ export interface TaskInfoSidebarProps {
   taskDescription: string | null
   taskStatus: UITaskStatus
   taskPriority: string
+  dependsOnTaskIds?: string[]
+  blockedByTaskIds?: string[]
+  runtimeState?: string | null
+  runtimeLastAction?: string | null
+  runtimeNextAction?: string | null
+  runtimeRetryCount?: number
+  runtimeBlockedReason?: string | null
+  validationChecklist?: string[]
+  acceptanceCriteria?: string[]
+  proofOfWork?: string[]
 subtasks?: Array<{
     id: string
     title: string
@@ -40,6 +52,9 @@ subtasks?: Array<{
   onUpdateStatus: (status: UITaskStatus) => void
   onAbort: () => void
   activityTimeline?: React.ReactNode
+  importedSources?: ImportedSource[]
+  workflowContract?: WorkflowContract | null
+  workpad?: WorkpadEntry | null
 }
 
 export function TaskInfoSidebar({
@@ -47,9 +62,22 @@ export function TaskInfoSidebar({
   taskDescription,
   taskStatus,
   taskPriority,
+  dependsOnTaskIds = [],
+  blockedByTaskIds = [],
+  runtimeState,
+  runtimeLastAction,
+  runtimeNextAction,
+  runtimeRetryCount = 0,
+  runtimeBlockedReason,
+  validationChecklist = [],
+  acceptanceCriteria = [],
+  proofOfWork = [],
   subtasks = [],
   currentStep,
   conversations,
+  importedSources = [],
+  workflowContract,
+  workpad,
   isStreaming,
   activeAgentLabel,
   onUpdateStatus,
@@ -57,6 +85,7 @@ export function TaskInfoSidebar({
   activityTimeline,
 }: TaskInfoSidebarProps) {
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null)
+  const [projectContextTab, setProjectContextTab] = useState<'sources' | 'notes' | null>(null)
 
   const taskTokenUsage = conversations.reduce(
     (acc, c) => ({
@@ -116,7 +145,62 @@ export function TaskInfoSidebar({
             <TokenCounter input={taskTokenUsage.input} output={taskTokenUsage.output} />
           </div>
         )}
+        {(dependsOnTaskIds.length > 0 || blockedByTaskIds.length > 0 || runtimeState) && (
+          <div className="mt-3 pt-3 border-t border-gray-50 space-y-2">
+            {dependsOnTaskIds.length > 0 && (
+              <div className="text-xs text-slate-500">Depends on {dependsOnTaskIds.length} task{dependsOnTaskIds.length === 1 ? '' : 's'}</div>
+            )}
+            {blockedByTaskIds.length > 0 && (
+              <div className="text-xs text-amber-600 font-semibold">Blocked by {blockedByTaskIds.length} task{blockedByTaskIds.length === 1 ? '' : 's'}</div>
+            )}
+            {runtimeState && runtimeState.toLowerCase() !== 'idle' && (
+              <div className="text-xs text-blue-600 font-semibold uppercase tracking-[0.12em]">{runtimeState}</div>
+            )}
+            {runtimeLastAction && <div className="text-xs text-slate-500">Last action: {runtimeLastAction}</div>}
+            {runtimeNextAction && <div className="text-xs text-slate-700 font-medium">Next action: {runtimeNextAction}</div>}
+            {runtimeRetryCount > 0 && <div className="text-xs text-slate-500">Retries: {runtimeRetryCount}</div>}
+            {runtimeBlockedReason && <div className="text-xs text-rose-600">Blocked reason: {runtimeBlockedReason}</div>}
+          </div>
+        )}
       </div>
+
+      {(validationChecklist.length > 0 || acceptanceCriteria.length > 0 || proofOfWork.length > 0) && (
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+            Validation
+          </h3>
+          {acceptanceCriteria.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] mb-2">Acceptance criteria</p>
+              <div className="space-y-1">
+                {acceptanceCriteria.map((item) => (
+                  <p key={item} className="text-xs text-slate-600 leading-relaxed">{item}</p>
+                ))}
+              </div>
+            </div>
+          )}
+          {validationChecklist.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] mb-2">Validation checklist</p>
+              <div className="space-y-1">
+                {validationChecklist.map((item) => (
+                  <p key={item} className="text-xs text-slate-600 leading-relaxed">{item}</p>
+                ))}
+              </div>
+            </div>
+          )}
+          {proofOfWork.length > 0 && (
+            <div>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] mb-2">Proof of work</p>
+              <div className="space-y-1">
+                {proofOfWork.map((item) => (
+                  <p key={item} className="text-xs text-slate-600 leading-relaxed">{item}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Current step */}
       {currentStep && (
@@ -218,6 +302,40 @@ export function TaskInfoSidebar({
       {/* Conversation History */}
       {conversations.length > 0 && (
         <ConversationHistoryPanel conversations={conversations} />
+      )}
+
+      {/* Project Context: Sources + Workflow Notes */}
+      {(importedSources.length > 0 || workflowContract) && (
+        <div className="bg-white rounded-3xl border border-indigo-100 shadow-sm overflow-hidden">
+          <div className="flex border-b border-indigo-50">
+            {importedSources.length > 0 && (
+              <button
+                onClick={() => setProjectContextTab(projectContextTab === 'sources' ? null : 'sources')}
+                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors ${projectContextTab === 'sources' ? 'text-indigo-700 bg-indigo-50' : 'text-gray-400 hover:bg-gray-50'}`}
+              >
+                Sources
+              </button>
+            )}
+            {workflowContract && (
+              <button
+                onClick={() => setProjectContextTab(projectContextTab === 'notes' ? null : 'notes')}
+                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors ${projectContextTab === 'notes' ? 'text-indigo-700 bg-indigo-50' : 'text-gray-400 hover:bg-gray-50'}`}
+              >
+                Workflow Notes
+              </button>
+            )}
+          </div>
+          {projectContextTab === 'sources' && importedSources.length > 0 && (
+            <div className="p-2 [&_section>div:first-child]:hidden">
+              <ImportedSourcesPanel sources={importedSources} />
+            </div>
+          )}
+          {projectContextTab === 'notes' && workflowContract && (
+            <div className="p-2 [&_section>div:first-child]:hidden">
+              <WorkflowNotesPanel contract={workflowContract} workpad={workpad} onUpdateWorkpad={() => {}} />
+            </div>
+          )}
+        </div>
       )}
 
       {/* Activity timeline */}
