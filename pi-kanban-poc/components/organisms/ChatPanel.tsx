@@ -18,6 +18,8 @@ export interface ChatPanelProps {
   taskTitle: string
   taskStatus: UITaskStatus
   taskProjectId: string | null
+  /** Increment to trigger scroll-to-top-panel (after refine) */
+  scrollToPanelSignal?: number
   topPanel?: React.ReactNode
   messages: ChatMsg[]
   input: string
@@ -54,14 +56,22 @@ export function ChatPanel({
   onBack,
   onViewSummary,
   isDone,
+  scrollToPanelSignal,
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isStreaming])
+
+  // Scroll to top of content area (shows the top panel) after refine
+  useEffect(() => {
+    if (scrollToPanelSignal == null || scrollToPanelSignal === 0) return
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [scrollToPanelSignal])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -116,7 +126,7 @@ export function ChatPanel({
       />
 
       {/* Main content area (Scrollable) */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
         {/* Optional task-specific panel (e.g. TODO step planning) */}
         {topPanel && <div className="px-6 pt-6">{topPanel}</div>}
 

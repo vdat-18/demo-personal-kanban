@@ -737,14 +737,14 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             centerContent={<PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />}
             panelActions={
               <>
-                    {(
-                      [
-                        { key: 'status' as const, label: 'Status', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
-                        { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
-                        { key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
-                        { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
-                      ]
-                    ).map(({ key, label, badge }) => (
+                {(
+                  [
+                    { key: 'status' as const, label: 'Status', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
+                    { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
+                    { key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
+                    { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
+                  ]
+                ).map(({ key, label, badge }) => (
                   <button
                     key={key}
                     onClick={() => setActiveContextTab((prev) => (prev === key ? null : key))}

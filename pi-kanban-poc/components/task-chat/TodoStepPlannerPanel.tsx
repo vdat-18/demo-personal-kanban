@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   BreakdownActionButton,
@@ -39,6 +39,26 @@ export function TodoStepPlannerPanel({
   const allCachedBreakdowns = useKanbanStore((s) => s.cachedBreakdowns)
   const updateSubtask = useKanbanStore((s) => s.updateSubtask)
   const logActivity = useKanbanStore((s) => s.logActivity)
+
+  // Inline edit state: subtaskId → { title, description }
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+
+  const startEdit = useCallback((sub: { id: string; title: string; description?: string | null }) => {
+    setEditingId(sub.id)
+    setEditTitle(sub.title)
+    setEditDescription(sub.description ?? '')
+  }, [])
+
+  const cancelEdit = useCallback(() => setEditingId(null), [])
+
+  const saveEdit = useCallback(() => {
+    if (!editingId || !editTitle.trim()) return
+    updateSubtask(editingId, { title: editTitle.trim(), description: editDescription.trim() || null })
+    logActivity({ taskId, type: 'doer_started_subtask', actor: 'user', summary: `Edited subtask: ${editTitle.trim()}` })
+    setEditingId(null)
+  }, [editingId, editTitle, editDescription, updateSubtask, logActivity, taskId])
 
   const subtasks = useMemo(
     () => allSubtasks.filter((sub) => sub.taskId === taskId && !sub.deletedAt),
@@ -284,30 +304,60 @@ export function TodoStepPlannerPanel({
                   key={sub.id}
                   className="w-full flex items-start gap-2 rounded-xl px-3 py-2 bg-indigo-50/50 text-slate-700 hover:bg-indigo-50 transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold leading-snug">
-                      {sub.title}
+                  {editingId === sub.id ? (
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        autoFocus
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }}
+                        className="w-full text-xs font-semibold bg-white border border-indigo-300 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit() }}
+                        placeholder="Description (optional)"
+                        className="w-full text-[11px] bg-white border border-indigo-200 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-400"
+                      />
+                      <div className="flex gap-1.5">
+                        <button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700">Save</button>
+                        <button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold hover:bg-slate-200">Cancel</button>
+                      </div>
                     </div>
-                    {sub.description && (
-                      <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleApproveSubtask(sub.id)}
-                      title="Approve"
-                      className="px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-200 transition-colors"
-                    >
-                      ✓
-                    </button>
-                    <button
-                      onClick={() => handleDenySubtask(sub.id)}
-                      title="Deny"
-                      className="px-2 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider hover:bg-red-200 transition-colors"
-                    >
-                      ✗
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold leading-snug">{sub.title}</div>
+                      {sub.description && (
+                        <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
+                      )}
+                    </div>
+                  )}
+                  {editingId !== sub.id && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => startEdit(sub)}
+                        title="Edit"
+                        className="px-1.5 py-1 rounded-lg text-slate-400 text-[11px] hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleApproveSubtask(sub.id)}
+                        title="Approve"
+                        className="px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-200 transition-colors"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => handleDenySubtask(sub.id)}
+                        title="Deny"
+                        className="px-2 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider hover:bg-red-200 transition-colors"
+                      >
+                        ✗
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -328,23 +378,21 @@ export function TodoStepPlannerPanel({
                   className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-emerald-50/40 text-slate-700 group"
                 >
                   <span className="text-emerald-600 text-xs">✓</span>
-                  <span className="text-xs font-semibold flex-1 truncate">{sub.title}</span>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleResetSubtask(sub.id)}
-                      title="Move back to pending"
-                      className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors"
-                    >
-                      ↺ Pending
-                    </button>
-                    <button
-                      onClick={() => handleDenySubtask(sub.id)}
-                      title="Change to deny"
-                      className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[10px] font-bold hover:bg-red-100 transition-colors"
-                    >
-                      ✗ Deny
-                    </button>
-                  </div>
+                  {editingId === sub.id ? (
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }} className="w-full text-xs font-semibold bg-white border border-emerald-300 rounded-lg px-2 py-0.5 focus:outline-none" />
+                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">Cancel</button></div>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-semibold flex-1 truncate">{sub.title}</span>
+                  )}
+                  {editingId !== sub.id && (
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-[11px] hover:bg-emerald-100 hover:text-emerald-700 transition-colors">✏️</button>
+                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
+                      <button onClick={() => handleDenySubtask(sub.id)} title="Change to deny" className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[10px] font-bold hover:bg-red-100 transition-colors">✗ Deny</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -364,23 +412,21 @@ export function TodoStepPlannerPanel({
                   className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-rose-50/40 text-slate-600 group"
                 >
                   <span className="text-rose-600 text-xs">✗</span>
-                  <span className="text-xs font-semibold flex-1 truncate line-through opacity-70">{sub.title}</span>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleResetSubtask(sub.id)}
-                      title="Move back to pending"
-                      className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors"
-                    >
-                      ↺ Pending
-                    </button>
-                    <button
-                      onClick={() => handleApproveSubtask(sub.id)}
-                      title="Change to approve"
-                      className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100 transition-colors"
-                    >
-                      ✓ Approve
-                    </button>
-                  </div>
+                  {editingId === sub.id ? (
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }} className="w-full text-xs font-semibold bg-white border border-rose-300 rounded-lg px-2 py-0.5 focus:outline-none" />
+                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">Cancel</button></div>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-semibold flex-1 truncate line-through opacity-70">{sub.title}</span>
+                  )}
+                  {editingId !== sub.id && (
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-[11px] hover:bg-rose-100 hover:text-rose-700 transition-colors">✏️</button>
+                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
+                      <button onClick={() => handleApproveSubtask(sub.id)} title="Change to approve" className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100 transition-colors">✓ Approve</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

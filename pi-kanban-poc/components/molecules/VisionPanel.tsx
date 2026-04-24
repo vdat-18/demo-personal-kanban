@@ -70,8 +70,6 @@ export function VisionPanel({
     }
   }, [isEditing])
 
-  if (!content && !isEditing) return null
-
   const hasUnsavedChanges = isEditing && draft !== (content ?? '')
 
   const handleSave = () => {
@@ -225,7 +223,7 @@ export function VisionPanel({
         </div>
       )}
 
-      {(isExpanded || isEditing) && (
+      {(isExpanded || isEditing) && content && (
         <div className="max-h-[60vh] overflow-y-auto scroll-smooth bg-[linear-gradient(180deg,#fcfcfd_0%,#f8fafc_100%)]">
           {isEditing ? (
             <div className="rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.05)] overflow-hidden">

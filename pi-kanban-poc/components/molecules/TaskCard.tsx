@@ -21,6 +21,11 @@ export interface TaskCardProps {
   title: string
   description: string | null
   status: UITaskStatus
+   dependsOnTaskIds?: string[]
+   blockedByTaskIds?: string[]
+   runtimeState?: string
+   runtimeLastAction?: string | null
+   runtimeNextAction?: string | null
   onDragStart: (e: React.DragEvent, taskId: string, status: UITaskStatus) => void
   onClick: () => void
   onUpdateStatus: (taskId: string, status: UITaskStatus) => void
@@ -33,6 +38,11 @@ export function TaskCard({
   title,
   description,
   status,
+  dependsOnTaskIds = [],
+  blockedByTaskIds = [],
+  runtimeState,
+  runtimeLastAction,
+  runtimeNextAction,
   onDragStart,
   onClick,
   onUpdateStatus,
@@ -143,6 +153,32 @@ export function TaskCard({
           <p className="text-xs text-slate-400 leading-relaxed font-medium max-h-0 overflow-hidden group-hover:max-h-96 transition-all duration-300">
             {description}
           </p>
+        )}
+
+        {(dependsOnTaskIds.length > 0 || blockedByTaskIds.length > 0 || runtimeNextAction || runtimeLastAction) && (
+          <div className="pt-2 border-t border-slate-100 space-y-1">
+            {dependsOnTaskIds.length > 0 && (
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-[0.12em]">
+                Depends on {dependsOnTaskIds.length} task{dependsOnTaskIds.length === 1 ? '' : 's'}
+              </p>
+            )}
+            {blockedByTaskIds.length > 0 && (
+              <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-[0.12em]">
+                Blocked by {blockedByTaskIds.length} task{blockedByTaskIds.length === 1 ? '' : 's'}
+              </p>
+            )}
+            {runtimeState && runtimeState.toLowerCase() !== 'idle' && (
+              <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-[0.12em]">
+                {runtimeState}
+              </p>
+            )}
+            {runtimeLastAction && (
+              <p className="text-[11px] text-slate-500 leading-relaxed">Last: {runtimeLastAction}</p>
+            )}
+            {runtimeNextAction && (
+              <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Next: {runtimeNextAction}</p>
+            )}
+          </div>
         )}
       </div>
     </div>

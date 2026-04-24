@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { useI18n } from '@/lib/i18n/context'
 import { useRouter } from 'next/navigation'
 import {
   ListTodo,
@@ -48,6 +49,7 @@ interface TaskPanelProps {
 
 export function TaskPanel({ projectId }: TaskPanelProps) {
   const router = useRouter()
+  const { t } = useI18n()
   const { data: tasks = [], isLoading, refetch } = useTasks({ projectId })
   const createTask = useCreateTask()
   const deleteTask = useDeleteTask()
@@ -141,7 +143,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
           <div className="flex items-center justify-between rounded-[1.75rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
             <div className="flex items-center gap-3">
               <ListTodo className="w-5 h-5 text-blue-600" />
-              <h2 className="font-black text-[#0a192f] text-lg">Tasks</h2>
+              <h2 className="font-black text-[#0a192f] text-lg">{t('taskPanel.tasks', 'Tasks')}</h2>
               <span className="text-xs font-black text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
                 {tasks.length}
               </span>
@@ -157,7 +159,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
               onClick={openAdd}
               className="flex items-center gap-2 px-3.5 py-2 bg-[#0a192f] text-white rounded-2xl text-sm font-semibold hover:bg-blue-900 transition-colors shrink-0 shadow-lg shadow-blue-900/15"
             >
-              <Plus className="w-4 h-4" /> Add Task
+              <Plus className="w-4 h-4" /> {t('taskPanel.addTask', 'Add Task')}
             </button>
           </div>
 
@@ -170,7 +172,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600">
-                  Working now
+                  {t('taskPanel.workingNow', 'Working now')}
                 </div>
                 <div className="text-xs font-semibold text-[#0a192f] truncate mt-0.5">
                   {activeTask.title}
@@ -185,7 +187,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
             </div>
           ) : (
             <div className="text-[11px] text-slate-400 text-center mt-1.5 bg-white rounded-2xl py-3 border border-dashed border-slate-200 shadow-sm">
-              Drag to reorder · hover for details · click edit to change
+              {t('taskPanel.dragHint', 'Drag to reorder · hover for details · click edit to change')}
             </div>
           )}
         </div>
@@ -193,7 +195,7 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center">
             <span className="w-8 h-8 border-3 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
-            <p className="text-xs text-gray-400 mt-3">Loading tasks…</p>
+            <p className="text-xs text-gray-400 mt-3">{t('taskPanel.loadingTasks', 'Loading tasks…')}</p>
           </div>
         ) : sorted.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center bg-slate-50/50 rounded-[48px] border border-slate-100 shadow-inner">
@@ -201,10 +203,10 @@ export function TaskPanel({ projectId }: TaskPanelProps) {
               <Sparkles className="w-10 h-10 text-blue-400" />
             </div>
             <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-2">
-              Your task list is empty
+              {t('taskPanel.emptyTitle', 'Your task list is empty')}
             </p>
             <p className="text-xs text-slate-400 text-center max-w-[200px] leading-relaxed">
-              Chat with the AI to draft your task list.
+              {t('taskPanel.emptyDesc', 'Chat with the AI to draft your task list.')}
             </p>
           </div>
         ) : (

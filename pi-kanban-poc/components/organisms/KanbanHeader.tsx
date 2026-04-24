@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Plus, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Loader2, Sparkles } from 'lucide-react'
 import { TokenCounter } from '@/components/molecules/TokenCounter'
 import { getPlaybook } from '@/lib/planning/playbooks'
 import type { PlaybookId } from '@/types/domain'
@@ -17,9 +17,10 @@ export interface KanbanHeaderProps {
   tokenUsage?: { input: number; output: number } | null
   onBack: () => void
   onAddTask: () => void
+  onPlanning?: () => void
 }
 
-export function KanbanHeader({ projectName, projectDescription, playbookId, importedSourceCount = 0, isProcessing = false, tokenUsage, onBack, onAddTask }: KanbanHeaderProps) {
+export function KanbanHeader({ projectName, projectDescription, playbookId, importedSourceCount = 0, isProcessing = false, tokenUsage, onBack, onAddTask, onPlanning }: KanbanHeaderProps) {
   const playbook = getPlaybook(playbookId)
   const { t } = useI18n()
   return (
@@ -50,6 +51,16 @@ export function KanbanHeader({ projectName, projectDescription, playbookId, impo
       <div className="flex items-center gap-4">
         {tokenUsage && (
           <TokenCounter input={tokenUsage.input} output={tokenUsage.output} label="This project" />
+        )}
+        {onPlanning && (
+          <button
+            onClick={onPlanning}
+            className="flex items-center gap-2 px-5 py-3 rounded-[1.25rem] border border-indigo-200 bg-indigo-50 text-indigo-700 text-[11px] font-black uppercase tracking-[0.12em] hover:bg-indigo-100 transition-all active:scale-95"
+            title="Back to Planning"
+          >
+            <Sparkles className="w-4 h-4" />
+            Planning
+          </button>
         )}
         {isProcessing && (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-[1rem] border border-blue-100">

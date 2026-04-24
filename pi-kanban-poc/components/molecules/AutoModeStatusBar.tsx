@@ -16,7 +16,7 @@ export function AutoModeStatusBar({
   error,
   onDismissError,
 }: AutoModeStatusBarProps) {
-  if (status === 'disabled') return null
+  if (status === 'disabled' || status === 'idle') return null
 
   return (
     <div
@@ -46,9 +46,6 @@ export function AutoModeStatusBar({
         )}
         {status === 'running' && (
           <>Auto: Running — {activeTaskTitle || 'Processing…'}</>
-        )}
-        {status === 'idle' && (
-          <>Auto: Idle</>
         )}
       </span>
 

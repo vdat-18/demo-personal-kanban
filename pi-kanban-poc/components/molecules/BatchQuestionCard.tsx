@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useI18n } from '@/lib/i18n/context'
 import { Check, Lightbulb, Pencil, Undo2 } from 'lucide-react'
 import type {
   StructuredQuestion,
@@ -48,6 +49,7 @@ export function BatchQuestionCard({
   disabled,
 }: BatchQuestionCardProps) {
   const submitted = previousSubmission != null
+  const { t } = useI18n()
   // editingMode lets the user unlock a submitted card, change answers, and
   // send them again. Defaults to false so the existing read-only UX is
   // preserved for anyone who hasn't wired `onResubmit`.
@@ -143,10 +145,10 @@ export function BatchQuestionCard({
           <Lightbulb className="w-3.5 h-3.5 text-blue-500" />
           <span className="text-[10px] font-black text-blue-700 uppercase tracking-[0.15em]">
             {isReadOnly
-              ? 'Your answers'
+              ? t('batchQuestion.yourAnswers', 'Your answers')
               : editingMode
-              ? 'Revising your answers'
-              : `Help me fill in ${questions.length} quick blank${questions.length > 1 ? 's' : ''}`}
+              ? t('batchQuestion.editingAnswers', 'Editing answers')
+              : t('batchQuestion.fillBlanks', `Fill in ${questions.length} quick blanks`).replace('{n}', String(questions.length))}
           </span>
         </div>
         {isReadOnly && onResubmit && (
@@ -154,11 +156,11 @@ export function BatchQuestionCard({
             type="button"
             onClick={() => setEditingMode(true)}
             disabled={disabled}
-            title="Edit your answers and resend"
+            title="Chỉnh sửa và gửi lại"
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/70 hover:bg-white text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-100 transition-colors disabled:opacity-40"
           >
             <Pencil className="w-3 h-3" />
-            Edit
+            {t('batchQuestion.edit', 'Edit')}
           </button>
         )}
       </div>
@@ -189,7 +191,7 @@ export function BatchQuestionCard({
               className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 font-semibold px-3 py-2 rounded-xl hover:bg-white/60 transition-colors disabled:opacity-40"
             >
               <Undo2 className="w-3 h-3" />
-              Cancel
+              {t('batchQuestion.cancel', 'Cancel')}
             </button>
           ) : (
             <button
@@ -198,7 +200,7 @@ export function BatchQuestionCard({
               disabled={disabled}
               className="text-xs text-slate-500 hover:text-slate-700 font-semibold px-3 py-2 rounded-xl hover:bg-white/60 transition-colors disabled:opacity-40"
             >
-              Skip all
+              {t('batchQuestion.skipAll', 'Skip all')}
             </button>
           )}
           <button
@@ -207,7 +209,7 @@ export function BatchQuestionCard({
             disabled={disabled}
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-blue-600 text-white text-xs font-black uppercase tracking-wider hover:bg-blue-700 transition-colors disabled:opacity-40 shadow-md shadow-blue-500/20"
           >
-            {editingMode ? 'Resend answers' : 'Submit answers'}
+            {editingMode ? t('batchQuestion.resubmit', 'Resubmit') : t('batchQuestion.submitAnswers', 'Submit answers')}
             <Check className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -304,7 +306,7 @@ function QuestionRow({
           type="text"
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder={question.hint ?? 'Type your answer…'}
+          placeholder={question.hint ?? 'Nhập câu trả lời…'}
           disabled={disabled}
           className="mt-2 w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-300 focus:bg-white transition-colors disabled:opacity-60"
         />

@@ -21,6 +21,7 @@ interface Task {
   description: string | null
   status: TaskStatus
   createdAt: string
+  runtimeState?: 'idle' | 'ready' | 'running' | 'waiting_review' | 'blocked' | 'retrying' | 'done'
 }
 
 interface UseColumnAutoModeOptions {
@@ -46,7 +47,7 @@ function getNextStatus(current: TaskStatus): TaskStatus | null {
 
 function getOldestTask(tasks: Task[], columnId: string): Task | null {
   const columnTasks = tasks
-    .filter((t) => t.status === columnId)
+    .filter((t) => t.status === columnId && (t.runtimeState == null || t.runtimeState === 'idle' || t.runtimeState === 'ready' || t.runtimeState === 'retrying'))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   return columnTasks[0] ?? null
 }

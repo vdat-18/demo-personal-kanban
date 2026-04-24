@@ -10,6 +10,7 @@ import { AGENT_OPTIONS } from '@/components/molecules/AgentSelector'
 import type { UITaskStatus, UIConversation, ChatMsg, Subtask } from '@/types/domain'
 import { useAgentStream } from '@/lib/hooks/useAgentStream'
 import type { StreamEvent } from '@/lib/hooks/useAgentStream'
+import { useBreakdownAgent } from '@/lib/hooks/useBreakdownAgent'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import { validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -72,6 +73,23 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     ]
   })
   const [input, setInput] = useState('')
+  const [scrollToPanelSignal, setScrollToPanelSignal] = useState(0)
+  const [sidebarWidth, setSidebarWidth] = useState(384) // 96 * 4 = w-96
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = sidebarWidth
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX
+      setSidebarWidth(Math.max(280, Math.min(600, startW + delta)))
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [sidebarWidth])
   const [activeAgentIdx, setActiveAgentIdx] = useState(() => getDefaultAgentIndex(initialTask.status))
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
 
@@ -131,15 +149,6 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     },
   })
 
-  const sendMessage = useCallback(async () => {
-    if (!input.trim() || isStreaming) return
-    const userContent = input.trim()
-    setMessages((prev) => [...prev, { role: 'user', content: userContent }])
-    setInput('')
-    setProgressEvents([])
-    await startStream(activeOption.role, userContent, task.id, messages)
-  }, [input, isStreaming, task.id, activeOption.role, startStream, messages])
-
   const updateTaskStatus = useCallback(
     async (status: UITaskStatus) => {
       const result = validateTransition(task.status as TaskStatusValue, status as TaskStatusValue)
@@ -162,6 +171,47 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     () => allTasks.find((t) => t.id === task.id) ?? null,
     [allTasks, task.id],
   )
+
+  const allProjects = useKanbanStore((s) => s.projects)
+  const liveProject = useMemo(
+    () => allProjects.find((p) => p.id === task.projectId) ?? null,
+    [allProjects, task.projectId],
+  )
+
+  const breakdown = useBreakdownAgent(task.id)
+
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || isStreaming) return
+    const userContent = input.trim()
+    setInput('')
+
+    // When Step Planner agent + existing subtasks: route to breakdown.refine()
+    // so the subtask list is actually updated, not just streamed as plain chat.
+    if (activeOption.role === 'breakdown' && taskSubtasks.length > 0) {
+      setMessages((prev) => [...prev, { role: 'user', content: userContent }])
+      const existingSubtasks = taskSubtasks.map((s) => ({
+        id: s.id,
+        title: s.title,
+        description: s.description ?? null,
+        estimatedEffort: null,
+        type: (s.type ?? 'custom') as 'research' | 'create' | 'communicate' | 'decide' | 'custom',
+      }))
+      await breakdown.refine({ userRefineRequest: userContent, existingSubtasks })
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `✅ I've updated the subtasks based on your request: *"${userContent}"*\n\nScroll up to see the revised steps.`,
+        },
+      ])
+      setScrollToPanelSignal((n) => n + 1)
+      return
+    }
+
+    setMessages((prev) => [...prev, { role: 'user', content: userContent }])
+    setProgressEvents([])
+    await startStream(activeOption.role, userContent, task.id, messages)
+  }, [input, isStreaming, task.id, activeOption.role, startStream, messages, taskSubtasks, breakdown])
 
   const doer = useDoerAgent({
     taskId: task.id,
@@ -221,6 +271,7 @@ const topPanel =
         messages={messages}
         input={input}
         onInputChange={setInput}
+        scrollToPanelSignal={scrollToPanelSignal}
         onSend={sendMessage}
         activeAgentIdx={activeAgentIdx}
         onAgentChange={setActiveAgentIdx}
@@ -238,12 +289,28 @@ const topPanel =
         isDone={task.status === 'DONE'}
       />
 
-      <div className="w-96 border-l border-gray-100 bg-[#f8f9fa] overflow-hidden flex flex-col">
+      <div
+        className="w-1.5 shrink-0 cursor-col-resize flex items-center justify-center group relative z-10 hover:bg-indigo-100/60 transition-colors"
+        onMouseDown={startResize}
+      >
+        <div className="w-0.5 h-10 rounded-full bg-gray-200 group-hover:bg-indigo-400 transition-colors" />
+      </div>
+      <div className="border-l border-gray-100 bg-[#f8f9fa] overflow-hidden flex flex-col shrink-0" style={{ width: sidebarWidth }}>
         <TaskInfoSidebar
           taskTitle={task.title}
           taskDescription={task.description}
           taskStatus={task.status}
           taskPriority={task.priority}
+          dependsOnTaskIds={liveTask?.dependsOnTaskIds}
+          blockedByTaskIds={liveTask?.blockedByTaskIds}
+          runtimeState={liveTask?.runtimeState}
+          runtimeLastAction={liveTask?.runtimeLastAction}
+          runtimeNextAction={liveTask?.runtimeNextAction}
+          runtimeRetryCount={liveTask?.runtimeRetryCount}
+          runtimeBlockedReason={liveTask?.runtimeBlockedReason}
+          validationChecklist={liveTask?.validationChecklist}
+          acceptanceCriteria={liveTask?.acceptanceCriteria}
+          proofOfWork={liveTask?.proofOfWork}
           subtasks={taskSubtasks}
           currentStep={nextPendingSubtask}
           conversations={task.conversations}
@@ -252,6 +319,9 @@ const topPanel =
           onUpdateStatus={updateTaskStatus}
           onAbort={abort}
           activityTimeline={<TaskActivityTimeline taskId={task.id} />}
+          importedSources={liveProject?.importedSources ?? []}
+          workflowContract={liveProject?.workflowContract ?? null}
+          workpad={liveProject?.workpad ?? null}
         />
       </div>
     </div>
@@ -498,6 +568,7 @@ function DoerExecutionPanel({
   onMoveToReview,
 }: DoerExecutionPanelProps) {
   const [clarifyAnswer, setClarifyAnswer] = useState('')
+  const [refinePrompt, setRefinePrompt] = useState('')
 
   const allDone = subtasks.length > 0 && subtasks.every((s) => s.completed)
 
@@ -651,6 +722,36 @@ function DoerExecutionPanel({
                   Next: {doer.envelope.result.nextAction}
                 </div>
               )}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 space-y-2">
+                <div className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                  Refine with prompt
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={refinePrompt}
+                    onChange={(e) => setRefinePrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && refinePrompt.trim()) {
+                        e.preventDefault()
+                        void doer.refineOutput(refinePrompt.trim())
+                        setRefinePrompt('')
+                      }
+                    }}
+                    placeholder="e.g. make it shorter, use formal tone…"
+                    className="flex-1 min-w-0 bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-indigo-400"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!refinePrompt.trim()) return
+                      void doer.refineOutput(refinePrompt.trim())
+                      setRefinePrompt('')
+                    }}
+                    className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors"
+                  >
+                    Refine
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => doer.acceptCurrentStep()}
