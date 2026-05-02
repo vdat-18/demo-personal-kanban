@@ -11,6 +11,9 @@ import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakd
 import { StatusPanel } from '@/components/molecules/StatusPanel'
 import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
 import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
+import { SkillsPanel } from '@/components/molecules/SkillsPanel'
+import { TokenDashboard } from '@/components/molecules/TokenDashboard'
+import { RecurringTemplateDialog } from '@/components/molecules/RecurringTemplateDialog'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -97,7 +100,8 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const project = { ...initialProject, tasks }
   const effectiveWorkflowContract = liveProject?.workflowContract ?? project.workflowContract
 
-  const [contextDrawerTab, setContextDrawerTab] = useState<'status' | 'sources' | 'notes' | null>(null)
+  const [contextDrawerTab, setContextDrawerTab] = useState<'status' | 'sources' | 'notes' | 'skills' | 'tokens' | null>(null)
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false)
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<UITaskStatus | null>(null)
@@ -192,7 +196,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
 
       {/* Context tab bar */}
       <div className="flex items-center gap-0.5 px-8 border-b border-gray-100 bg-white shrink-0">
-        {(['status', 'sources', 'notes'] as const).filter(tab => {
+        {(['status', 'sources', 'notes', 'skills', 'tokens'] as const).filter((tab) => {
           if (tab === 'sources') return (liveProject?.importedSources?.length ?? project.importedSources?.length ?? 0) > 0
           if (tab === 'notes') return !!effectiveWorkflowContract
           return true
@@ -206,9 +210,20 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
                 : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}
           >
-            {tab === 'status' ? 'Status' : tab === 'sources' ? 'Sources' : 'Workflow Notes'}
+            {tab === 'status' ? 'Status'
+              : tab === 'sources' ? 'Sources'
+              : tab === 'notes' ? 'Workflow Notes'
+              : tab === 'skills' ? 'Skills'
+              : 'Tokens'}
           </button>
         ))}
+        <button
+          onClick={() => setShowRecurringDialog(true)}
+          className="ml-auto px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400 hover:text-indigo-600 transition-colors"
+          title="Task lặp lại"
+        >
+          ↺ Lặp lại
+        </button>
       </div>
 
       {/* Context Drawer */}
@@ -234,6 +249,12 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
               workpad={liveProject?.workpad ?? null}
               onUpdateWorkpad={() => {}}
             />
+          )}
+          {contextDrawerTab === 'skills' && (
+            <SkillsPanel projectId={project.id} />
+          )}
+          {contextDrawerTab === 'tokens' && (
+            <TokenDashboard tokenUsage={projectTokenUsage} />
           )}
         </div>
       )}
@@ -303,6 +324,13 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
           setAddDialog({ open: false, status: 'TODO' })
         }}
       />
+
+      {showRecurringDialog && (
+        <RecurringTemplateDialog
+          projectId={project.id}
+          onClose={() => setShowRecurringDialog(false)}
+        />
+      )}
     </div>
   )
 }

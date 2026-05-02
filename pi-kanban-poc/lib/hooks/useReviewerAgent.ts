@@ -34,6 +34,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   const updateTask = useKanbanStore((s) => s.updateTask)
   const logActivity = useKanbanStore((s) => s.logActivity)
   const addTokenUsage = useKanbanStore((s) => s.addTokenUsage)
+  const getSkillsForProject = useKanbanStore((s) => s.getSkillsForProject)
 
   const [state, setState] = useState<ReviewerState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -136,6 +137,13 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       lines.push('', 'Vision:')
       lines.push(thread.visionDocument.length > 1800 ? thread.visionDocument.slice(0, 1800) + '\n…[truncated]' : thread.visionDocument)
     }
+    const skills = getSkillsForProject(task.projectId)
+    if (skills.length > 0) {
+      lines.push('', 'Project skills (use these as quality criteria in your review):')
+      for (const sk of skills) {
+        lines.push(`- ${sk.name}: ${sk.content}`)
+      }
+    }
     lines.push('', `Task: ${task.title}`)
     if (task.description) lines.push(`Task details: ${task.description}`)
     lines.push('', 'Subtasks and outputs:')
@@ -147,7 +155,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       if (!sub.output && !sub.completed) lines.push('  Output: (none yet)')
     }
     return lines.join('\n')
-  }, [planningThreads, projects, task, taskSubtasks, currentIteration])
+  }, [planningThreads, projects, task, taskSubtasks, currentIteration, getSkillsForProject])
 
   // Pattern 3: continuation prompt — dùng khi trả lời clarification
   const buildContinuationPrompt = useCallback((clarificationAnswer: string) => {

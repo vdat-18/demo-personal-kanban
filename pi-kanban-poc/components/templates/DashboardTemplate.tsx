@@ -2,17 +2,18 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Repeat } from 'lucide-react'
 import { HeroSection } from '@/components/organisms/HeroSection'
 import { ProjectGrid } from '@/components/organisms/ProjectGrid'
 import { CreateProjectModal } from '@/components/molecules/CreateProjectModal'
 import { ImportProjectFlow } from '@/components/molecules/ImportProjectFlow'
+import { InboxPanel } from '@/components/molecules/InboxPanel'
 import { useConfirm } from '@/components/molecules/ConfirmDialog'
 import { useProjects, useCreateProject, useDeleteProject } from '@/lib/hooks/useProjects'
 import { useSendPlanningMessage } from '@/lib/hooks/usePlanningMessages'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { IngestedFile } from '@/lib/fileIngest'
-import type { ImportedSource, PlaybookId } from '@/types/domain'
+import type { ImportedSource, PlaybookId, RecurringTemplate } from '@/types/domain'
 import {
   ensureOnboardingProject,
   isOnboardingSeen,
@@ -30,6 +31,9 @@ export function DashboardTemplate() {
   const createPlanningThread = useKanbanStore((s) => s.createPlanningThread)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
+  const getOverdueRecurringTemplates = useKanbanStore((s) => s.getOverdueRecurringTemplates)
+  const triggerRecurringTemplate = useKanbanStore((s) => s.triggerRecurringTemplate)
+  const createTaskInStore = useKanbanStore((s) => s.createTask)
 
   const [showModal, setShowModal] = useState(false)
   const [showImportFlow, setShowImportFlow] = useState(false)
@@ -37,12 +41,14 @@ export function DashboardTemplate() {
   const [playbookId, setPlaybookId] = useState<PlaybookId>('general-planning')
   const [isCreating, setIsCreating] = useState(false)
   const [showOnboardingHint, setShowOnboardingHint] = useState(false)
+  const [overdueTemplates, setOverdueTemplates] = useState<RecurringTemplate[]>([])
 
   // ─── Onboarding example (Tier 4.16) ───────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return
     setShowOnboardingHint(!isOnboardingSeen())
-  }, [])
+    setOverdueTemplates(getOverdueRecurringTemplates())
+  }, [getOverdueRecurringTemplates])
 
   const openOnboardingExample = () => {
     const id = ensureOnboardingProject()
@@ -55,6 +61,29 @@ export function DashboardTemplate() {
     markOnboardingSeen()
     setShowOnboardingHint(false)
   }
+
+  const handleCreateFromTemplate = useCallback(
+    (template: RecurringTemplate) => {
+      createTaskInStore({
+        projectId: template.projectId,
+        title: template.title,
+        description: template.description || undefined,
+        status: 'TODO',
+        priority: 'MEDIUM',
+      })
+      triggerRecurringTemplate(template.id)
+      setOverdueTemplates((prev) => prev.filter((t) => t.id !== template.id))
+    },
+    [createTaskInStore, triggerRecurringTemplate],
+  )
+
+  const handleDismissTemplate = useCallback(
+    (templateId: string) => {
+      triggerRecurringTemplate(templateId)
+      setOverdueTemplates((prev) => prev.filter((t) => t.id !== templateId))
+    },
+    [triggerRecurringTemplate],
+  )
 
   const handleStartProject = useCallback(async () => {
     if (!projectName.trim()) return
@@ -278,6 +307,46 @@ export function DashboardTemplate() {
               setShowImportFlow(true)
             }}
           />
+
+          <InboxPanel onNavigate={handleProjectClick} />
+
+          {overdueTemplates.length > 0 && (
+            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/40 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Repeat className="w-4 h-4 text-indigo-500" />
+                <h3 className="text-sm font-bold text-[#0a192f]">Task định kỳ cần tạo</h3>
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-black">
+                  {overdueTemplates.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {overdueTemplates.map((t) => {
+                  const project = projects.find((p) => p.id === t.projectId)
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 bg-white rounded-xl border border-indigo-100 px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-[#0a192f] truncate">{t.title}</p>
+                        {project && <p className="text-[10px] text-slate-400 mt-0.5">📁 {project.name}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleCreateFromTemplate(t)}
+                        className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
+                      >
+                        Tạo task
+                      </button>
+                      <button
+                        onClick={() => handleDismissTemplate(t.id)}
+                        className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        title="Bỏ qua lần này"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {showOnboardingHint && (
             <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60 p-5 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">

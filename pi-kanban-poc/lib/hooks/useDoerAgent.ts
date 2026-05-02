@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
-import type { DoerEnvelope, Subtask, UITaskStatus } from '@/types/domain'
+import type { DoerEnvelope, Subtask, UITaskStatus, Skill } from '@/types/domain'
 import { formatError } from '@/lib/display/format'
 import { recordDuration } from '@/lib/timing'
 
@@ -23,6 +23,7 @@ interface DoerContext {
   }>
   project: { name: string; description: string | null } | null
   visionDocument: string | null
+  skills: Skill[]
 }
 
 interface UseDoerAgentArgs {
@@ -51,6 +52,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const getNextPendingSubtask = useKanbanStore((s) => s.getNextPendingSubtask)
   const logActivity = useKanbanStore((s) => s.logActivity)
   const updateTask = useKanbanStore((s) => s.updateTask)
+  const getSkillsForProject = useKanbanStore((s) => s.getSkillsForProject)
 
   const [state, setState] = useState<DoerState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -120,8 +122,9 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
         ? { name: project.name, description: project.description }
         : null,
       visionDocument: thread?.visionDocument ?? null,
+      skills: getSkillsForProject(task.projectId),
     }
-  }, [task, taskSubtasks, projects, planningThreads])
+  }, [task, taskSubtasks, projects, planningThreads, getSkillsForProject])
 
   const start = useCallback(async (subtaskId?: string) => {
     // Pattern 4: claim guard
@@ -554,6 +557,12 @@ function buildDoerPrompt(
     if (ctx.visionDocument) {
       lines.push('', 'Vision:')
       lines.push(ctx.visionDocument.length > 1800 ? ctx.visionDocument.slice(0, 1800) + '\n…[truncated]' : ctx.visionDocument)
+    }
+    if (ctx.skills && ctx.skills.length > 0) {
+      lines.push('', 'Project skills (apply these to your work):')
+      for (const sk of ctx.skills) {
+        lines.push(`- ${sk.name}: ${sk.content}`)
+      }
     }
 
     lines.push('', `Task: ${ctx.task.title}`)

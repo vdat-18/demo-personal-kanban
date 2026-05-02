@@ -41,6 +41,9 @@ import type {
   PlaybookId,
   AttentionItem,
   UiLocale,
+  Skill,
+  RecurringTemplate,
+  RecurringFrequency,
 } from '@/types/domain'
 import { getPlaybook, getDefaultWorkflowContract } from '@/lib/planning/playbooks'
 
@@ -91,6 +94,10 @@ interface KanbanState {
   uiLocale: UiLocale
   /** Lightweight attention system for planning and execution. */
   attentionItems: AttentionItem[]
+  /** Per-project reusable context snippets injected into agent prompts. */
+  skills: Skill[]
+  /** Recurring task templates for soft autopilot. */
+  recurringTemplates: RecurringTemplate[]
 
   // Project ops
   createProject: (input: {
@@ -258,6 +265,23 @@ interface KanbanState {
   resolveAttentionItem: (id: string) => AttentionItem | null
   getAttentionItemsForProject: (projectId: string) => AttentionItem[]
 
+  // ─── Skill system ─────────────────────────────────────────────────────────
+  createSkill: (input: { projectId: string; name: string; content: string }) => Skill
+  updateSkill: (id: string, patch: Partial<Pick<Skill, 'name' | 'content'>>) => Skill | null
+  deleteSkill: (id: string) => void
+  getSkillsForProject: (projectId: string) => Skill[]
+
+  // ─── Recurring templates ──────────────────────────────────────────────────
+  createRecurringTemplate: (input: {
+    projectId: string
+    title: string
+    description?: string | null
+    frequency: RecurringFrequency
+  }) => RecurringTemplate
+  deleteRecurringTemplate: (id: string) => void
+  triggerRecurringTemplate: (id: string) => RecurringTemplate | null
+  getOverdueRecurringTemplates: () => RecurringTemplate[]
+
   // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────────
   getNextPendingSubtask: (taskId: string) => Subtask | null
   saveDoerResult: (taskId: string, subtaskId: string, result: DoerResult) => Subtask | null
@@ -307,6 +331,8 @@ export const useKanbanStore = create<KanbanState>()(
       },
       uiLocale: 'en',
       attentionItems: [],
+      skills: [],
+      recurringTemplates: [],
 
       createProject: ({
         name,
@@ -1121,6 +1147,77 @@ export const useKanbanStore = create<KanbanState>()(
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       },
 
+      // ─── Skill system ──────────────────────────────────────────────────────
+      createSkill: ({ projectId, name, content }) => {
+        const skill: Skill = { id: uid('skill'), projectId, name, content, createdAt: now() }
+        set((s) => ({ skills: [...s.skills, skill] }))
+        return skill
+      },
+
+      updateSkill: (id, patch) => {
+        let updated: Skill | null = null
+        set((s) => ({
+          skills: s.skills.map((sk) => {
+            if (sk.id !== id) return sk
+            updated = { ...sk, ...patch }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      deleteSkill: (id) => {
+        set((s) => ({ skills: s.skills.filter((sk) => sk.id !== id) }))
+      },
+
+      getSkillsForProject: (projectId) => {
+        return get().skills.filter((sk) => sk.projectId === projectId)
+      },
+
+      // ─── Recurring templates ───────────────────────────────────────────────
+      createRecurringTemplate: ({ projectId, title, description = null, frequency }) => {
+        const t: RecurringTemplate = {
+          id: uid('rec'),
+          projectId,
+          title,
+          description,
+          frequency,
+          lastTriggeredAt: null,
+          createdAt: now(),
+        }
+        set((s) => ({ recurringTemplates: [...s.recurringTemplates, t] }))
+        return t
+      },
+
+      deleteRecurringTemplate: (id) => {
+        set((s) => ({ recurringTemplates: s.recurringTemplates.filter((t) => t.id !== id) }))
+      },
+
+      triggerRecurringTemplate: (id) => {
+        let updated: RecurringTemplate | null = null
+        set((s) => ({
+          recurringTemplates: s.recurringTemplates.map((t) => {
+            if (t.id !== id) return t
+            updated = { ...t, lastTriggeredAt: now() }
+            return updated
+          }),
+        }))
+        return updated
+      },
+
+      getOverdueRecurringTemplates: () => {
+        const thresholds: Record<RecurringTemplate['frequency'], number> = {
+          daily: 24 * 60 * 60 * 1000,
+          weekly: 7 * 24 * 60 * 60 * 1000,
+          monthly: 30 * 24 * 60 * 60 * 1000,
+        }
+        const nowMs = Date.now()
+        return get().recurringTemplates.filter((t) => {
+          if (!t.lastTriggeredAt) return true
+          return nowMs - new Date(t.lastTriggeredAt).getTime() >= thresholds[t.frequency]
+        })
+      },
+
       // ─── Doer helpers (IN_PROGRESS execution) ─────────────────────────────
       getNextPendingSubtask: (taskId) => {
         return get()
@@ -1321,6 +1418,8 @@ export const useKanbanStore = create<KanbanState>()(
           planningEvents: [],
           cachedBreakdowns: [],
           attentionItems: [],
+          skills: [],
+          recurringTemplates: [],
           personalAIContext: {
             preferredLanguage: 'bilingual',
             responseStyle: 'balanced',
@@ -1345,7 +1444,7 @@ export const useKanbanStore = create<KanbanState>()(
         }
         return window.localStorage
       }),
-      version: 7,
+      version: 8,
       migrate: (persistedState: unknown) => {
         // v1 → v2 added vision versioning + envelope fields.
         // v2 → v3 added activities, cachedBreakdowns, and per-subtask metadata
@@ -1401,6 +1500,8 @@ export const useKanbanStore = create<KanbanState>()(
           planningEvents: Array.isArray(s.planningEvents) ? s.planningEvents : [],
           cachedBreakdowns: Array.isArray(s.cachedBreakdowns) ? s.cachedBreakdowns : [],
           attentionItems: Array.isArray(s.attentionItems) ? s.attentionItems : [],
+          skills: Array.isArray(s.skills) ? s.skills : [],
+          recurringTemplates: Array.isArray(s.recurringTemplates) ? s.recurringTemplates : [],
           personalAIContext: {
             preferredLanguage: 'bilingual',
             responseStyle: 'balanced',

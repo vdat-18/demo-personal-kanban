@@ -683,3 +683,34 @@ export interface CachedBreakdown {
    *  rebuilding state from scratch. */
   approvedSubtaskIds: string[]
 }
+
+// ─── Skill system ─────────────────────────────────────────────────────────────
+// Reusable context snippets attached to a project. Injected automatically into
+// all Doer and Reviewer agent prompts so the user only needs to define things
+// like brand voice, constraints, or domain terminology once.
+
+export interface Skill {
+  id: string
+  projectId: string
+  name: string
+  content: string
+  createdAt: string
+}
+
+// ─── Recurring task templates (Soft autopilot) ───────────────────────────────
+// User-defined templates for tasks that repeat on a schedule. On Dashboard
+// load, overdue templates surface as prompts so the user can create the task
+// with one click.
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly'
+
+export interface RecurringTemplate {
+  id: string
+  projectId: string
+  title: string
+  description: string | null
+  frequency: RecurringFrequency
+  /** ISO timestamp of the last time this template was triggered (task created). */
+  lastTriggeredAt: string | null
+  createdAt: string
+}
