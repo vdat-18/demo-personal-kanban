@@ -66,7 +66,7 @@ export function CreateProjectModal({
         className="absolute inset-0 bg-[#0a192f]/50 backdrop-blur-sm animate-in fade-in duration-300"
         onClick={onClose}
       />
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl shadow-blue-900/10 relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 border border-white">
+      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl shadow-blue-900/10 relative z-10 animate-in zoom-in-95 duration-300 border border-white">
         <div className="p-8">
           <button
             onClick={onClose}
@@ -119,7 +119,7 @@ export function CreateProjectModal({
             </button>
           </div>
         </div>
-        <div className="bg-slate-50 px-6 py-3 flex items-center justify-center border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+        <div className="bg-slate-50 rounded-b-3xl px-6 py-3 flex items-center justify-center border-t border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
           <Sparkles className="w-3 h-3 mr-2 text-blue-400" />
           {t('createProject.aiPlanning', 'AI-powered planning')}
         </div>
