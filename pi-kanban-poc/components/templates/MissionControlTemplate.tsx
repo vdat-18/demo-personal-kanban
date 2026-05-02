@@ -63,6 +63,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const storeProjects = useKanbanStore((s) => s.projects)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const createTaskInStore = useKanbanStore((s) => s.createTask)
+  const createTasksBatchInStore = useKanbanStore((s) => s.createTasksBatch)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
   const getPlanningEventsForProject = useKanbanStore((s) => s.getPlanningEventsForProject)
@@ -287,6 +288,18 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
             status: addDialog.status,
             priority: values.priority,
           })
+          setAddDialog({ open: false, status: 'TODO' })
+        }}
+        onBatchSubmit={(items) => {
+          createTasksBatchInStore(
+            project.id,
+            items.map((v) => ({
+              title: v.title,
+              description: v.description || undefined,
+              status: addDialog.status,
+              priority: v.priority,
+            })),
+          )
           setAddDialog({ open: false, status: 'TODO' })
         }}
       />

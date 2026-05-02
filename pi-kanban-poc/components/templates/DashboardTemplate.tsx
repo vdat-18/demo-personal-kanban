@@ -308,6 +308,25 @@ export function DashboardTemplate() {
             </div>
           )}
 
+          {/* Quick chat entry — chat with AI before creating a project */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push('/chat')}
+            onKeyDown={(e) => e.key === 'Enter' && router.push('/chat')}
+            className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-300 transition-all cursor-pointer p-5 flex items-center gap-4 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-100 group-hover:bg-blue-500 transition-colors flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-blue-500 group-hover:text-white transition-colors" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#0a192f]">Hỏi AI trước khi bắt đầu</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chưa biết nên làm gì? Chat với AI để lên ý tưởng, không cần tạo project.
+              </p>
+            </div>
+          </div>
+
           <ProjectGrid
             projects={gridProjects}
             onProjectClick={handleProjectClick}

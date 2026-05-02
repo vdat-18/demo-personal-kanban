@@ -571,6 +571,35 @@ export const useKanbanStore = create<KanbanState>()(
           set((s) => ({ activities: [...s.activities, editActivity] }))
         }
 
+        // When a task is marked DONE, check if any blocked tasks are now ready.
+        // A blocked task is "ready" when all of its dependsOnTaskIds are DONE.
+        if (patch.status === 'DONE' && finalUpdated) {
+          const currentTasks = get().tasks
+          const readyTaskIds = currentTasks
+            .filter(
+              (t) =>
+                !t.deletedAt &&
+                t.status === 'BLOCKED' &&
+                t.dependsOnTaskIds &&
+                t.dependsOnTaskIds.length > 0 &&
+                t.dependsOnTaskIds.includes(id) &&
+                t.dependsOnTaskIds.every(
+                  (depId) => currentTasks.find((d) => d.id === depId)?.status === 'DONE',
+                ),
+            )
+            .map((t) => t.id)
+
+          if (readyTaskIds.length > 0) {
+            set((s) => ({
+              tasks: s.tasks.map((t) =>
+                readyTaskIds.includes(t.id)
+                  ? { ...t, runtimeLastAction: '✓ Sẵn sàng bắt đầu' }
+                  : t,
+              ),
+            }))
+          }
+        }
+
         return finalUpdated
       },
 

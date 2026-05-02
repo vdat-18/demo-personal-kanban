@@ -55,6 +55,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const markSubtaskCompletedByDoer = useKanbanStore((s) => s.markSubtaskCompletedByDoer)
   const getNextPendingSubtask = useKanbanStore((s) => s.getNextPendingSubtask)
   const logActivity = useKanbanStore((s) => s.logActivity)
+  const updateTask = useKanbanStore((s) => s.updateTask)
 
   const [state, setState] = useState<DoerState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -132,6 +133,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     setError(null)
     setEnvelope(null)
     setState('working')
+    updateTask(taskId, { runtimeLastAction: `Đang xử lý: ${ctx.currentSubtask.title}` })
 
     logActivity({
       taskId,
@@ -197,6 +199,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
           metadata: { subtaskId: target },
           resourceLink: { type: 'subtask', id: target },
         })
+        updateTask(taskId, { runtimeLastAction: 'Cần thêm thông tin từ bạn' })
         setState('needs-input')
         return
       }
@@ -214,6 +217,9 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
           metadata: { subtaskId: target },
           resourceLink: { type: 'subtask', id: target },
         })
+        updateTask(taskId, { runtimeLastAction: 'Sẵn sàng để review' })
+      } else {
+        updateTask(taskId, { runtimeLastAction: `Xong: ${ctx.currentSubtask.title}` })
       }
 
       setState('result')
@@ -228,7 +234,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     } finally {
       if (abortRef.current === controller) abortRef.current = null
     }
-  }, [buildContext, getNextPendingSubtask, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle])
+  }, [buildContext, getNextPendingSubtask, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask])
 
   const answerClarification = useCallback(async (answer: string) => {
     const currentId = currentSubtaskId
@@ -296,10 +302,11 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     const currentId = envelope?.targetSubtaskId ?? currentSubtaskId
     if (!currentId) return
     markSubtaskCompletedByDoer(taskId, currentId)
+    updateTask(taskId, { runtimeLastAction: null })
     setEnvelope(null)
     setCurrentSubtaskId(null)
     setState('idle')
-  }, [currentSubtaskId, envelope?.targetSubtaskId, markSubtaskCompletedByDoer, taskId])
+  }, [currentSubtaskId, envelope?.targetSubtaskId, markSubtaskCompletedByDoer, taskId, updateTask])
 
   const retryCurrentStep = useCallback(() => {
     if (!currentSubtaskId) return

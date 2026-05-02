@@ -1,10 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Save, AlertTriangle } from 'lucide-react'
+import { X, Save, AlertTriangle, Layers } from 'lucide-react'
 import type { TaskPriority, TaskStatus } from '@/types/domain'
 import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '@/lib/display/labels'
 import { useConfirm } from './ConfirmDialog'
+
+function detectListItems(text: string): string[] | null {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (lines.length < 2) return null
+  const isNumbered = lines.every((l) => /^[\d]+[.)]\s/.test(l))
+  const isBulleted = lines.every((l) => /^[-*•]\s/.test(l))
+  if (!isNumbered && !isBulleted) return null
+  return lines.map((l) => l.replace(/^[\d]+[.)]\s*|^[-*•]\s*/, '').trim()).filter(Boolean)
+}
 
 /**
  * Reusable Add/Edit Task dialog.
@@ -35,6 +44,8 @@ export interface TaskFormDialogProps {
   isSubmitting?: boolean
   onClose: () => void
   onSubmit: (values: TaskFormValues) => Promise<void> | void
+  /** Called instead of onSubmit when user chooses to split a list into multiple tasks. */
+  onBatchSubmit?: (items: TaskFormValues[]) => Promise<void> | void
 }
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
@@ -47,11 +58,14 @@ export function TaskFormDialog({
   isSubmitting,
   onClose,
   onSubmit,
+  onBatchSubmit,
 }: TaskFormDialogProps) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [priority, setPriority] = useState<TaskPriority>(initial?.priority ?? 'MEDIUM')
   const { confirm, element: confirmElement } = useConfirm()
+
+  const listItems = mode === 'add' && onBatchSubmit ? detectListItems(title) : null
 
   // Re-initialize when the modal is (re-)opened with fresh values.
   useEffect(() => {
@@ -97,6 +111,11 @@ export function TaskFormDialog({
     await onSubmit({ title: title.trim(), description: description.trim(), priority })
   }
 
+  const handleBatchSubmit = async () => {
+    if (!listItems || !onBatchSubmit || isSubmitting) return
+    await onBatchSubmit(listItems.map((t) => ({ title: t, description: description.trim(), priority })))
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#0a192f]/50 backdrop-blur-sm" onClick={handleClose} />
@@ -135,21 +154,43 @@ export function TaskFormDialog({
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
               Title <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
+            <textarea
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && title.trim()) {
+                if (e.key === 'Enter' && !e.shiftKey && title.trim() && !listItems) {
                   e.preventDefault()
-                  handleSubmit()
+                  void handleSubmit()
                 }
               }}
-              placeholder="Short, action-oriented title"
-              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-400"
+              rows={3}
+              placeholder={"Short, action-oriented title\n\nOr paste a numbered/bulleted list to split into multiple tasks"}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-400 resize-none"
             />
           </div>
+
+          {listItems && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
+              <Layers className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-blue-700">
+                  Phát hiện {listItems.length} mục
+                </p>
+                <p className="text-[11px] text-blue-600 mt-0.5">
+                  Tách thành {listItems.length} task riêng, mỗi dòng là một task?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleBatchSubmit()}
+                disabled={isSubmitting}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+              >
+                Tách
+              </button>
+            </div>
+          )}
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
