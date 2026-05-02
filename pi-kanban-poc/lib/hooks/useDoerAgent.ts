@@ -6,6 +6,11 @@ import type { DoerEnvelope, Subtask, UITaskStatus } from '@/types/domain'
 import { formatError } from '@/lib/display/format'
 import { recordDuration } from '@/lib/timing'
 
+// Agent bị coi là "treo" nếu không trả về sau 90 giây.
+const STALL_TIMEOUT_MS = 90_000
+// Số lần retry tối đa trước khi yêu cầu user can thiệp.
+const MAX_RETRY_COUNT = 3
+
 interface DoerContext {
   task: { title: string; description: string | null; priority: string }
   currentSubtask: { id: string; title: string; description?: string | null } | null
@@ -35,16 +40,6 @@ export function getNextPendingSubtaskContext(subtasks: Subtask[]): Subtask | nul
     .sort((a, b) => a.order - b.order)[0] ?? null
 }
 
-/**
- * Hook backing the Doer workspace for IN_PROGRESS tasks.
- *
- * It works one subtask at a time:
- * 1. Pick current subtask id (explicit arg or next pending from store)
- * 2. POST /api/agent mode=chat with role=developer and rich context
- * 3. Parse returned JSON envelope
- * 4. Save draft artifact to Subtask.output / doerResult
- * 5. User can Accept step (marks completed) or Try again
- */
 export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgentArgs) {
   const tasks = useKanbanStore((s) => s.tasks)
   const subtasks = useKanbanStore((s) => s.subtasks)
@@ -61,8 +56,12 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const [error, setError] = useState<string | null>(null)
   const [envelope, setEnvelope] = useState<DoerEnvelope | null>(null)
   const [currentSubtaskId, setCurrentSubtaskId] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+
   const abortRef = useRef<AbortController | null>(null)
   const isMountedRef = useRef(true)
+  // Pattern 4: claim guard — ngăn double-dispatch khi user bấm nhanh tay
+  const isRunningRef = useRef(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -76,9 +75,11 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const abort = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
+    isRunningRef.current = false
     if (!isMountedRef.current) return
     setState('idle')
     setError(null)
+    updateTask(taskId, { runtimeLastAction: null })
     logActivity({
       taskId,
       type: 'doer_started_subtask',
@@ -86,7 +87,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       summary: 'You cancelled the Doer',
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logActivity, taskId])
+  }, [logActivity, taskId, updateTask])
 
   const task = useMemo(
     () => tasks.find((t) => t.id === taskId) ?? null,
@@ -123,11 +124,21 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   }, [task, taskSubtasks, projects, planningThreads])
 
   const start = useCallback(async (subtaskId?: string) => {
+    // Pattern 4: claim guard
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
     const target = subtaskId ?? getNextPendingSubtask(taskId)?.id ?? null
-    if (!target || !task) return
+    if (!target || !task) {
+      isRunningRef.current = false
+      return
+    }
 
     const ctx = buildContext(target)
-    if (!ctx?.currentSubtask) return
+    if (!ctx?.currentSubtask) {
+      isRunningRef.current = false
+      return
+    }
 
     setCurrentSubtaskId(target)
     setError(null)
@@ -144,13 +155,23 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       resourceLink: { type: 'subtask', id: target },
     })
 
+    // Pattern 3: first call → full prompt
     const systemPrompt = buildDoerPrompt(ctx)
 
-    // Cancel any pending call first
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
     const startedAt = Date.now()
+
+    // Pattern 1: stall detection — abort after 90s nếu không có response
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      updateTask(taskId, { runtimeLastAction: 'Hết giờ — thử lại' })
+      setError('Không nhận được phản hồi sau 90 giây. Thử lại.')
+      setState('error')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
 
     try {
       const response = await fetch('/api/agent', {
@@ -226,30 +247,57 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') {
-        setState('idle')
+        // Nếu là stall timeout thì state đã được set bên trong stallTimer — không ghi đè
+        if (!controller.signal.aborted || state !== 'error') {
+          setState('idle')
+        }
         return
       }
       setError(formatError(e))
       setState('error')
     } finally {
+      clearTimeout(stallTimer)
       if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
     }
-  }, [buildContext, getNextPendingSubtask, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask])
+  }, [buildContext, getNextPendingSubtask, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask, state])
 
   const answerClarification = useCallback(async (answer: string) => {
+    // Pattern 4: claim guard
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
     const currentId = currentSubtaskId
-    if (!currentId || !task) return
+    if (!currentId || !task) {
+      isRunningRef.current = false
+      return
+    }
     const ctx = buildContext(currentId)
-    if (!ctx?.currentSubtask) return
+    if (!ctx?.currentSubtask) {
+      isRunningRef.current = false
+      return
+    }
 
     setState('working')
     setError(null)
+    updateTask(taskId, { runtimeLastAction: `Đang xử lý: ${ctx.currentSubtask.title}` })
 
-    const prompt = buildDoerPrompt(ctx, answer)
+    // Pattern 3: continuation — chỉ gửi subtask hiện tại + câu trả lời, bỏ toàn bộ context nặng
+    const prompt = buildDoerPrompt(ctx, answer, undefined, undefined, true)
 
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+
+    // Pattern 1: stall detection
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      updateTask(taskId, { runtimeLastAction: 'Hết giờ — thử lại' })
+      setError('Không nhận được phản hồi sau 90 giây. Thử lại.')
+      setState('error')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
 
     try {
       const response = await fetch('/api/agent', {
@@ -284,40 +332,75 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       if (parsed.result) {
         saveDoerResult(taskId, currentId, parsed.result)
       }
-      setState(parsed.needsHumanInput ? 'needs-input' : 'result')
+
+      if (parsed.needsHumanInput) {
+        updateTask(taskId, { runtimeLastAction: 'Cần thêm thông tin từ bạn' })
+        setState('needs-input')
+      } else {
+        updateTask(taskId, { runtimeLastAction: `Xong: ${ctx.currentSubtask.title}` })
+        setState('result')
+      }
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') {
-        setState('idle')
+        if (!controller.signal.aborted || state !== 'error') setState('idle')
         return
       }
       setError(formatError(e))
       setState('error')
     } finally {
+      clearTimeout(stallTimer)
       if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
     }
-  }, [buildContext, currentSubtaskId, saveDoerResult, task, taskDescription, taskId, taskTitle])
+  }, [buildContext, currentSubtaskId, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask, state])
 
   const acceptCurrentStep = useCallback(() => {
     const currentId = envelope?.targetSubtaskId ?? currentSubtaskId
     if (!currentId) return
     markSubtaskCompletedByDoer(taskId, currentId)
-    updateTask(taskId, { runtimeLastAction: null })
+    updateTask(taskId, { runtimeLastAction: null, runtimeRetryCount: 0 })
     setEnvelope(null)
     setCurrentSubtaskId(null)
+    setRetryCount(0)
     setState('idle')
   }, [currentSubtaskId, envelope?.targetSubtaskId, markSubtaskCompletedByDoer, taskId, updateTask])
 
+  // Pattern 2: exponential backoff — chờ trước khi retry
   const retryCurrentStep = useCallback(() => {
     if (!currentSubtaskId) return
-    void start(currentSubtaskId)
-  }, [currentSubtaskId, start])
+    const newCount = retryCount + 1
+    if (newCount > MAX_RETRY_COUNT) {
+      setError(`Đã thử ${MAX_RETRY_COUNT} lần không thành công. Kiểm tra kết nối và thử lại sau.`)
+      setState('error')
+      return
+    }
+    setRetryCount(newCount)
+    const delayMs = Math.min(5000 * Math.pow(2, newCount - 1), 60000)
+    updateTask(taskId, {
+      runtimeLastAction: `Đang thử lại (${newCount}/${MAX_RETRY_COUNT})...`,
+      runtimeRetryCount: newCount,
+    })
+    setTimeout(() => {
+      void start(currentSubtaskId)
+    }, delayMs)
+  }, [currentSubtaskId, retryCount, start, taskId, updateTask])
 
   const refineOutput = useCallback(async (instruction: string) => {
+    // Pattern 4: claim guard
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
     const currentId = currentSubtaskId
-    if (!currentId || !task) return
+    if (!currentId || !task) {
+      isRunningRef.current = false
+      return
+    }
     const ctx = buildContext(currentId)
-    if (!ctx?.currentSubtask) return
+    if (!ctx?.currentSubtask) {
+      isRunningRef.current = false
+      return
+    }
 
     const currentDraft = envelope?.result
       ? { summary: envelope.result.summary, artifact: envelope.result.artifact }
@@ -325,12 +408,24 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 
     setState('working')
     setError(null)
+    updateTask(taskId, { runtimeLastAction: `Đang xử lý: ${ctx.currentSubtask.title}` })
 
-    const prompt = buildDoerPrompt(ctx, undefined, instruction, currentDraft)
+    // Pattern 3: continuation — chỉ gửi artifact hiện tại + yêu cầu chỉnh sửa
+    const prompt = buildDoerPrompt(ctx, undefined, instruction, currentDraft, true)
 
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+
+    // Pattern 1: stall detection
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      updateTask(taskId, { runtimeLastAction: 'Hết giờ — thử lại' })
+      setError('Không nhận được phản hồi sau 90 giây. Thử lại.')
+      setState('error')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
 
     try {
       const response = await fetch('/api/agent', {
@@ -365,7 +460,14 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
       if (parsed.result) {
         saveDoerResult(taskId, currentId, parsed.result)
       }
-      setState(parsed.needsHumanInput ? 'needs-input' : 'result')
+
+      if (parsed.needsHumanInput) {
+        updateTask(taskId, { runtimeLastAction: 'Cần thêm thông tin từ bạn' })
+        setState('needs-input')
+      } else {
+        updateTask(taskId, { runtimeLastAction: `Xong: ${ctx.currentSubtask.title}` })
+        setState('result')
+      }
 
       logActivity({
         taskId,
@@ -378,21 +480,25 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') {
-        setState('idle')
+        if (!controller.signal.aborted || state !== 'error') setState('idle')
         return
       }
       setError(formatError(e))
       setState('error')
     } finally {
+      clearTimeout(stallTimer)
       if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
     }
-  }, [addTokenUsage, buildContext, currentSubtaskId, envelope, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle])
+  }, [addTokenUsage, buildContext, currentSubtaskId, envelope, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask, state])
 
   return {
     state,
     error,
     envelope,
     currentSubtaskId,
+    retryCount,
+    maxRetryCount: MAX_RETRY_COUNT,
     start,
     answerClarification,
     acceptCurrentStep,
@@ -407,6 +513,8 @@ function buildDoerPrompt(
   clarificationAnswer?: string,
   refineInstruction?: string,
   currentDraft?: { summary: string; artifact: string } | null,
+  // Pattern 3: khi là continuation, bỏ qua context nặng (project, vision, subtask list)
+  isContinuation = false,
 ): string {
   const current = ctx.currentSubtask
   const lines: string[] = [
@@ -436,25 +544,32 @@ function buildDoerPrompt(
     '- readyForReview=true only if all subtasks appear complete from the provided context.',
   ]
 
-  if (ctx.project) {
-    lines.push('', 'Project context:')
-    lines.push(`Project: ${ctx.project.name}`)
-    if (ctx.project.description) lines.push(`Description: ${ctx.project.description}`)
-  }
-  if (ctx.visionDocument) {
-    lines.push('', 'Vision:')
-    lines.push(ctx.visionDocument.length > 1800 ? ctx.visionDocument.slice(0, 1800) + '\n…[truncated]' : ctx.visionDocument)
-  }
+  // Pattern 3: first call → full context; continuation → chỉ current subtask
+  if (!isContinuation) {
+    if (ctx.project) {
+      lines.push('', 'Project context:')
+      lines.push(`Project: ${ctx.project.name}`)
+      if (ctx.project.description) lines.push(`Description: ${ctx.project.description}`)
+    }
+    if (ctx.visionDocument) {
+      lines.push('', 'Vision:')
+      lines.push(ctx.visionDocument.length > 1800 ? ctx.visionDocument.slice(0, 1800) + '\n…[truncated]' : ctx.visionDocument)
+    }
 
-  lines.push('', `Task: ${ctx.task.title}`)
-  if (ctx.task.description) lines.push(`Task details: ${ctx.task.description}`)
-  lines.push(`Priority: ${ctx.task.priority}`)
+    lines.push('', `Task: ${ctx.task.title}`)
+    if (ctx.task.description) lines.push(`Task details: ${ctx.task.description}`)
+    lines.push(`Priority: ${ctx.task.priority}`)
 
-  lines.push('', 'All subtasks:')
-  for (const st of ctx.allSubtasks) {
-    lines.push(`- [${st.completed ? 'DONE' : 'TODO'}] ${st.id}: ${st.title}`)
-    if (st.description) lines.push(`  Details: ${st.description}`)
-    if (st.output) lines.push(`  Previous output: ${st.output.slice(0, 300)}${st.output.length > 300 ? '…' : ''}`)
+    lines.push('', 'All subtasks:')
+    for (const st of ctx.allSubtasks) {
+      lines.push(`- [${st.completed ? 'DONE' : 'TODO'}] ${st.id}: ${st.title}`)
+      if (st.description) lines.push(`  Details: ${st.description}`)
+      if (st.output) lines.push(`  Previous output: ${st.output.slice(0, 300)}${st.output.length > 300 ? '…' : ''}`)
+    }
+  } else {
+    // Continuation: chỉ nhắc lại task title để agent không mất context
+    lines.push('', `Task: ${ctx.task.title}`)
+    lines.push('(Continuing from previous turn — focus only on the current step below.)')
   }
 
   if (current) {

@@ -13,6 +13,9 @@ import {
   type ReviewVerdict,
 } from '@/lib/reviewer-loop'
 
+// Agent bị coi là "treo" nếu không trả về sau 90 giây.
+const STALL_TIMEOUT_MS = 90_000
+
 interface UseReviewerAgentArgs {
   taskId: string
   taskTitle: string
@@ -37,6 +40,8 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   const [envelope, setEnvelope] = useState<ReviewerEnvelope | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const isMountedRef = useRef(true)
+  // Pattern 4: claim guard — ngăn double-dispatch
+  const isRunningRef = useRef(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -50,6 +55,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   const abort = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
+    isRunningRef.current = false
     if (!isMountedRef.current) return
     setState('idle')
     setError(null)
@@ -66,7 +72,8 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
 
   const currentIteration = task?.reviewIterationCount ?? 0
 
-  const buildPrompt = useCallback((clarificationAnswer?: string) => {
+  // Pattern 3: full prompt — dùng cho lần review đầu tiên
+  const buildFullPrompt = useCallback(() => {
     if (!task) return ''
     const project = projects.find((p) => p.id === task.projectId) ?? null
     const thread = planningThreads
@@ -139,14 +146,25 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       if (sub.output) lines.push(`  Output: ${sub.output.slice(0, 400)}${sub.output.length > 400 ? '…' : ''}`)
       if (!sub.output && !sub.completed) lines.push('  Output: (none yet)')
     }
-    if (clarificationAnswer) {
-      lines.push('', `User clarification: ${clarificationAnswer}`)
-    }
     return lines.join('\n')
   }, [planningThreads, projects, task, taskSubtasks, currentIteration])
 
-  /** Persist the iteration counter + verdict on the task itself so the
-   *  banner / loop guards survive a page refresh. */
+  // Pattern 3: continuation prompt — dùng khi trả lời clarification
+  const buildContinuationPrompt = useCallback((clarificationAnswer: string) => {
+    if (!task) return ''
+    const lines: string[] = [
+      'You are the Reviewer Agent for a non-technical user.',
+      'You already reviewed this task. The user answered your clarification question.',
+      'Continue your review with this additional context and return the same JSON shape as before.',
+      '',
+      `Task: ${task.title}`,
+      '(Continuing from previous review — use the clarification below to complete your verdict.)',
+      '',
+      `User clarification: ${clarificationAnswer}`,
+    ]
+    return lines.join('\n')
+  }, [task])
+
   const persistIteration = useCallback(
     (verdict: ReviewVerdict) => {
       updateTask(taskId, {
@@ -158,7 +176,14 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
   )
 
   const start = useCallback(async () => {
-    if (!task) return
+    // Pattern 4: claim guard
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
+    if (!task) {
+      isRunningRef.current = false
+      return
+    }
     setState('reviewing')
     setError(null)
     setEnvelope(null)
@@ -170,12 +195,22 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       summary: `AI started review iteration ${currentIteration + 1}`,
     })
 
-    try {
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-      const startedAt = Date.now()
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const startedAt = Date.now()
 
+    // Pattern 1: stall detection
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      setError('Không nhận được phản hồi sau 90 giây. Thử lại.')
+      setState('error')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
+
+    try {
+      // Pattern 3: first call → full prompt
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +220,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
           taskId,
           taskTitle,
           taskDescription,
-          systemPromptOverride: buildPrompt(),
+          systemPromptOverride: buildFullPrompt(),
         }),
         signal: controller.signal,
       })
@@ -238,14 +273,18 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') {
-        setState('idle')
+        if (!controller.signal.aborted || state !== 'error') setState('idle')
         return
       }
       setError(formatError(e))
       setState('error')
+    } finally {
+      clearTimeout(stallTimer)
+      if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
     }
   }, [
-    buildPrompt,
+    buildFullPrompt,
     logActivity,
     saveReviewerStepResult,
     persistIteration,
@@ -254,18 +293,36 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     taskId,
     taskTitle,
     currentIteration,
+    state,
   ])
 
   const answerClarification = useCallback(async (answer: string) => {
-    if (!task) return
+    // Pattern 4: claim guard
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
+    if (!task) {
+      isRunningRef.current = false
+      return
+    }
     setState('reviewing')
     setError(null)
 
-    try {
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
+    // Pattern 1: stall detection
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      setError('Không nhận được phản hồi sau 90 giây. Thử lại.')
+      setState('error')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
+
+    try {
+      // Pattern 3: continuation — chỉ gửi clarification, bỏ toàn bộ context nặng
       const response = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -275,7 +332,7 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
           taskId,
           taskTitle,
           taskDescription,
-          systemPromptOverride: buildPrompt(answer),
+          systemPromptOverride: buildContinuationPrompt(answer),
         }),
         signal: controller.signal,
       })
@@ -306,13 +363,17 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     } catch (e) {
       if (!isMountedRef.current) return
       if (e instanceof Error && e.name === 'AbortError') {
-        setState('idle')
+        if (!controller.signal.aborted || state !== 'error') setState('idle')
         return
       }
       setError(formatError(e))
       setState('error')
+    } finally {
+      clearTimeout(stallTimer)
+      if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
     }
-  }, [buildPrompt, saveReviewerStepResult, persistIteration, task, taskDescription, taskId, taskTitle])
+  }, [buildContinuationPrompt, saveReviewerStepResult, persistIteration, task, taskDescription, taskId, taskTitle, state])
 
   const reset = useCallback(() => {
     setState('idle')
@@ -320,9 +381,6 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
     setEnvelope(null)
   }, [])
 
-  /** Derive the next-action recommendation for the UI. We don't auto-apply
-   *  it here — the workspace panel decides when to surface auto-retry vs.
-   *  human gate based on user preferences. */
   const nextAction: NextAction | null = useMemo(() => {
     if (!envelope || state !== 'result') return null
     return planNextAction(envelope, currentIteration)
