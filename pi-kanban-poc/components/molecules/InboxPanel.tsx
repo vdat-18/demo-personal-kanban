@@ -5,12 +5,12 @@ import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { AttentionType } from '@/types/domain'
 
 const TYPE_LABELS: Record<AttentionType, string> = {
-  clarification_needed: 'Cần làm rõ',
-  task_approval_pending: 'Chờ duyệt',
-  plan_unpublished: 'Kế hoạch chưa xuất bản',
-  source_needs_review: 'Nguồn cần kiểm tra',
-  execution_blocked: 'Bị chặn',
-  validation_required: 'Cần xác nhận',
+  clarification_needed: 'Needs clarification',
+  task_approval_pending: 'Pending approval',
+  plan_unpublished: 'Plan unpublished',
+  source_needs_review: 'Source needs review',
+  execution_blocked: 'Blocked',
+  validation_required: 'Needs validation',
 }
 
 const TYPE_COLORS: Record<AttentionType, string> = {
@@ -41,7 +41,7 @@ export function InboxPanel({ onNavigate }: Props) {
     <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <Bell className="w-4 h-4 text-amber-600" />
-        <h3 className="text-sm font-bold text-[#0a192f]">Cần xử lý</h3>
+        <h3 className="text-sm font-bold text-[#0a192f]">Needs attention</h3>
         <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
           {openItems.length}
         </span>
@@ -70,7 +70,7 @@ export function InboxPanel({ onNavigate }: Props) {
                 {onNavigate && project && (
                   <button
                     onClick={() => onNavigate(item.projectId)}
-                    title="Mở project"
+                    title="Open project"
                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -78,7 +78,7 @@ export function InboxPanel({ onNavigate }: Props) {
                 )}
                 <button
                   onClick={() => resolveAttentionItem(item.id)}
-                  title="Đánh dấu đã xử lý"
+                  title="Mark as resolved"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />

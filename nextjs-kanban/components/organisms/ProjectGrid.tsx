@@ -47,7 +47,7 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
               Your journeys will appear here
             </p>
             <p className="text-base text-slate-400 text-center max-w-xs leading-relaxed font-medium">
-              Bắt đầu một dự án mới để AI giúp bạn lên kế hoạch và thực thi nhé!
+              Start a new project and let AI help you plan and execute it!
             </p>
           </div>
         ) : (

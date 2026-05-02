@@ -37,14 +37,14 @@ export function SkillsPanel({ projectId }: Props) {
             onClick={() => setAdding(true)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold hover:bg-indigo-100 transition-colors"
           >
-            <Plus className="w-3 h-3" /> Thêm skill
+            <Plus className="w-3 h-3" /> Add skill
           </button>
         )}
       </div>
 
       {skills.length === 0 && !adding && (
         <p className="text-[11px] text-slate-400 italic">
-          Chưa có skill nào. Skills là ngữ cảnh tái sử dụng — ví dụ giọng văn thương hiệu, ràng buộc kỹ thuật — được inject vào mọi AI agent trong project này.
+          No skills yet. Skills are reusable context — e.g. brand voice, technical constraints — injected into every AI agent in this project.
         </p>
       )}
 
@@ -58,7 +58,7 @@ export function SkillsPanel({ projectId }: Props) {
             <button
               onClick={() => deleteSkill(sk.id)}
               className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-              title="Xoá skill"
+              title="Delete skill"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -72,13 +72,13 @@ export function SkillsPanel({ projectId }: Props) {
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Tên skill (vd: Giọng văn thương hiệu)"
+            placeholder="Skill name (e.g. Brand voice)"
             className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
           />
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Nội dung skill — sẽ được inject vào AI agent mỗi lần thực thi task trong project này..."
+            placeholder="Skill content — injected into AI agents on every task execution in this project..."
             rows={4}
             className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400 resize-none leading-relaxed"
           />
@@ -87,14 +87,14 @@ export function SkillsPanel({ projectId }: Props) {
               onClick={() => { setAdding(false); setName(''); setContent('') }}
               className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
             >
-              Huỷ
+              Cancel
             </button>
             <button
               onClick={handleAdd}
               disabled={!name.trim() || !content.trim()}
               className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors font-bold"
             >
-              Thêm
+              Add
             </button>
           </div>
         </div>

@@ -38,7 +38,7 @@ export function Navigation() {
 
   const localeOptions: Array<{ value: UiLocale; label: string }> = [
     { value: 'en', label: t('locale.en', 'English') },
-    { value: 'vi', label: t('locale.vi', 'Tiếng Việt') },
+    { value: 'vi', label: t('locale.vi', 'Vietnamese') },
     { value: 'th', label: t('locale.th', 'ไทย') },
     { value: 'ko', label: t('locale.ko', '한국어') },
     { value: 'ja', label: t('locale.ja', '日本語') },

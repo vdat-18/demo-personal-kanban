@@ -6,9 +6,9 @@ import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { RecurringFrequency } from '@/types/domain'
 
 const FREQ_LABELS: Record<RecurringFrequency, string> = {
-  daily: 'Hàng ngày',
-  weekly: 'Hàng tuần',
-  monthly: 'Hàng tháng',
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
 }
 
 interface Props {
@@ -49,7 +49,7 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Repeat className="w-4 h-4 text-indigo-500" />
-            <h2 className="text-sm font-bold text-[#0a192f]">Task lặp lại</h2>
+            <h2 className="text-sm font-bold text-[#0a192f]">Recurring tasks</h2>
           </div>
           <button
             onClick={onClose}
@@ -63,7 +63,7 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
         <div className="p-5 space-y-3 max-h-72 overflow-y-auto">
           {templates.length === 0 && !adding && (
             <p className="text-[11px] text-slate-400 italic text-center py-4">
-              Chưa có template nào. Thêm template để nhắc tạo task định kỳ.
+              No templates yet. Add one to get reminders for recurring tasks.
             </p>
           )}
 
@@ -96,13 +96,13 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Tên task (vd: Báo cáo tuần)"
+                placeholder="Task name (e.g. Weekly report)"
                 className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
               />
               <textarea
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
-                placeholder="Mô tả (tuỳ chọn)"
+                placeholder="Description (optional)"
                 rows={2}
                 className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400 resize-none"
               />
@@ -133,14 +133,14 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
                 onClick={() => { setAdding(false); setTitle(''); setDesc('') }}
                 className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
               >
-                Huỷ
+                Cancel
               </button>
               <button
                 onClick={handleAdd}
                 disabled={!title.trim()}
                 className="px-4 py-2 text-xs bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors font-bold flex items-center gap-1.5"
               >
-                <Check className="w-3.5 h-3.5" /> Thêm
+                <Check className="w-3.5 h-3.5" /> Add
               </button>
             </>
           ) : (
@@ -149,13 +149,13 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
                 onClick={onClose}
                 className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
               >
-                Đóng
+                Close
               </button>
               <button
                 onClick={() => setAdding(true)}
                 className="px-4 py-2 text-xs bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-bold flex items-center gap-1.5"
               >
-                <Plus className="w-3.5 h-3.5" /> Thêm template
+                <Plus className="w-3.5 h-3.5" /> Add template
               </button>
             </>
           )}

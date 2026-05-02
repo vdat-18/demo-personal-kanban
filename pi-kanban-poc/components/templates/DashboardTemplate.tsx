@@ -314,7 +314,7 @@ export function DashboardTemplate() {
             <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/40 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Repeat className="w-4 h-4 text-indigo-500" />
-                <h3 className="text-sm font-bold text-[#0a192f]">Task định kỳ cần tạo</h3>
+                <h3 className="text-sm font-bold text-[#0a192f]">Recurring tasks to create</h3>
                 <span className="ml-auto px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-black">
                   {overdueTemplates.length}
                 </span>
@@ -332,12 +332,12 @@ export function DashboardTemplate() {
                         onClick={() => handleCreateFromTemplate(t)}
                         className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
                       >
-                        Tạo task
+                        Create task
                       </button>
                       <button
                         onClick={() => handleDismissTemplate(t.id)}
                         className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                        title="Bỏ qua lần này"
+                        title="Skip this time"
                       >
                         ✕
                       </button>
@@ -389,9 +389,9 @@ export function DashboardTemplate() {
               <Sparkles className="w-5 h-5 text-blue-500 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#0a192f]">Hỏi AI trước khi bắt đầu</p>
+              <p className="text-sm font-bold text-[#0a192f]">Ask AI before getting started</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Chưa biết nên làm gì? Chat với AI để lên ý tưởng, không cần tạo project.
+                Not sure what to do? Chat with AI to brainstorm ideas, no project needed.
               </p>
             </div>
           </div>

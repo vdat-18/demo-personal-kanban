@@ -51,7 +51,7 @@ export const messages = {
     mission: {
       runtime: 'Runtime', totalTasks: 'Total Tasks', inExecution: 'In Execution', completed: 'Completed', archived: 'Archived', agents: 'Agents', closeMission: 'Close Mission', aiProcessing: 'AI Processing', newTask: 'New Task',
     },
-    locale: { en: 'English', vi: 'Tiếng Việt', th: 'ไทย', ko: '한국어', ja: '日本語' },
+    locale: { en: 'English', vi: 'Vietnamese', th: 'Thai', ko: 'Korean', ja: 'Japanese' },
   },
   vi: {
     nav: { projects: 'Dự án', directory: 'Thư mục', timeline: 'Dòng thời gian', insights: 'Phân tích', notifications: 'Thông báo', language: 'Ngôn ngữ', aiContext: 'Ngữ cảnh AI cá nhân' },

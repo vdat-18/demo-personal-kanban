@@ -16,7 +16,7 @@ interface ChatMsg {
 const WELCOME: ChatMsg = {
   role: 'assistant',
   content:
-    'Xin chào! Tôi là trợ lý AI của bạn.\n\nBạn có thể hỏi tôi bất cứ điều gì liên quan đến công việc — lên kế hoạch, chia nhỏ dự án, viết nội dung, phân tích vấn đề, hoặc chỉ đơn giản là suy nghĩ to ra. Tôi sẽ giúp bạn rõ ràng hơn trước khi bắt tay làm.',
+    'Hi! I\'m your AI assistant.\n\nYou can ask me anything related to your work — planning, breaking down projects, writing content, analyzing problems, or just thinking out loud. I\'ll help you get clarity before you dive in.',
 }
 
 function loadMessages(): ChatMsg[] {
@@ -122,13 +122,13 @@ export default function HomeChatPage() {
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
-          <span className="text-sm font-bold text-[#0a192f] truncate">Trợ lý AI</span>
-          <span className="text-[10px] text-slate-400 font-medium ml-1">· Không cần tạo project</span>
+          <span className="text-sm font-bold text-[#0a192f] truncate">AI Assistant</span>
+          <span className="text-[10px] text-slate-400 font-medium ml-1">· No project needed</span>
         </div>
         <button
           onClick={clearChat}
           className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
-          title="Xóa lịch sử chat"
+          title="Clear chat history"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -173,7 +173,7 @@ export default function HomeChatPage() {
                 void send()
               }
             }}
-            placeholder="Hỏi bất cứ điều gì về công việc của bạn…"
+            placeholder="Ask anything about your work…"
             rows={1}
             className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none resize-none leading-relaxed"
           />
@@ -195,7 +195,7 @@ export default function HomeChatPage() {
           )}
         </div>
         <p className="text-[10px] text-slate-400 mt-2 text-center">
-          Enter để gửi · Shift+Enter xuống dòng
+          Enter to send · Shift+Enter for new line
         </p>
       </div>
     </div>

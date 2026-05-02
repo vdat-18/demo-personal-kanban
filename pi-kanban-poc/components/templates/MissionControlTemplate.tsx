@@ -220,9 +220,9 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         <button
           onClick={() => setShowRecurringDialog(true)}
           className="ml-auto px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400 hover:text-indigo-600 transition-colors"
-          title="Task lặp lại"
+          title="Recurring tasks"
         >
-          ↺ Lặp lại
+          ↺ Recurring
         </button>
       </div>
 

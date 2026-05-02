@@ -619,7 +619,7 @@ export const useKanbanStore = create<KanbanState>()(
             set((s) => ({
               tasks: s.tasks.map((t) =>
                 readyTaskIds.includes(t.id)
-                  ? { ...t, runtimeLastAction: '✓ Sẵn sàng bắt đầu' }
+                  ? { ...t, runtimeLastAction: '✓ Ready to start' }
                   : t,
               ),
             }))

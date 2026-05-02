@@ -12,12 +12,12 @@ function PlaybookPreview({ playbook }: { playbook: PlaybookDefinition }) {
       <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{playbook.description}</p>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Mục tiêu</p>
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Objective</p>
         <p className="text-[11px] text-slate-600 leading-relaxed">{playbook.workflowContract.objective}</p>
       </div>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Bạn sẽ có</p>
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">You will have</p>
         <ul className="space-y-1">
           {playbook.workflowContract.acceptanceCriteria.map((c) => (
             <li key={c} className="flex items-start gap-1.5 text-[11px] text-slate-600">
@@ -29,7 +29,7 @@ function PlaybookPreview({ playbook }: { playbook: PlaybookDefinition }) {
       </div>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Phù hợp cho</p>
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Best for</p>
         <div className="flex flex-wrap gap-1">
           {playbook.discoveryFocus.map((f) => (
             <span key={f} className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] text-slate-600 font-medium">

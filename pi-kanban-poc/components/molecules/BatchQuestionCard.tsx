@@ -156,7 +156,7 @@ export function BatchQuestionCard({
             type="button"
             onClick={() => setEditingMode(true)}
             disabled={disabled}
-            title="Chỉnh sửa và gửi lại"
+            title="Edit and resubmit"
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/70 hover:bg-white text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-100 transition-colors disabled:opacity-40"
           >
             <Pencil className="w-3 h-3" />
@@ -306,7 +306,7 @@ function QuestionRow({
           type="text"
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder={question.hint ?? 'Nhập câu trả lời…'}
+          placeholder={question.hint ?? 'Enter your answer…'}
           disabled={disabled}
           className="mt-2 w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-300 focus:bg-white transition-colors disabled:opacity-60"
         />

@@ -175,10 +175,10 @@ export function TaskFormDialog({
               <Layers className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-blue-700">
-                  Phát hiện {listItems.length} mục
+                  Detected {listItems.length} items
                 </p>
                 <p className="text-[11px] text-blue-600 mt-0.5">
-                  Tách thành {listItems.length} task riêng, mỗi dòng là một task?
+                  Split into {listItems.length} separate tasks, one per line?
                 </p>
               </div>
               <button
@@ -187,7 +187,7 @@ export function TaskFormDialog({
                 disabled={isSubmitting}
                 className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
               >
-                Tách
+                Split
               </button>
             </div>
           )}

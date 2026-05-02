@@ -94,7 +94,7 @@ export function TaskPanel({ projectId, projectName, messages, phase = 'task_mapp
               Your task list is empty
             </p>
             <p className="text-xs text-slate-400 text-center max-w-[200px] leading-relaxed">
-              Trò chuyện với AI để lên danh sách công việc nhé!
+              Chat with AI to draft your task list!
             </p>
           </div>
         ) : (

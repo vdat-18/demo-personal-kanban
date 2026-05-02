@@ -39,7 +39,7 @@ export function TokenDashboard({ tokenUsage }: Props) {
 
       {total === 0 ? (
         <p className="text-[11px] text-slate-400 italic">
-          Chưa có hoạt động AI nào trong project này.
+          No AI activity yet in this project.
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-3">
@@ -62,7 +62,7 @@ export function TokenDashboard({ tokenUsage }: Props) {
       )}
 
       <p className="text-[9px] text-slate-400">
-        Ước tính theo giá Claude Sonnet: $3/1M input · $15/1M output
+        Estimated at Claude Sonnet pricing: $3/1M input · $15/1M output
       </p>
     </div>
   )
