@@ -25,7 +25,7 @@ export function ChatInput({
     <div className="p-4 border-t border-gray-100 shrink-0">
       <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
         <textarea
-          className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
+          className="flex-1 bg-transparent text-sm text-ink placeholder:text-gray-300 resize-none outline-none min-h-[20px] max-h-32"
           placeholder={placeholder}
           rows={1}
           value={value}
@@ -50,14 +50,14 @@ export function ChatInput({
           <button
             onClick={onSend}
             disabled={!value.trim()}
-            className="w-9 h-9 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
+            className="w-9 h-9 rounded-2xl bg-ink text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>
         )}
       </div>
       {isStreaming && (
-        <p className="text-[10px] text-gray-300 mt-2 px-2 font-medium">
+        <p className="text-meta text-gray-300 mt-2 px-2 font-medium">
           Press Enter to send · Shift+Enter for new line
         </p>
       )}

@@ -17,8 +17,8 @@ export function ChatMessageBubble({ role, content, className }: ChatMessageBubbl
       <div
         className={`max-w-[90%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
           role === 'user'
-            ? 'bg-[#0a192f] text-white rounded-br-lg'
-            : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
+            ? 'bg-ink text-white rounded-br-lg'
+            : 'bg-gray-50 text-ink rounded-bl-lg'
         }`}
       >
         {role === 'assistant' ? (

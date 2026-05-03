@@ -10,18 +10,18 @@ import {
   FileStack,
   BookOpen,
   ClipboardList,
-  ArrowUpDown,
 } from 'lucide-react'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import { StatusFilterBar } from '@/components/molecules/StatusFilterBar'
 import { DirectoryProjectGrid } from '@/components/organisms/DirectoryProjectGrid'
-import { DirectoryTaskList } from '@/components/organisms/DirectoryTaskList'
+import { DirectoryTaskCard } from '@/components/molecules/DirectoryTaskCard'
+import { DirectoryTaskRow } from '@/components/molecules/DirectoryTaskRow'
 import { DirectoryArtifactsPanel } from '@/components/organisms/DirectoryArtifactsPanel'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { UITaskStatus } from '@/types/domain'
 
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-type SortBy = 'title' | 'priority' | 'status' | 'date'
+type SortBy = 'title' | 'priority' | 'date'
 
 interface Task {
   id: string
@@ -52,17 +52,41 @@ export interface DirectoryTemplateProps {
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
 
+const STATUS_ORDER: UITaskStatus[] = ['IN_PROGRESS', 'IN_REVIEW', 'TODO', 'BLOCKED', 'DONE']
+
+const STATUS_DOT: Record<UITaskStatus, string> = {
+  TODO:        'bg-ink-subtle',
+  IN_PROGRESS: 'bg-brand',
+  IN_REVIEW:   'bg-spark',
+  DONE:        'bg-success',
+  BLOCKED:     'bg-danger',
+}
+
+const STATUS_LABEL: Record<UITaskStatus, string> = {
+  TODO:        'To Do',
+  IN_PROGRESS: 'In Progress',
+  IN_REVIEW:   'In Review',
+  DONE:        'Done',
+  BLOCKED:     'Blocked',
+}
+
+const STATUS_COUNT_CHIP: Record<UITaskStatus, string> = {
+  TODO:        'bg-surface-muted text-ink-muted border-line',
+  IN_PROGRESS: 'bg-info-bg text-info border-info-border',
+  IN_REVIEW:   'bg-warning-bg text-warning border-warning-border',
+  DONE:        'bg-success-bg text-success border-success-border',
+  BLOCKED:     'bg-danger-bg text-danger border-danger-border',
+}
+
 export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [projectSearch, setProjectSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedStatus, setSelectedStatus] = useState<UITaskStatus | 'ALL'>('ALL')
-  const [selectedProjectId, setSelectedProjectId] = useState<string | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<SortBy>('date')
   const [tab, setTab] = useState<Tab>('projects')
 
-  // Pull artifact counts from store so project cards can show them
   const planningThreads = useKanbanStore((s) => s.planningThreads)
   const visionVersions = useKanbanStore((s) => s.visionVersions)
   const subtasks = useKanbanStore((s) => s.subtasks)
@@ -83,10 +107,7 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
   }, [projects, planningThreads, visionVersions, storeTasks, subtasks])
 
   const allTasks = useMemo(
-    () =>
-      projects.flatMap((p) =>
-        p.tasks.map((t) => ({ ...t, projectName: p.name, projectId: p.id })),
-      ),
+    () => projects.flatMap((p) => p.tasks.map((t) => ({ ...t, projectName: p.name, projectId: p.id }))),
     [projects],
   )
 
@@ -94,54 +115,52 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
     if (!projectSearch.trim()) return projects
     const q = projectSearch.toLowerCase()
     return projects.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q),
+      (p) => p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q),
     )
   }, [projects, projectSearch])
 
-  const filteredTasks = useMemo(() => {
-    let result = allTasks.filter((t) => {
+  // Tasks grouped by status
+  const tasksByStatus = useMemo(() => {
+    const filtered = allTasks.filter((t) => {
       const matchSearch =
+        !searchQuery.trim() ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.description ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.projectName.toLowerCase().includes(searchQuery.toLowerCase())
       const matchStatus = selectedStatus === 'ALL' || t.status === selectedStatus
-      const matchProject = selectedProjectId === 'ALL' || t.projectId === selectedProjectId
-      return matchSearch && matchStatus && matchProject
+      return matchSearch && matchStatus
     })
 
-    if (sortBy === 'title') result = [...result].sort((a, b) => a.title.localeCompare(b.title))
-    else if (sortBy === 'priority')
-      result = [...result].sort(
-        (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
-      )
-    else if (sortBy === 'status') result = [...result].sort((a, b) => a.status.localeCompare(b.status))
-    else result = [...result].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title)
+      if (sortBy === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+      return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+    })
 
-    return result
-  }, [allTasks, searchQuery, selectedStatus, selectedProjectId, sortBy])
+    return STATUS_ORDER
+      .map((status) => ({ status, tasks: sorted.filter((t) => t.status === status) }))
+      .filter((g) => g.tasks.length > 0)
+  }, [allTasks, searchQuery, selectedStatus, sortBy])
 
   const statusCounts = useMemo(() => {
-    const base = allTasks.filter(
-      (t) => selectedProjectId === 'ALL' || t.projectId === selectedProjectId,
-    )
-    const counts: Record<string, number> = { ALL: base.length }
-    base.forEach((t) => {
-      counts[t.status] = (counts[t.status] || 0) + 1
-    })
+    const counts: Record<string, number> = { ALL: allTasks.length }
+    allTasks.forEach((t) => { counts[t.status] = (counts[t.status] || 0) + 1 })
     return counts
-  }, [allTasks, selectedProjectId])
+  }, [allTasks])
 
   const STATUSES = ['ALL', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED'] as const
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8f9fa] font-sans overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-canvas font-sans overflow-hidden">
       {/* Header */}
-      <header className="h-16 px-8 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+      <header className="h-16 px-8 border-b border-line bg-surface flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <FolderOpen className="w-5 h-5 text-blue-600" />
+          <div className="w-9 h-9 rounded-xl bg-brand-subtle border border-brand-border flex items-center justify-center shrink-0">
+            <FolderOpen className="w-4 h-4 text-brand" />
+          </div>
           <div>
-            <h1 className="font-bold text-lg text-[#0a192f] tracking-tight">Directory</h1>
-            <p className="text-[11px] font-semibold text-slate-400">
+            <h1 className="font-bold text-lg text-ink tracking-tight">Directory</h1>
+            <p className="text-meta text-ink-subtle">
               {projects.length} projects · {allTasks.length} tasks
             </p>
           </div>
@@ -149,8 +168,7 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/hub"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors"
-            title="Knowledge Hub — your published plans"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-subtle text-brand text-xs font-medium hover:bg-brand-subtle/70 transition-colors border border-brand-border"
           >
             <BookOpen className="w-3.5 h-3.5" />
             Knowledge Hub
@@ -160,14 +178,14 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
               <button
                 onClick={() => setViewMode('grid')}
                 aria-label="Grid view"
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-ink text-white' : 'text-ink-subtle hover:bg-surface-muted'}`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 aria-label="List view"
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-ink text-white' : 'text-ink-subtle hover:bg-surface-muted'}`}
               >
                 <ListIcon className="w-4 h-4" />
               </button>
@@ -177,46 +195,30 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
       </header>
 
       {/* Tab switcher */}
-      <div className="border-b border-slate-100 bg-white px-8 shrink-0">
-        <div className="max-w-7xl mx-auto flex items-center gap-1">
-          <TabButton
-            active={tab === 'projects'}
-            onClick={() => setTab('projects')}
-            icon={<FolderOpen className="w-3.5 h-3.5" />}
-          >
+      <div className="border-b border-line bg-surface px-8 shrink-0">
+        <div className="max-w-7xl mx-auto flex items-center gap-1.5 py-2">
+          <TabButton active={tab === 'projects'} onClick={() => setTab('projects')} icon={<FolderOpen className="w-3.5 h-3.5" />}>
             Projects
           </TabButton>
-          <TabButton
-            active={tab === 'tasks'}
-            onClick={() => setTab('tasks')}
-            icon={<ClipboardList className="w-3.5 h-3.5" />}
-          >
+          <TabButton active={tab === 'tasks'} onClick={() => setTab('tasks')} icon={<ClipboardList className="w-3.5 h-3.5" />}>
             Tasks
           </TabButton>
-          <TabButton
-            active={tab === 'artifacts'}
-            onClick={() => setTab('artifacts')}
-            icon={<FileStack className="w-3.5 h-3.5" />}
-          >
+          <TabButton active={tab === 'artifacts'} onClick={() => setTab('artifacts')} icon={<FileStack className="w-3.5 h-3.5" />}>
             Artifacts
           </TabButton>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 py-6 space-y-6">
+        <div className="max-w-7xl mx-auto px-8 py-6 space-y-5">
 
           {/* ── Projects tab ── */}
           {tab === 'projects' && (
             <>
-              <SearchInput
-                value={projectSearch}
-                onChange={setProjectSearch}
-                placeholder="Search projects..."
-              />
+              <SearchInput value={projectSearch} onChange={setProjectSearch} placeholder="Search projects..." />
               {filteredProjects.length === 0 ? (
                 <div className="py-20 text-center">
-                  <p className="text-sm font-bold text-gray-300">No projects match your search.</p>
+                  <p className="text-sm text-ink-subtle">No projects match your search.</p>
                 </div>
               ) : (
                 <DirectoryProjectGrid
@@ -235,43 +237,20 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
           {/* ── Tasks tab ── */}
           {tab === 'tasks' && (
             <>
+              {/* Toolbar */}
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex-1 min-w-[200px]">
-                  <SearchInput
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder="Search tasks..."
-                  />
+                  <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search tasks..." />
                 </div>
-
-                {/* Filter by project */}
                 <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  className="h-10 px-3 rounded-xl border border-line bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/40"
                 >
-                  <option value="ALL">All Projects</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
+                  <option value="date">Newest first</option>
+                  <option value="priority">Priority</option>
+                  <option value="title">Title A–Z</option>
                 </select>
-
-                {/* Sort */}
-                <div className="flex items-center gap-1.5 h-10 px-3 rounded-xl border border-slate-200 bg-white">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortBy)}
-                    className="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none"
-                  >
-                    <option value="date">Newest first</option>
-                    <option value="priority">Priority</option>
-                    <option value="status">Status</option>
-                    <option value="title">Title A–Z</option>
-                  </select>
-                </div>
               </div>
 
               <StatusFilterBar
@@ -281,11 +260,61 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
                 onSelect={setSelectedStatus}
               />
 
-              <DirectoryTaskList
-                tasks={filteredTasks}
-                viewMode={viewMode}
-                onTaskClick={(id) => router.push(`/chat/${id}`)}
-              />
+              {/* Status-grouped task list */}
+              {tasksByStatus.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-sm text-ink-subtle">No tasks match your filters.</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {tasksByStatus.map(({ status, tasks }) => (
+                    <div key={status}>
+                      {/* Status section header */}
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
+                        <span className="font-semibold text-sm text-ink">{STATUS_LABEL[status]}</span>
+                        <span className={`text-micro px-1.5 py-0.5 rounded-md border font-semibold ${STATUS_COUNT_CHIP[status]}`}>
+                          {tasks.length}
+                        </span>
+                        <div className="h-px flex-1 bg-line" />
+                      </div>
+
+                      {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {tasks.map((task) => (
+                            <DirectoryTaskCard
+                              key={task.id}
+                              id={task.id}
+                              title={task.title}
+                              description={task.description}
+                              status={task.status}
+                              priority={task.priority}
+                              projectName={task.projectName}
+                              onClick={() => router.push(`/chat/${task.id}`)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-line bg-surface overflow-hidden shadow-card">
+                          {tasks.map((task, i) => (
+                            <DirectoryTaskRow
+                              key={task.id}
+                              id={task.id}
+                              title={task.title}
+                              description={task.description}
+                              status={task.status}
+                              priority={task.priority}
+                              projectName={task.projectName}
+                              onClick={() => router.push(`/chat/${task.id}`)}
+                              showBorder={i > 0}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -308,10 +337,10 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+      className={`inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-semibold rounded-xl transition-all ${
         active
-          ? 'text-[#0a192f] border-blue-500'
-          : 'text-slate-500 border-transparent hover:text-slate-700'
+          ? 'bg-brand text-white shadow-card'
+          : 'text-ink-subtle hover:text-ink hover:bg-surface-muted'
       }`}
     >
       {icon}

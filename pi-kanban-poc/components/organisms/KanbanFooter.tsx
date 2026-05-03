@@ -20,14 +20,16 @@ export interface KanbanFooterProps {
   runtimeStatus?: import('@/types/domain').RuntimeStatus | null
 }
 
-export function KanbanFooter({ tasks, autoModeStates, onCloseProject, runtimeStatus }: KanbanFooterProps) {
+export function KanbanFooter({
+  tasks,
+  autoModeStates,
+  onCloseProject,
+  runtimeStatus,
+}: KanbanFooterProps) {
   const { t } = useI18n()
   const canClose = !tasks.some((t) => t.status !== 'DONE' && t.status !== 'BLOCKED')
   const enabledCount = AUTO_MODE_COLUMNS.filter((col) => autoModeStates[col]?.enabled).length
 
-  // Tier 3.11 — surface live AI activity as a small feed instead of a static
-  // "Agents Active 2/3" pill. Renders nothing when no breakdown calls are
-  // active or queued.
   const concurrency = useBreakdownConcurrency()
   const allTasks = useKanbanStore((s) => s.tasks)
   const activeBreakdowns = concurrency.active
@@ -39,65 +41,81 @@ export function KanbanFooter({ tasks, autoModeStates, onCloseProject, runtimeSta
   const hasAnyAi = activeBreakdowns.length > 0 || queuedBreakdowns.length > 0
 
   return (
-    <footer className="h-14 px-6 flex items-center justify-between bg-white/70 backdrop-blur-xl border-t border-gray-100 shrink-0 z-40">
-      <div className="flex items-center gap-8">
+    <footer className="h-14 px-6 flex items-center justify-between bg-surface/80 backdrop-blur-xl border-t border-line shrink-0 z-40">
+      <div className="flex items-center gap-7">
         {[
-          { label: t('mission.totalTasks', 'Total Tasks'), value: tasks.length, color: 'text-[#0a192f]' },
-          { label: t('mission.inExecution', 'In Execution'), value: tasks.filter((t) => t.status !== 'DONE' && t.status !== 'BLOCKED').length, color: 'text-blue-600' },
-          { label: t('mission.completed', 'Completed'), value: tasks.filter((t) => t.status === 'DONE').length, color: 'text-green-600' },
-          { label: t('mission.archived', 'Archived'), value: tasks.filter((t) => t.status === 'BLOCKED').length, color: 'text-slate-400' },
+          { label: t('mission.totalTasks', 'Total'), value: tasks.length, color: 'text-ink' },
+          {
+            label: t('mission.inExecution', 'Active'),
+            value: tasks.filter((t) => t.status !== 'DONE' && t.status !== 'BLOCKED').length,
+            color: 'text-brand',
+          },
+          {
+            label: t('mission.completed', 'Done'),
+            value: tasks.filter((t) => t.status === 'DONE').length,
+            color: 'text-success',
+          },
+          {
+            label: t('mission.archived', 'Blocked'),
+            value: tasks.filter((t) => t.status === 'BLOCKED').length,
+            color: 'text-ink-subtle',
+          },
         ].map(({ label, value, color }) => (
           <div key={label} className="flex items-baseline gap-2">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{label}</span>
-            <span className={`font-black text-sm ${color}`}>{value}</span>
+            <span className="text-micro text-ink-subtle">{label}</span>
+            <span className={`font-bold text-meta ${color}`}>{value}</span>
           </div>
         ))}
         {enabledCount > 0 && (
-          <div className="flex items-baseline gap-2 border-l border-gray-100 pl-8">
-            <span className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em]">Agents</span>
-            <span className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em]">{t('mission.agents', 'Agents')}</span>
-            <span className="font-black text-sm text-violet-600">{enabledCount}/{AUTO_MODE_COLUMNS.length}</span>
+          <div className="flex items-baseline gap-2 border-l border-line pl-7">
+            <span className="text-micro text-brand">{t('mission.agents', 'Agents')}</span>
+            <span className="font-bold text-meta text-brand">
+              {enabledCount}/{AUTO_MODE_COLUMNS.length}
+            </span>
           </div>
         )}
         {hasAnyAi && (
-          <div className="flex flex-col gap-1 border-l border-gray-100 pl-12 max-w-[280px]">
-            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] flex items-center gap-1">
+          <div className="flex flex-col gap-1 border-l border-line pl-8 max-w-[280px]">
+            <span className="text-micro text-brand inline-flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
               AI working on {activeBreakdowns.length}
               {queuedBreakdowns.length > 0 && ` (+${queuedBreakdowns.length} queued)`}
             </span>
-            <ul className="text-[10px] text-indigo-600 font-bold leading-snug space-y-0.5">
-              {activeBreakdowns.slice(0, 2).map((t) => (
-                <li key={t.id} className="truncate">• {t.title}</li>
+            <ul className="text-meta text-brand font-medium leading-snug space-y-0.5">
+              {activeBreakdowns.slice(0, 2).map((task) => (
+                <li key={task.id} className="truncate">
+                  • {task.title}
+                </li>
               ))}
-              {queuedBreakdowns.slice(0, 1).map((t) => (
-                <li key={t.id} className="truncate text-indigo-300">⏳ {t.title}</li>
+              {queuedBreakdowns.slice(0, 1).map((task) => (
+                <li key={task.id} className="truncate text-brand/60">
+                  ⏳ {task.title}
+                </li>
               ))}
             </ul>
           </div>
         )}
         {runtimeStatus && (
-          <div className="flex flex-col gap-1 border-l border-gray-100 pl-8 max-w-[260px]">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.18em] flex items-center gap-1">
+          <div className="flex flex-col gap-1 border-l border-line pl-7 max-w-[260px]">
+            <span className="text-micro text-ink-subtle inline-flex items-center gap-1">
               <RefreshCw className="w-3 h-3" />
               {t('mission.runtime', 'Runtime')}
             </span>
-            <p className="text-[10px] text-slate-600 font-semibold leading-snug">
-              {runtimeStatus.summary}
-            </p>
+            <p className="text-meta text-ink-muted leading-snug">{runtimeStatus.summary}</p>
           </div>
         )}
       </div>
       <button
         onClick={onCloseProject}
         disabled={!canClose}
-        className={`px-5 py-2 rounded-xl font-black text-[11px] transition-all flex items-center gap-2 uppercase tracking-[0.15em] ${
+        className={`px-4 py-2 rounded-xl font-semibold text-meta transition-colors flex items-center gap-2 ${
           !canClose
-            ? 'bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200'
-            : 'bg-[#0a192f] text-white hover:bg-blue-600 shadow-2xl shadow-blue-900/20 active:scale-95 border border-[#0a192f]'
+            ? 'bg-surface-muted text-ink-subtle cursor-not-allowed border border-line'
+            : 'bg-ink text-white hover:bg-brand shadow-sm active:scale-95'
         }`}
       >
-        {t('mission.closeMission', 'Close Mission')} <Rocket className="w-3.5 h-3.5" />
+        {t('mission.closeMission', 'Wrap up')}
+        <Rocket className="w-3.5 h-3.5" />
       </button>
     </footer>
   )

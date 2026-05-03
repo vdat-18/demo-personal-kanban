@@ -21,7 +21,7 @@ export default function Error({
           <AlertTriangle className="w-8 h-8 text-red-500" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-[#0a192f] mb-2">Something went wrong</h2>
+          <h2 className="text-xl font-bold text-ink mb-2">Something went wrong</h2>
           <p className="text-sm text-zinc-500 leading-relaxed">
             {error.message || 'An unexpected error occurred. Please try again.'}
           </p>
@@ -31,7 +31,7 @@ export default function Error({
         </div>
         <button
           onClick={reset}
-          className="px-6 py-3 bg-[#0a192f] text-white rounded-xl font-semibold text-sm hover:bg-blue-900 transition-colors"
+          className="px-6 py-3 bg-ink text-white rounded-xl font-semibold text-sm hover:bg-blue-900 transition-colors"
         >
           Try again
         </button>

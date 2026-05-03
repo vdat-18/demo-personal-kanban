@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Bell, ChevronDown, Languages, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -32,8 +33,6 @@ export function Navigation() {
   const navLinks = [
     { href: '/', label: t('nav.projects', 'Projects') },
     { href: '/directory', label: t('nav.directory', 'Directory') },
-    { href: '/timeline', label: t('nav.timeline', 'Timeline') },
-    { href: '/insights', label: t('nav.insights', 'Insights') },
   ]
 
   const localeOptions: Array<{ value: UiLocale; label: string }> = [
@@ -46,34 +45,42 @@ export function Navigation() {
 
   return (
     <>
-      <header className="h-20 px-6 border-b border-gray-100 bg-white/70 backdrop-blur-xl flex items-center justify-between sticky top-0 z-50 transition-all">
-        <div className="flex items-center gap-12 h-full">
+      <header className="h-16 px-6 border-b border-line/60 bg-surface/90 backdrop-blur-xl flex items-center justify-between sticky top-0 z-50 shadow-nav">
+        <div className="flex items-center gap-10 h-full">
           <Link
             href="/"
-            className="font-black text-xl tracking-tighter text-[#0a192f] hover:opacity-80 transition-opacity hidden sm:block"
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+            aria-label="Agent for Everyone — home"
           >
-            Agent<span className="text-blue-600">For</span>Everyone
+            <Image
+              src="/logo/mark.svg"
+              alt=""
+              width={32}
+              height={32}
+              priority
+              className="shrink-0"
+            />
+            <span className="hidden sm:inline-flex items-baseline gap-1 text-h2 text-ink">
+              Agent <span className="text-brand">for</span> Everyone
+            </span>
           </Link>
-          <nav className="flex items-center gap-8 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400 h-full">
+          <nav className="flex items-center gap-7 text-meta text-ink-muted h-full">
             {navLinks.map(({ href, label }) => {
               const isActive = pathname === href
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={[
-                    'flex items-center h-full pt-1 transition-all relative group',
-                    isActive
-                      ? 'text-[#0a192f]'
-                      : 'hover:text-[#0a192f]',
-                  ].join(' ')}
+                  className={`flex items-center h-full pt-1 transition-colors relative group font-semibold ${
+                    isActive ? 'text-ink' : 'hover:text-ink'
+                  }`}
                 >
                   {label}
                   {isActive && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 animate-in fade-in slide-in-from-bottom-1" />
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand animate-in fade-in slide-in-from-bottom-1" />
                   )}
                   {!isActive && (
-                    <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-gray-200 group-hover:w-full transition-all duration-300" />
+                    <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-line group-hover:w-full transition-all duration-300" />
                   )}
                 </Link>
               )
@@ -81,34 +88,34 @@ export function Navigation() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-6 text-gray-400">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label={t('nav.notifications', 'Notifications')}
-              className="p-2 hover:bg-gray-100 rounded-2xl transition-all hover:text-[#0a192f] active:scale-95"
-            >
-              <Bell className="w-5 h-5" />
-            </button>
-          </div>
+        <div className="flex items-center gap-4 text-ink-muted">
+          <button
+            type="button"
+            aria-label={t('nav.notifications', 'Notifications')}
+            className="p-2 hover:bg-surface-muted rounded-xl transition-colors hover:text-ink active:scale-95"
+          >
+            <Bell className="w-5 h-5" />
+          </button>
           <div ref={menuRef} className="relative">
             <button
               type="button"
               onClick={() => setUserMenuOpen((v) => !v)}
-              className="flex items-center gap-2 pl-3 pr-2 h-10 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white cursor-pointer hover:shadow-lg hover:shadow-slate-200 transition-all active:scale-95 border-2 border-white"
+              className="flex items-center gap-2 pl-3 pr-2 h-10 rounded-xl bg-ink text-white hover:opacity-90 transition-opacity active:scale-95"
             >
-              <User className="w-5 h-5" />
-              <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              <User className="w-4 h-4" />
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 mt-3 w-64 rounded-3xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.12)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+              <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-line/60 bg-surface shadow-dropdown overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-4 py-3 border-b border-line bg-surface-muted/60">
+                  <p className="text-meta font-semibold text-ink-muted">
                     {t('nav.language', 'Language')}
                   </p>
                 </div>
-                <div className="p-3 space-y-1">
+                <div className="p-2 space-y-0.5">
                   {localeOptions.map((option) => (
                     <button
                       key={option.value}
@@ -116,29 +123,31 @@ export function Navigation() {
                         setUiLocale(option.value)
                         setUserMenuOpen(false)
                       }}
-                      className={`w-full flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition-colors ${
+                      className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-meta transition-colors ${
                         uiLocale === option.value
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:bg-slate-50'
+                          ? 'bg-brand-subtle text-brand font-semibold'
+                          : 'text-ink-muted hover:bg-surface-muted'
                       }`}
                     >
                       <span className="flex items-center gap-2">
                         <Languages className="w-4 h-4" />
                         {option.label}
                       </span>
-                      {uiLocale === option.value && <span className="text-[10px] font-black uppercase tracking-[0.14em]">Active</span>}
+                      {uiLocale === option.value && (
+                        <span className="text-micro text-brand">Active</span>
+                      )}
                     </button>
                   ))}
                 </div>
-                <div className="border-t border-slate-100 p-3">
+                <div className="border-t border-line p-2">
                   <button
                     onClick={() => {
                       setSettingsOpen(true)
                       setUserMenuOpen(false)
                     }}
-                    className="w-full rounded-2xl px-3 py-2.5 text-sm text-left text-slate-600 hover:bg-slate-50 transition-colors"
+                    className="w-full rounded-xl px-3 py-2.5 text-meta text-left text-ink-muted hover:bg-surface-muted transition-colors"
                   >
-                    {t('nav.aiContext', 'Personal AI Context')}
+                    {t('nav.aiContext', 'Personal AI context')}
                   </button>
                 </div>
               </div>

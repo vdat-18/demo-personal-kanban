@@ -3,117 +3,244 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * @theme — exposes design tokens as Tailwind utilities (v4 CSS-first config).
+ *
+ * Two groups:
+ *   1. shadcn-bridge tokens (--color-primary, --color-card, etc.) —
+ *      kept so existing shadcn primitives in components/atoms still work.
+ *   2. Custom semantic tokens (--color-brand, --color-canvas, --color-success,
+ *      etc.) — drive `bg-brand`, `text-success`, `border-line` utilities used
+ *      across the app.
+ *
+ * Whenever you change a value here, update lib/design-tokens.ts to match.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* shadcn-bridge: keep `inline` because values resolve via :root var() refs.
+ * Generates utilities like `bg-primary`, `text-card-foreground` driven by
+ * the matching :root variables defined further below. */
 @theme inline {
   --font-heading: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
+
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 }
+
+/* Custom design tokens — direct hex values.
+ * Use plain `@theme` (without `inline`) so Tailwind v4 generates utilities
+ * `bg-brand`, `text-success-bg`, `border-line`, etc. and exposes them as
+ * CSS vars on :root for consumers. */
+@theme {
+  /* Surface */
+  --color-canvas: #FAFAF9;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F5F5F4;
+
+  /* Ink (text on light bg) */
+  --color-ink: #1C1917;
+  --color-ink-muted: #57534E;
+  --color-ink-subtle: #A8A29E;
+
+  /* Border */
+  --color-line: #E7E5E4;
+  --color-line-strong: #D6D3D1;
+
+  /* Brand */
+  --color-brand: #2563EB;
+  --color-brand-hover: #1D4ED8;
+  --color-brand-subtle: #EFF6FF;
+  --color-brand-border: #BFDBFE;
+
+  /* Spark (warm accent) */
+  --color-spark: #F59E0B;
+  --color-spark-subtle: #FFFBEB;
+
+  /* Success */
+  --color-success: #047857;
+  --color-success-bg: #ECFDF5;
+  --color-success-border: #A7F3D0;
+
+  /* Warning */
+  --color-warning: #B45309;
+  --color-warning-bg: #FFFBEB;
+  --color-warning-border: #FDE68A;
+
+  /* Danger */
+  --color-danger: #B91C1C;
+  --color-danger-bg: #FEF2F2;
+  --color-danger-border: #FECACA;
+
+  /* Info (= brand for our product) */
+  --color-info: #1D4ED8;
+  --color-info-bg: #EFF6FF;
+  --color-info-border: #BFDBFE;
+
+  /* Radius scale — 3 levels (was 8+ before, now consolidated) */
+  --radius-sm: 0.5rem;     /* 8px */
+  --radius-md: 0.75rem;    /* 12px */
+  --radius-lg: 1rem;       /* 16px */
+  --radius-xl: 1.25rem;    /* 20px — fallback for legacy class usage */
+  --radius-2xl: 1.5rem;    /* 24px — fallback for legacy class usage */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * CSS variables — actual values (light theme)
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #FAFAF9;
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1917;
+
+  /* shadcn primary = our brand blue */
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #F5F5F4;
+  --secondary-foreground: #1C1917;
+
+  --muted: #F5F5F4;
+  --muted-foreground: #57534E;
+
+  /* shadcn accent = warm spark */
+  --accent: #FFFBEB;
+  --accent-foreground: #B45309;
+
+  --destructive: #B91C1C;
+
+  --border: #E7E5E4;
+  --input: #E7E5E4;
+  --ring: #2563EB;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1C1917;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F5F5F4;
+  --sidebar-accent-foreground: #1C1917;
+  --sidebar-border: #E7E5E4;
+  --sidebar-ring: #2563EB;
+
+  /* Chart neutral grayscale (kept from previous setup, low priority) */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  --radius: 0.75rem;
 }
 
+/* Dark theme — kept tokens defined so future dark mode work is mechanical.
+ * Not currently activated by any UI control. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1C1917;
+  --foreground: #FAFAF9;
+  --card: #292524;
+  --card-foreground: #FAFAF9;
+  --popover: #292524;
+  --popover-foreground: #FAFAF9;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #292524;
+  --secondary-foreground: #FAFAF9;
+  --muted: #292524;
+  --muted-foreground: #A8A29E;
+  --accent: #292524;
+  --accent-foreground: #FCD34D;
+  --destructive: #DC2626;
+  --border: #44403C;
+  --input: #44403C;
+  --ring: #3B82F6;
+  --sidebar: #292524;
+  --sidebar-foreground: #FAFAF9;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #44403C;
+  --sidebar-accent-foreground: #FAFAF9;
+  --sidebar-border: #44403C;
+  --sidebar-ring: #3B82F6;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Custom utilities
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Elevation shadows — warm-tinted, 3-level scale.
+   * Each level adds an inset top-edge highlight (white 1px) for the "raised
+   * paper" effect — mimics a light source from above. */
+
+  /* Level 1 — default card. Subtle lift above white canvas. */
+  .shadow-card {
+    box-shadow:
+      0 1px 4px 0 rgba(28, 25, 23, 0.09),
+      0 1px 2px -1px rgba(28, 25, 23, 0.07);
+  }
+
+  /* Level 2 — hovered card. Clear lift. */
+  .shadow-card-hover {
+    box-shadow:
+      0 12px 28px -6px rgba(28, 25, 23, 0.16),
+      0 4px 12px -3px rgba(28, 25, 23, 0.09);
+  }
+
+  /* Level 3 — panel / column / drawer. */
+  .shadow-panel {
+    box-shadow:
+      0 4px 16px -4px rgba(28, 25, 23, 0.10),
+      0 2px 4px -1px rgba(28, 25, 23, 0.06);
+  }
+
+  /* Nav bar — bottom edge only. */
+  .shadow-nav {
+    box-shadow:
+      0 1px 0 0 rgba(28, 25, 23, 0.08),
+      0 2px 6px -2px rgba(28, 25, 23, 0.05);
+  }
+
+  /* Dropdown / popover — deepest elevation. */
+  .shadow-dropdown {
+    box-shadow:
+      0 12px 32px -6px rgba(28, 25, 23, 0.14),
+      0 4px 10px -2px rgba(28, 25, 23, 0.07),
+      0 0 0 1px rgba(28, 25, 23, 0.05);
+  }
+}
+
 @layer utilities {
   .scrollbar-none {
     -ms-overflow-style: none;
@@ -123,33 +250,81 @@
     display: none;
   }
 }
+
+/* Typography utilities — replacement for arbitrary text-[Npx] sizes.
+ * Use `text-display | text-h1 | text-h2 | text-body | text-meta | text-micro`.
+ * Defined as plain classes (not @utility) so they work across Tailwind v4
+ * minor versions and don't need JIT scanning. */
+@layer utilities {
+  .text-display {
+    font-size: 2rem;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .text-h1 {
+    font-size: 1.5rem;
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .text-h2 {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .text-body {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    font-weight: 400;
+  }
+  .text-meta {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+  .text-micro {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Base layer
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas text-ink;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  h1, h2, h3, h4, h5, h6 {
     @apply font-heading tracking-tight;
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * AI prose — markdown rendered inside chat bubbles.
+ * Cleaned up: weights 700 (was 800), brand blue accents, warm ink color.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 .ai-prose {
   font-size: 0.9375rem;
-  line-height: 1.6;
-  color: #374151;
-  font-family: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: 0.01em;
-  text-align: justify;
+  line-height: 1.65;
+  color: #1C1917;
+  font-family: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.005em;
 }
 
 .ai-prose p,
@@ -164,8 +339,8 @@
 
 .ai-prose p {
   margin-top: 0;
-  margin-bottom: 0.5em;
-  color: #4b5563;
+  margin-bottom: 0.6em;
+  color: #44403C;
 }
 .ai-prose p:last-child {
   margin-bottom: 0;
@@ -176,35 +351,25 @@
 .ai-prose h3,
 .ai-prose h4 {
   font-family: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1C1917;
   line-height: 1.3;
   margin-top: 1.25em;
   margin-bottom: 0.4em;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
 }
-.ai-prose h1 {
-  font-size: 1.2em;
-}
-.ai-prose h2 {
-  font-size: 1.1em;
-}
-.ai-prose h3 {
-  font-size: 1em;
-  color: #1e3a5f;
-}
-.ai-prose h4 {
-  font-size: 0.95em;
-  color: #1e3a5f;
-}
+.ai-prose h1 { font-size: 1.2em; }
+.ai-prose h2 { font-size: 1.1em; }
+.ai-prose h3 { font-size: 1em; color: #1C1917; }
+.ai-prose h4 { font-size: 0.95em; color: #44403C; }
 
 .ai-prose strong {
-  font-weight: 700;
-  color: #1e293b;
+  font-weight: 600;
+  color: #1C1917;
 }
 .ai-prose em {
   font-style: italic;
-  color: #475569;
+  color: #57534E;
 }
 
 .ai-prose ul,
@@ -213,80 +378,61 @@
   margin-bottom: 0.75em;
   padding-left: 1.4em;
 }
-.ai-prose ul {
-  list-style-type: disc;
-}
-.ai-prose ol {
-  list-style-type: decimal;
-}
+.ai-prose ul { list-style-type: disc; }
+.ai-prose ol { list-style-type: decimal; }
 .ai-prose li {
   margin-top: 0.3em;
   margin-bottom: 0.3em;
-  color: #4b5563;
+  color: #44403C;
   padding-left: 0.25em;
 }
 .ai-prose li::marker {
-  color: #3b82f6;
-  font-weight: 700;
-}
-.ai-prose li > p {
-  margin-bottom: 0.2em;
-}
-
-.ai-prose ul ul,
-.ai-prose ol ol,
-.ai-prose ul ol,
-.ai-prose ol ul {
-  margin-top: 0.25em;
-  margin-bottom: 0.25em;
+  color: #2563EB;
+  font-weight: 600;
 }
 
 .ai-prose code {
-  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
   font-size: 0.84em;
-  background: #f0f4ff;
-  color: #2563eb;
+  background: #EFF6FF;
+  color: #1D4ED8;
   padding: 0.15em 0.45em;
   border-radius: 5px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #BFDBFE;
   font-weight: 500;
-  letter-spacing: 0;
 }
 
 .ai-prose pre {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #1C1917;
+  color: #F5F5F4;
   border-radius: 12px;
   padding: 1em 1.25em;
   overflow-x: auto;
   margin: 0.75em 0;
-  font-size: 0.83em;
+  font-size: 0.85em;
   line-height: 1.65;
-  border: 1px solid #1e293b;
+  border: 1px solid #44403C;
 }
 .ai-prose pre code {
   background: transparent;
   color: inherit;
   border: none;
   padding: 0;
-  font-size: 1em;
 }
 
 .ai-prose blockquote {
-  border-left: 3px solid #3b82f6;
-  padding-left: 1em;
+  border-left: 3px solid #2563EB;
+  padding: 0.5em 1em;
   margin: 0.75em 0;
-  color: #64748b;
+  color: #57534E;
   font-style: italic;
-  background: #f8faff;
+  background: #EFF6FF;
   border-radius: 0 8px 8px 0;
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
 }
 
 .ai-prose hr {
   border: none;
-  border-top: 1.5px solid #e2e8f0;
+  border-top: 1px solid #E7E5E4;
   margin: 1em 0;
 }
 
@@ -299,74 +445,62 @@
   overflow: hidden;
 }
 .ai-prose th {
-  background: #f1f5f9;
-  color: #0f172a;
-  font-weight: 700;
+  background: #F5F5F4;
+  color: #1C1917;
+  font-weight: 600;
   padding: 0.6em 0.85em;
   text-align: left;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid #E7E5E4;
   font-size: 0.82em;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 .ai-prose td {
   padding: 0.5em 0.85em;
-  border-bottom: 1px solid #f1f5f9;
-  color: #475569;
+  border-bottom: 1px solid #F5F5F4;
+  color: #57534E;
   vertical-align: top;
 }
-.ai-prose tr:last-child td {
-  border-bottom: none;
-}
-.ai-prose tr:nth-child(even) td {
-  background: #f8faff;
-}
+.ai-prose tr:last-child td { border-bottom: none; }
+.ai-prose tr:nth-child(even) td { background: #FAFAF9; }
 
 .ai-prose a {
-  color: #2563eb;
+  color: #2563EB;
   text-decoration: underline;
-  text-decoration-color: #93c5fd;
+  text-decoration-color: #BFDBFE;
   text-underline-offset: 2px;
   font-weight: 500;
   transition: color 0.15s;
 }
-.ai-prose a:hover {
-  color: #1d4ed8;
-}
+.ai-prose a:hover { color: #1D4ED8; }
 
-.ai-prose > *:first-child {
-  margin-top: 0 !important;
-}
+.ai-prose > *:first-child { margin-top: 0 !important; }
+.ai-prose ol > li:first-child { margin-top: 0; }
 
-.ai-prose ol > li:first-child {
-  margin-top: 0;
-}
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Plan prose — vision document rendering. Same palette, slightly larger size.
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 .plan-prose {
-  font-size: 0.985rem;
-  line-height: 1.82;
-  color: #334155;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #44403C;
   font-family: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.002em;
 }
 
-.plan-prose > *:first-child {
-  margin-top: 0 !important;
-}
+.plan-prose > *:first-child { margin-top: 0 !important; }
 
 .plan-prose p {
   margin: 0 0 0.9rem;
-  color: #475569;
+  color: #44403C;
 }
 
 .plan-prose h1,
 .plan-prose h2,
 .plan-prose h3,
 .plan-prose h4 {
-  color: #0f172a;
+  color: #1C1917;
   font-family: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.25;
 }
 
@@ -374,35 +508,28 @@
   font-size: 1.55rem;
   margin: 0 0 1.1rem;
   padding-bottom: 0.95rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #E7E5E4;
 }
-
 .plan-prose h2 {
-  font-size: 1.12rem;
+  font-size: 1.15rem;
   margin: 1.75rem 0 0.8rem;
-  padding-top: 0.15rem;
 }
-
 .plan-prose h3 {
   font-size: 1rem;
   margin: 1.3rem 0 0.55rem;
-  color: #1e3a8a;
+  color: #1D4ED8;
 }
-
 .plan-prose h4 {
   font-size: 0.92rem;
   margin: 1rem 0 0.45rem;
-  color: #334155;
+  color: #44403C;
 }
 
 .plan-prose strong {
-  color: #0f172a;
-  font-weight: 700;
+  color: #1C1917;
+  font-weight: 600;
 }
-
-.plan-prose em {
-  color: #475569;
-}
+.plan-prose em { color: #57534E; }
 
 .plan-prose ul,
 .plan-prose ol {
@@ -412,51 +539,49 @@
 
 .plan-prose li {
   margin: 0.34rem 0;
-  color: #475569;
+  color: #44403C;
   padding-left: 0.2rem;
 }
-
 .plan-prose li::marker {
-  color: #6366f1;
-  font-weight: 700;
+  color: #2563EB;
+  font-weight: 600;
 }
 
 .plan-prose blockquote {
   margin: 1rem 0;
   padding: 0.9rem 1rem;
-  border-left: 4px solid #818cf8;
-  background: linear-gradient(180deg, #f8faff 0%, #f5f7ff 100%);
-  border-radius: 0 16px 16px 0;
-  color: #475569;
+  border-left: 3px solid #2563EB;
+  background: #EFF6FF;
+  border-radius: 0 12px 12px 0;
+  color: #44403C;
 }
 
 .plan-prose hr {
   border: 0;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #E7E5E4;
   margin: 1.5rem 0;
 }
 
 .plan-prose code {
-  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
   font-size: 0.86em;
-  background: #eef2ff;
-  color: #4338ca;
+  background: #EFF6FF;
+  color: #1D4ED8;
   padding: 0.14rem 0.42rem;
   border-radius: 6px;
-  border: 1px solid #dbeafe;
+  border: 1px solid #BFDBFE;
 }
 
 .plan-prose pre {
   margin: 1rem 0;
   padding: 1rem 1.1rem;
-  border-radius: 16px;
-  background: #0f172a;
-  color: #e2e8f0;
+  border-radius: 12px;
+  background: #1C1917;
+  color: #F5F5F4;
   overflow-x: auto;
-  border: 1px solid #1e293b;
+  border: 1px solid #44403C;
   line-height: 1.65;
 }
-
 .plan-prose pre code {
   background: transparent;
   color: inherit;
@@ -470,8 +595,8 @@
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid #E7E5E4;
+  border-radius: 12px;
 }
 
 .plan-prose th,
@@ -482,16 +607,14 @@
 }
 
 .plan-prose th {
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 800;
-  border-bottom: 1px solid #e2e8f0;
+  background: #FAFAF9;
+  color: #1C1917;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-bottom: 1px solid #E7E5E4;
 }
 
 .plan-prose td {
-  color: #475569;
-  border-top: 1px solid #f1f5f9;
+  color: #57534E;
+  border-top: 1px solid #F5F5F4;
 }

@@ -1,28 +1,38 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// STATUS CONSTANTS — shared status color maps for UI components
+// STATUS CONSTANTS — color tokens for kanban statuses.
+// Single source of truth — semantic mapping:
+//   TODO        → neutral (stone)
+//   IN_PROGRESS → info (brand blue)
+//   IN_REVIEW   → warning (amber)
+//   DONE        → success (emerald)
+//   BLOCKED     → danger (red, muted)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { UITaskStatus } from '@/types/domain'
 
-/**
- * Status → Tailwind class mapping used in kanban board, directory, and chat views.
- * Includes background, text, and border classes for bordered badges.
- */
+/** Bordered chip — used in kanban board, directory, chat. */
 export const STATUS_COLORS: Record<UITaskStatus, string> = {
-  TODO: 'bg-slate-50 text-slate-500 border-slate-200',
-  IN_PROGRESS: 'bg-blue-50 text-blue-600 border-blue-200',
-  IN_REVIEW: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  DONE: 'bg-green-50 text-green-600 border-green-200',
-  BLOCKED: 'bg-red-50 text-red-400 border-red-200',
+  TODO: 'bg-surface-muted text-ink-muted border-line',
+  IN_PROGRESS: 'bg-info-bg text-info border-info-border',
+  IN_REVIEW: 'bg-warning-bg text-warning border-warning-border',
+  DONE: 'bg-success-bg text-success border-success-border',
+  BLOCKED: 'bg-danger-bg text-danger border-danger-border',
 }
 
-/**
- * Compact status color mapping (no border) used in chat and summary views.
- */
+/** Compact chip (no border) — used in chat header, summary. */
 export const STATUS_COLORS_COMPACT: Record<UITaskStatus, string> = {
-  TODO: 'bg-slate-100 text-slate-600',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  IN_REVIEW: 'bg-yellow-100 text-yellow-700',
-  DONE: 'bg-green-100 text-green-700',
-  BLOCKED: 'bg-red-100 text-red-600',
+  TODO: 'bg-surface-muted text-ink-muted',
+  IN_PROGRESS: 'bg-info-bg text-info',
+  IN_REVIEW: 'bg-warning-bg text-warning',
+  DONE: 'bg-success-bg text-success',
+  BLOCKED: 'bg-danger-bg text-danger',
+}
+
+/** Solid dot color — used in column header, task row indicators. */
+export const STATUS_DOT: Record<UITaskStatus, string> = {
+  TODO: 'bg-ink-subtle',
+  IN_PROGRESS: 'bg-brand',
+  IN_REVIEW: 'bg-spark',
+  DONE: 'bg-success',
+  BLOCKED: 'bg-danger',
 }

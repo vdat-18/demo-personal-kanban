@@ -10,7 +10,7 @@ export function TypingDots({ className }: TypingDotsProps) {
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
-          className="w-2 h-2 bg-blue-300 rounded-full animate-bounce"
+          className="w-2 h-2 bg-brand/50 rounded-full animate-bounce"
           style={{ animationDelay: `${delay}ms` }}
         />
       ))}

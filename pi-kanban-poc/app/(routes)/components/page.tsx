@@ -38,7 +38,7 @@ function Section({
 }) {
   return (
     <section className="mb-10">
-      <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100">
+      <h2 className="text-xs font-semibold tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-100">
         {title}
       </h2>
       <div className="flex flex-wrap gap-3 items-start">{children}</div>
@@ -53,7 +53,7 @@ export default function ComponentShowcase() {
   return (
     <div className="max-w-4xl mx-auto px-8 py-12">
       <div className="mb-10">
-        <h1 className="text-2xl font-black text-[#0a192f] mb-1">
+        <h1 className="text-2xl font-black text-ink mb-1">
           Component Showcase
         </h1>
         <p className="text-sm text-slate-500">

@@ -94,7 +94,7 @@ export function TaskMutationCard({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{label}</span>
+              <span className="text-xs font-semibold tracking-wide text-gray-400">{label}</span>
             </div>
             <p className="text-sm text-gray-500 font-medium line-through">{description}</p>
           </div>
@@ -113,9 +113,9 @@ export function TaskMutationCard({
         <div className={`mt-0.5 ${iconColorClass}`}>{icon}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</span>
+            <span className="text-xs font-semibold tracking-wide text-gray-500">{label}</span>
           </div>
-          <p className="text-sm text-[#0a192f] font-medium">{description}</p>
+          <p className="text-sm text-ink font-medium">{description}</p>
           {mutation.action === 'add' && mutation.description && (
             <p className="text-xs text-gray-500 mt-0.5">{mutation.description}</p>
           )}

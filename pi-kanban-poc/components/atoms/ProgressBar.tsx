@@ -17,16 +17,13 @@ export function ProgressBar({
   return (
     <div
       className={cn(
-        'w-full h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100/50',
+        'w-full h-2 bg-surface-muted rounded-full overflow-hidden',
         trackClassName,
-        className
+        className,
       )}
     >
       <div
-        className={cn(
-          'bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-1000',
-          barClassName
-        )}
+        className={cn('bg-brand h-full rounded-full transition-all duration-700', barClassName)}
         style={{ width: `${value}%` }}
       />
     </div>

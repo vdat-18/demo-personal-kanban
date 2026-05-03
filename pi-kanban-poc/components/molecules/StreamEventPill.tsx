@@ -8,7 +8,7 @@ export interface StreamEventPillProps {
 export function StreamEventPill({ event }: StreamEventPillProps) {
   if (event.type === 'started') {
     return (
-      <div className="flex items-center gap-1.5 text-[10px] text-blue-500 font-bold uppercase tracking-widest">
+      <div className="flex items-center gap-1.5 text-meta text-blue-500 font-semibold">
         <Zap className="w-3 h-3 animate-pulse" /> Agent started...
       </div>
     )
@@ -21,7 +21,7 @@ export function StreamEventPill({ event }: StreamEventPillProps) {
         ? event.step
         : 'Processing...'
     return (
-      <div className="flex items-center gap-1.5 text-[10px] text-blue-400 font-medium truncate">
+      <div className="flex items-center gap-1.5 text-meta text-blue-400 font-medium truncate">
         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
         {label}
       </div>

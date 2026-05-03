@@ -67,7 +67,7 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   return (
     <main className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-6">
-      <div className="flex gap-6 h-full" style={{ minWidth: `${KANBAN_COLUMNS.length * 320 + 100}px` }}>
+      <div className="flex gap-3 h-full min-w-[900px]">
         {KANBAN_COLUMNS.map((column) => {
           const isValid = draggingTaskStatus
             ? isValidDropTarget(draggingTaskStatus, column.id)
@@ -92,7 +92,9 @@ export function KanbanBoard({
                 }
               }}
               onDragLeave={onDragLeave}
-              onDrop={(e) => { if (isValid) onDrop(e, column.id) }}
+              onDrop={(e) => {
+                if (isValid) onDrop(e, column.id)
+              }}
               onDragStart={onDragStart}
               onTaskClick={onTaskClick}
               onUpdateStatus={onUpdateStatus}
@@ -104,14 +106,9 @@ export function KanbanBoard({
           )
         })}
 
-        {/* Add Column Ghost */}
-        <div className="w-80 h-full border-2 border-dashed border-gray-200 rounded-[3rem] flex items-center justify-center hover:bg-white hover:border-blue-400/50 transition-all cursor-pointer group shrink-0">
-          <div className="flex flex-col items-center gap-5">
-            <div className="w-16 h-16 rounded-[24px] bg-white text-gray-300 flex items-center justify-center group-hover:bg-[#0a192f] group-hover:text-white group-hover:scale-110 group-hover:rotate-90 transition-all shadow-xl shadow-slate-200/50">
-              <Plus className="w-7 h-7" />
-            </div>
-            <span className="text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] group-hover:text-[#0a192f] transition-colors">Add Column</span>
-          </div>
+        {/* Add Column ghost — compact so it doesn't eat column space */}
+        <div className="w-10 h-full border-2 border-dashed border-line rounded-2xl flex items-center justify-center hover:bg-surface hover:border-brand transition-all cursor-pointer group shrink-0">
+          <Plus className="w-4 h-4 text-ink-subtle group-hover:text-brand transition-colors" />
         </div>
       </div>
     </main>

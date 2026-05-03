@@ -28,7 +28,7 @@ export function ChatBubble({ sender, text, actionHint, className }: Props) {
       )}
     >
       {isAgent && (
-        <div className="w-8 h-8 rounded-xl bg-[#0a192f] text-white flex items-center justify-center text-[10px] font-black mr-3 flex-shrink-0 mt-1 shadow-lg shadow-blue-900/20">
+        <div className="w-8 h-8 rounded-xl bg-ink text-white flex items-center justify-center text-meta font-black mr-3 flex-shrink-0 mt-1 shadow-lg shadow-blue-900/20">
           AI
         </div>
       )}
@@ -38,7 +38,7 @@ export function ChatBubble({ sender, text, actionHint, className }: Props) {
           "max-w-[80%] rounded-2xl px-5 py-3.5 shadow-sm",
           isAgent
             ? "bg-white border border-slate-100 text-slate-700 rounded-tl-sm"
-            : "bg-[#0a192f] text-white rounded-tr-sm"
+            : "bg-ink text-white rounded-tr-sm"
         )}
       >
         {isAgent ? (
@@ -51,7 +51,7 @@ export function ChatBubble({ sender, text, actionHint, className }: Props) {
 
         {isAgent && actionHint && (
           <div className="mt-2.5 pt-2.5 border-t border-slate-100">
-            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+            <span className="text-meta font-black text-blue-500 uppercase tracking-widest">
               💡 {actionHint}
             </span>
           </div>
@@ -68,7 +68,7 @@ export function ChatBubble({ sender, text, actionHint, className }: Props) {
 export function TypingIndicator() {
   return (
     <div className="flex justify-start mb-4">
-      <div className="w-8 h-8 rounded-xl bg-[#0a192f] text-white flex items-center justify-center text-[10px] font-black mr-3 flex-shrink-0 mt-1 shadow-lg shadow-blue-900/20">
+      <div className="w-8 h-8 rounded-xl bg-ink text-white flex items-center justify-center text-meta font-black mr-3 flex-shrink-0 mt-1 shadow-lg shadow-blue-900/20">
         AI
       </div>
       <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">

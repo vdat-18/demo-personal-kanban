@@ -105,7 +105,7 @@ function generateHtmlReport(task: Task, approvedSubtasks: Subtask[], deniedSubta
   <title>Task Report: ${task.title}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
-    h1 { color: #0a192f; border-bottom: 2px solid #0a192f; padding-bottom: 10px; }
+    h1 { color: #1C1917; border-bottom: 2px solid #1C1917; padding-bottom: 10px; }
     h2 { color: #1a365d; margin-top: 30px; }
     h3 { color: #2c5282; }
     .status { display: inline-block; background: #c6f6d5; padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: bold; }
@@ -194,7 +194,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8f9fa] overflow-y-auto font-sans">
+    <div className="flex flex-col h-full w-full bg-canvas overflow-y-auto font-sans">
       {/* Header */}
       <header className="h-20 px-10 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-10">
         <div className="flex items-center gap-6">
@@ -210,10 +210,10 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
                 type="text"
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
-                className="font-extrabold text-2xl text-[#0a192f] tracking-tight border-b-2 border-blue-500 focus:outline-none bg-transparent"
+                className="font-extrabold text-2xl text-ink tracking-tight border-b-2 border-blue-500 focus:outline-none bg-transparent"
               />
             ) : (
-              <h1 className="font-extrabold text-2xl text-[#0a192f] tracking-tight">{task.title}</h1>
+              <h1 className="font-extrabold text-2xl text-ink tracking-tight">{task.title}</h1>
             )}
             <div className="text-sm font-semibold text-gray-500 mt-1">
               {isEditing ? (
@@ -249,18 +249,18 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
             <>
               <button
                 onClick={() => setIsEditing(true)}
-                className="text-sm font-semibold text-[#0a192f] bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+                className="text-sm font-semibold text-ink bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
               >
                 <Edit2 className="w-4 h-4" /> Edit
               </button>
               <button
                 onClick={() => setShowAIPanel(!showAIPanel)}
-                className="text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+                className="text-sm font-semibold text-white bg-gradient-to-r from-brand to-brand-hover hover:opacity-90 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
               >
                 <Wand2 className="w-4 h-4" /> AI Assist
               </button>
               <div className="relative group">
-                <button className="text-sm font-semibold text-[#0a192f] bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2">
+                <button className="text-sm font-semibold text-ink bg-gray-100 hover:bg-gray-200 px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2">
                   <Download className="w-4 h-4" /> Download
                 </button>
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
@@ -285,21 +285,21 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
 
       {/* AI Assist Panel */}
       {showAIPanel && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 p-4">
+        <div className="bg-gradient-to-r from-brand-subtle to-brand-subtle/60 border-b border-brand-border p-4">
           <div className="max-w-4xl mx-auto flex items-center gap-3">
-            <Wand2 className="w-5 h-5 text-purple-600 shrink-0" />
+            <Wand2 className="w-5 h-5 text-brand shrink-0" />
             <input
               type="text"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="Ask AI to improve, shorten, expand, or reformat this report..."
-              className="flex-1 px-4 py-2 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-400 text-sm"
+              className="flex-1 px-4 py-2 rounded-xl border border-brand-border focus:outline-none focus:border-brand text-sm"
               onKeyDown={(e) => e.key === 'Enter' && handleAIEdit()}
             />
             <button
               onClick={handleAIEdit}
               disabled={isAILoading || !aiPrompt.trim()}
-              className="px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isAILoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
               Generate
@@ -318,7 +318,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
             <CheckCircle2 className="w-5 h-5" />
             {task.status === 'DONE' ? 'Execution Complete' : `Status: ${task.status}`}
           </h2>
-          <div className="text-[#0a192f] text-lg font-medium leading-relaxed max-w-2xl relative z-10">
+          <div className="text-ink text-lg font-medium leading-relaxed max-w-2xl relative z-10">
             {lastResult ? (
               <div className="prose prose-sm max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{lastResult}</ReactMarkdown>
@@ -341,7 +341,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
               <div className="bg-white rounded-3xl border border-green-100 shadow-sm overflow-hidden mb-6">
                 <div className="px-6 py-4 bg-green-50 border-b border-green-100 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="text-xs font-black uppercase tracking-widest text-green-700">
+                  <span className="text-xs font-semibold tracking-widest text-green-700">
                     Completed Steps ({approvedSubtasks.length})
                   </span>
                 </div>
@@ -351,26 +351,26 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 text-green-600">✓</span>
                         <div className="flex-1">
-                          <h4 className="text-sm font-bold text-[#0a192f]">{sub.title}</h4>
+                          <h4 className="text-sm font-bold text-ink">{sub.title}</h4>
                           {sub.description && (
                             <p className="text-xs text-gray-500 mt-1">{sub.description}</p>
                           )}
                           {sub.doerResult && (
                             <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                              <div className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
+                              <div className="text-micro text-blue-600 mb-1">
                                 AI Output
                               </div>
                               <p className="text-xs text-blue-900 leading-relaxed">{sub.doerResult.summary}</p>
                               {sub.doerResult.artifact && (
                                 <div className="mt-2 pt-2 border-t border-blue-100">
-                                  <p className="text-[10px] text-blue-800 leading-relaxed whitespace-pre-wrap">{sub.doerResult.artifact.slice(0, 500)}{sub.doerResult.artifact.length > 500 ? '...' : ''}</p>
+                                  <p className="text-meta text-blue-800 leading-relaxed whitespace-pre-wrap">{sub.doerResult.artifact.slice(0, 500)}{sub.doerResult.artifact.length > 500 ? '...' : ''}</p>
                                 </div>
                               )}
                             </div>
                           )}
                           {sub.reviewResult && (
                             <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                              <div className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-1">
+                              <div className="text-micro text-amber-600 mb-1">
                                 Review Result
                               </div>
                               <p className="text-xs text-amber-900 leading-relaxed">{sub.reviewResult.summary}</p>
@@ -399,7 +399,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
               <div className="bg-white rounded-3xl border border-red-100 shadow-sm overflow-hidden mb-6">
                 <div className="px-6 py-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
                   <XCircle className="w-4 h-4 text-red-600" />
-                  <span className="text-xs font-black uppercase tracking-widest text-red-700">
+                  <span className="text-xs font-semibold tracking-widest text-red-700">
                     Denied Steps ({deniedSubtasks.length})
                   </span>
                 </div>
@@ -409,7 +409,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 text-red-600">✗</span>
                         <div className="flex-1">
-                          <h4 className="text-sm font-bold text-[#0a192f]">{sub.title}</h4>
+                          <h4 className="text-sm font-bold text-ink">{sub.title}</h4>
                           {sub.description && (
                             <p className="text-xs text-gray-500 mt-1">{sub.description}</p>
                           )}
@@ -429,7 +429,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
               <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs font-black uppercase tracking-widest text-gray-500">
+                  <span className="text-xs font-semibold tracking-widest text-gray-500">
                     Pending Steps ({pendingSubtasks.length})
                   </span>
                 </div>
@@ -439,7 +439,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
                       <div className="flex items-start gap-3">
                         <span className="mt-0.5 text-gray-400">☐</span>
                         <div className="flex-1">
-                          <h4 className="text-sm font-bold text-[#0a192f]">{sub.title}</h4>
+                          <h4 className="text-sm font-bold text-ink">{sub.title}</h4>
                           {sub.description && (
                             <p className="text-xs text-gray-500 mt-1">{sub.description}</p>
                           )}
@@ -459,7 +459,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
         {/* Stats */}
         <section className="grid grid-cols-4 gap-6">
           {[
-            { label: 'Total Steps', value: task.subtasks?.length || 0, color: 'text-[#0a192f]' },
+            { label: 'Total Steps', value: task.subtasks?.length || 0, color: 'text-ink' },
             { label: 'Approved', value: approvedSubtasks.length, color: 'text-green-600' },
             { label: 'Denied', value: deniedSubtasks.length, color: 'text-red-600' },
             { label: 'Messages', value: totalMessages, color: 'text-blue-600' },
@@ -503,7 +503,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
             <p className="text-sm font-bold text-gray-400">No conversations recorded yet.</p>
             <button
               onClick={() => router.push(`/chat/${task.id}`)}
-              className="mt-4 px-6 py-3 bg-[#0a192f] text-white rounded-xl text-sm font-bold hover:bg-blue-900 transition-colors"
+              className="mt-4 px-6 py-3 bg-ink text-white rounded-xl text-sm font-bold hover:bg-blue-900 transition-colors"
             >
               Start Task Chat
             </button>
@@ -511,7 +511,7 @@ export function SummaryTemplate({ task }: SummaryTemplateProps) {
         )}
 
         {/* AI Insights placeholder */}
-        <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white relative overflow-hidden">
+        <section className="bg-gradient-to-br from-brand to-brand-hover rounded-3xl p-8 text-white relative overflow-hidden">
           <Sparkles className="absolute -top-4 -right-4 w-32 h-32 text-white/10 rotate-12" />
           <h2 className="font-black text-lg mb-2">AI Insights</h2>
           <p className="text-blue-100 text-sm leading-relaxed opacity-80">

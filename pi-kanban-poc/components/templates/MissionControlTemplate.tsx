@@ -11,6 +11,12 @@ import { TodoBreakdownAutoRunner } from '@/components/mission-control/TodoBreakd
 import { StatusPanel } from '@/components/molecules/StatusPanel'
 import { WorkflowNotesPanel } from '@/components/molecules/WorkflowNotesPanel'
 import { ImportedSourcesPanel } from '@/components/molecules/ImportedSourcesPanel'
+import { SkillsPanel } from '@/components/molecules/SkillsPanel'
+import { TokenDashboard } from '@/components/molecules/TokenDashboard'
+import { RecurringTemplateDialog } from '@/components/molecules/RecurringTemplateDialog'
+import { ContextDrawer } from '@/components/molecules/ContextDrawer'
+import { ProjectReportModal } from '@/components/molecules/ProjectReportModal'
+import { useProjectReportAgent } from '@/lib/hooks/useProjectReportAgent'
 import type { UITaskStatus, TaskStatus } from '@/types/domain'
 import { getAllowedTransitions, validateTransition } from '@/lib/status-lifecycle'
 import type { TaskStatusValue } from '@/lib/status-lifecycle'
@@ -60,9 +66,11 @@ export interface MissionControlTemplateProps {
 export function MissionControlTemplate({ project: initialProject }: MissionControlTemplateProps) {
   const router = useRouter()
   const storeTasks = useKanbanStore((s) => s.tasks)
+  const storeSubtasks = useKanbanStore((s) => s.subtasks)
   const storeProjects = useKanbanStore((s) => s.projects)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
   const createTaskInStore = useKanbanStore((s) => s.createTask)
+  const createTasksBatchInStore = useKanbanStore((s) => s.createTasksBatch)
   const createAttentionItem = useKanbanStore((s) => s.createAttentionItem)
   const logPlanningEvent = useKanbanStore((s) => s.logPlanningEvent)
   const getPlanningEventsForProject = useKanbanStore((s) => s.getPlanningEventsForProject)
@@ -96,7 +104,10 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   const project = { ...initialProject, tasks }
   const effectiveWorkflowContract = liveProject?.workflowContract ?? project.workflowContract
 
-  const [contextDrawerTab, setContextDrawerTab] = useState<'status' | 'sources' | 'notes' | null>(null)
+  const [contextDrawerTab, setContextDrawerTab] = useState<'status' | 'sources' | 'notes' | 'skills' | 'tokens' | null>(null)
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const report = useProjectReportAgent({ projectId: project.id })
   const [dragOverColumn, setDragOverColumn] = useState<UITaskStatus | null>(null)
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const [draggingTaskStatus, setDraggingTaskStatus] = useState<UITaskStatus | null>(null)
@@ -118,9 +129,19 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
           return
         }
       }
+      // Guard: can only move TODO → IN_PROGRESS from the chat (Step Planner).
+      // Dragging on the Kanban is blocked unless there's at least one approved subtask.
+      if (current.status === 'TODO' && status === 'IN_PROGRESS') {
+        const taskSubtasks = storeSubtasks.filter((s) => s.taskId === taskId && !s.deletedAt)
+        const hasApproved = taskSubtasks.some((s) => s.approvalStatus === 'approved')
+        if (!hasApproved) {
+          console.warn(`Task "${current.title}": open the task chat and approve at least one step before starting execution.`)
+          return
+        }
+      }
       updateTaskInStore(taskId, { status })
     },
-    [storeTasks, updateTaskInStore],
+    [storeTasks, storeSubtasks, updateTaskInStore],
   )
 
   const {
@@ -174,7 +195,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   }, [initialProject.id, logPlanningEvent])
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f0f2f5] overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full bg-canvas overflow-hidden font-sans">
       <TodoBreakdownAutoRunner projectId={project.id} tasks={tasks} />
 
       <KanbanHeader
@@ -187,55 +208,94 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
         onBack={() => router.push('/')}
         onAddTask={() => setAddDialog({ open: true, status: 'TODO' })}
         onPlanning={() => router.push(`/planning/${project.id}`)}
+        rightExtras={
+          <div className="flex items-center gap-0.5">
+            {(
+              [
+                { key: 'status' as const,  label: 'Status' },
+                ...((liveProject?.importedSources?.length ?? project.importedSources?.length ?? 0) > 0
+                  ? [{ key: 'sources' as const, label: 'Sources' }] : []),
+                ...(effectiveWorkflowContract
+                  ? [{ key: 'notes' as const, label: 'Workflow Notes' }] : []),
+                { key: 'skills' as const,  label: 'Skills' },
+                { key: 'tokens' as const,  label: 'Tokens' },
+              ]
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setContextDrawerTab(contextDrawerTab === key ? null : key)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case transition-colors ${
+                  contextDrawerTab === key
+                    ? 'bg-brand-subtle text-brand'
+                    : 'text-ink-subtle hover:text-ink-muted hover:bg-surface-muted'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="w-px h-4 bg-line mx-1" />
+            <button
+              onClick={() => setShowRecurringDialog(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
+            >
+              ↺ Recurring
+            </button>
+            {(report.allDone || report.existingReport) && (
+              <>
+                <div className="w-px h-4 bg-line mx-1" />
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case text-success hover:bg-success-bg transition-colors"
+                >
+                  {report.existingReport ? '📄 Final report' : '✨ Generate report'}
+                </button>
+              </>
+            )}
+          </div>
+        }
       />
 
-      {/* Context tab bar */}
-      <div className="flex items-center gap-0.5 px-8 border-b border-gray-100 bg-white shrink-0">
-        {(['status', 'sources', 'notes'] as const).filter(tab => {
-          if (tab === 'sources') return (liveProject?.importedSources?.length ?? project.importedSources?.length ?? 0) > 0
-          if (tab === 'notes') return !!effectiveWorkflowContract
-          return true
-        }).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setContextDrawerTab(contextDrawerTab === tab ? null : tab)}
-            className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] border-b-2 transition-colors ${
-              contextDrawerTab === tab
-                ? 'border-indigo-500 text-indigo-700'
-                : 'border-transparent text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            {tab === 'status' ? 'Status' : tab === 'sources' ? 'Sources' : 'Workflow Notes'}
-          </button>
-        ))}
-      </div>
-
-      {/* Context Drawer */}
-      {contextDrawerTab && (
-        <div className="bg-white border-b border-gray-100 px-8 py-4 overflow-y-auto max-h-80 animate-in slide-in-from-top duration-200">
-          {contextDrawerTab === 'status' && (
-            <StatusPanel
-              phase={'discovery'}
-              latestEvent={null}
-              pendingApprovals={0}
-              attentionItems={getAttentionItemsForProject(initialProject.id)}
-              runtimeStatus={liveProject?.runtimeStatus ?? null}
-              userContext={null}
-              onResolveAttention={resolveAttentionItem}
-            />
-          )}
-          {contextDrawerTab === 'sources' && (
-            <ImportedSourcesPanel sources={liveProject?.importedSources ?? project.importedSources ?? []} />
-          )}
-          {contextDrawerTab === 'notes' && effectiveWorkflowContract && (
-            <WorkflowNotesPanel
-              contract={effectiveWorkflowContract}
-              workpad={liveProject?.workpad ?? null}
-              onUpdateWorkpad={() => {}}
-            />
-          )}
-        </div>
-      )}
+      {/* Context Drawer — slides from right */}
+      <ContextDrawer
+        open={contextDrawerTab !== null}
+        onClose={() => setContextDrawerTab(null)}
+        title={
+          contextDrawerTab === 'status'  ? 'Status'
+          : contextDrawerTab === 'sources' ? 'Sources'
+          : contextDrawerTab === 'notes'   ? 'Workflow Notes'
+          : contextDrawerTab === 'skills'  ? 'Skills'
+          : contextDrawerTab === 'tokens'  ? 'Tokens'
+          : ''
+        }
+      >
+        {contextDrawerTab === 'status' && (
+          <StatusPanel
+            phase={'discovery'}
+            latestEvent={null}
+            pendingApprovals={0}
+            attentionItems={getAttentionItemsForProject(initialProject.id)}
+            runtimeStatus={liveProject?.runtimeStatus ?? null}
+            userContext={null}
+            onResolveAttention={resolveAttentionItem}
+          />
+        )}
+        {contextDrawerTab === 'sources' && (
+          <ImportedSourcesPanel sources={liveProject?.importedSources ?? project.importedSources ?? []} />
+        )}
+        {contextDrawerTab === 'notes' && effectiveWorkflowContract && (
+          <WorkflowNotesPanel
+            contract={effectiveWorkflowContract}
+            workpad={liveProject?.workpad ?? null}
+            onUpdateWorkpad={() => {}}
+          />
+        )}
+        {contextDrawerTab === 'skills' && (
+          <SkillsPanel projectId={project.id} />
+        )}
+        {contextDrawerTab === 'tokens' && (
+          <TokenDashboard tokenUsage={projectTokenUsage} />
+        )}
+      </ContextDrawer>
 
       <KanbanBoard
         tasks={tasks}
@@ -289,6 +349,32 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
           })
           setAddDialog({ open: false, status: 'TODO' })
         }}
+        onBatchSubmit={(items) => {
+          createTasksBatchInStore(
+            project.id,
+            items.map((v) => ({
+              title: v.title,
+              description: v.description || undefined,
+              status: addDialog.status,
+              priority: v.priority,
+            })),
+          )
+          setAddDialog({ open: false, status: 'TODO' })
+        }}
+      />
+
+      {showRecurringDialog && (
+        <RecurringTemplateDialog
+          projectId={project.id}
+          onClose={() => setShowRecurringDialog(false)}
+        />
+      )}
+
+      <ProjectReportModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        projectName={project.name}
+        report={report}
       />
     </div>
   )

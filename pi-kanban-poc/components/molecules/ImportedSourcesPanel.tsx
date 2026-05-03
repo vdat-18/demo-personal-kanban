@@ -26,8 +26,8 @@ export function ImportedSourcesPanel({
   return (
     <section className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-[0_10px_26px_rgba(15,23,42,0.04)] overflow-hidden h-fit">
       <div className="px-6 py-4 border-b border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Imported Sources</p>
-        <h3 className="mt-1 text-sm font-bold text-[#0a192f]">Project context library</h3>
+        <p className="text-micro text-slate-400">Imported Sources</p>
+        <h3 className="mt-1 text-sm font-bold text-ink">Project context library</h3>
       </div>
       <div className="px-6 py-5 space-y-3">
         {sources.length === 0 ? (
@@ -43,14 +43,14 @@ export function ImportedSourcesPanel({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-[#0a192f] truncate">{source.title}</p>
+                      <p className="text-sm font-bold text-ink truncate">{source.title}</p>
                       <div className="flex items-center gap-2 shrink-0">
                         {source.usedInPlanning && (
-                          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-600">
+                          <span className="text-micro text-emerald-600">
                             used
                           </span>
                         )}
-                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 shrink-0">
+                        <span className="text-micro text-slate-400 shrink-0">
                           {source.status.replace('_', ' ')}
                         </span>
                       </div>
@@ -61,7 +61,7 @@ export function ImportedSourcesPanel({
                       {onUpdateSource && (
                         <button
                           onClick={() => onUpdateSource(source.id, { usedInPlanning: !source.usedInPlanning })}
-                          className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-600 hover:text-blue-700"
+                          className="text-micro text-blue-600 hover:text-blue-700"
                         >
                           {source.usedInPlanning ? 'Mark unused' : 'Mark used'}
                         </button>
@@ -75,7 +75,7 @@ export function ImportedSourcesPanel({
                         <summary className="text-xs text-blue-600 cursor-pointer font-semibold hover:underline">
                           View source extract
                         </summary>
-                        <pre className="mt-2 text-[11px] text-slate-700 bg-white p-3 rounded-xl max-h-32 overflow-y-auto whitespace-pre-wrap font-mono border border-slate-100">
+                        <pre className="mt-2 text-meta text-slate-700 bg-white p-3 rounded-xl max-h-32 overflow-y-auto whitespace-pre-wrap font-mono border border-slate-100">
                           {source.extractedText.slice(0, 800)}
                           {source.extractedText.length > 800 ? '\n…' : ''}
                         </pre>
@@ -94,7 +94,7 @@ export function ImportedSourcesPanel({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+    <span className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-micro text-slate-500">
       {children}
     </span>
   )

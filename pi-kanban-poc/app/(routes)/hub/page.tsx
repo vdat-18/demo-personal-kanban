@@ -94,8 +94,8 @@ export default function KnowledgeHubPage() {
             </Link>
             <BookOpen className="w-5 h-5 text-blue-600" />
             <div>
-              <h1 className="font-black text-base text-[#0a192f]">Knowledge Hub</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <h1 className="font-black text-base text-ink">Knowledge Hub</h1>
+              <p className="text-meta font-bold text-slate-400 uppercase tracking-widest">
                 Your published plans, in one place
               </p>
             </div>
@@ -107,7 +107,7 @@ export default function KnowledgeHubPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search projects, threads, content…"
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none focus:border-blue-300 focus:bg-white"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus:border-blue-300 focus:bg-white"
             />
           </div>
         </div>
@@ -134,7 +134,7 @@ function EmptyState() {
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-blue-50 text-blue-500 mb-4">
         <Sparkles className="w-7 h-7" />
       </div>
-      <h2 className="font-bold text-lg text-[#0a192f]">No published plans yet</h2>
+      <h2 className="font-bold text-lg text-ink">No published plans yet</h2>
       <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
         Inside any project, open the plan history drawer and click <strong>Publish</strong> on the
         version you're happy with. Published versions show up here so you can browse, search, and
@@ -156,10 +156,10 @@ function ProjectGroup({ project, rows }: ProjectGroupProps) {
   return (
     <section>
       <div className="flex items-baseline justify-between mb-3 px-1">
-        <h2 className="font-bold text-base text-[#0a192f]">{project.name}</h2>
+        <h2 className="font-bold text-base text-ink">{project.name}</h2>
         <Link
           href={`/mission-control/${project.id}`}
-          className="text-[11px] font-bold text-blue-600 hover:text-blue-700"
+          className="text-meta font-bold text-blue-600 hover:text-blue-700"
         >
           Open project →
         </Link>
@@ -191,29 +191,29 @@ function DocumentCard({ row, projectId }: DocumentCardProps) {
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
       <div className="px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+          <div className="flex items-center gap-1.5 text-micro text-emerald-700">
             <CheckCircle2 className="w-3 h-3" />
             Published plan
           </div>
-          <h3 className="text-sm font-bold text-[#0a192f] mt-1 truncate">
+          <h3 className="text-sm font-bold text-ink mt-1 truncate">
             {row.thread?.title ?? 'Untitled thread'}
           </h3>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-[10px] text-slate-500 inline-flex items-center gap-1">
+          <span className="text-meta text-slate-500 inline-flex items-center gap-1">
             <Calendar className="w-3 h-3" />
             {formatDate(stamp)}
           </span>
           <Link
             href={`/planning/${projectId}`}
-            className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
+            className="text-meta font-bold text-blue-600 hover:text-blue-700"
           >
             Open in planning
           </Link>
         </div>
       </div>
       <div className="px-4 py-3">
-        <div className="prose prose-sm max-w-none text-slate-700 prose-headings:text-[#0a192f] prose-h2:text-sm prose-h3:text-xs text-xs">
+        <div className="prose prose-sm max-w-none text-slate-700 prose-headings:text-ink prose-h2:text-sm prose-h3:text-xs text-xs">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {expanded ? row.version.content : preview + (isLong ? '…' : '')}
           </ReactMarkdown>
@@ -221,7 +221,7 @@ function DocumentCard({ row, projectId }: DocumentCardProps) {
         {isLong && (
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
+            className="mt-2 text-meta font-bold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />
             {expanded ? 'Collapse' : 'Read full plan'}

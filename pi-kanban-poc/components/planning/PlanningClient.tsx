@@ -624,6 +624,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
   const welcomeText = `👋 Hi — I'm here to help you plan **${initialProject.name}**.\n\nJust tell me about it in your own words — what you want to do, who it's for, any timeline in your head. I'll ask follow-ups in one go, draft a plan you can review or edit, then break it into concrete action items.\n\nWhat are you trying to do?`
 
+  const WELCOME_CHIPS = [
+    'I want to build a product',
+    'Planning a team initiative',
+    'Launching a campaign',
+    'Working towards a personal goal',
+  ]
+
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [taskWidth, setTaskWidth] = useState(420)
 
@@ -657,7 +664,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
   )
 
   return (
-    <div className="flex h-full w-full bg-[radial-gradient(circle_at_top,#fbfdff_0%,#f4f7fb_45%,#eef3f8_100%)] font-sans">
+    <div className="flex h-full w-full bg-canvas font-sans">
       {/* Left: Thread Sidebar */}
       <div
         className={`shrink-0 overflow-hidden ${isSidebarOpen ? '' : 'w-0'}`}
@@ -680,7 +687,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       {isSidebarOpen && (
         <div
           onMouseDown={(e) => startResize('sidebar', e)}
-          className="w-1 shrink-0 cursor-col-resize hover:bg-indigo-400 bg-transparent transition-colors duration-150 group relative"
+          className="w-1 shrink-0 cursor-col-resize hover:bg-brand bg-transparent transition-colors duration-150 group relative"
           title="Drag to resize"
         >
           <div className="absolute inset-y-0 -left-0.5 -right-0.5" />
@@ -688,83 +695,85 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       )}
 
       {/* Center: Chat Panel */}
-      <div className="flex flex-col flex-1 min-w-0 border-r border-slate-200/60 bg-white">
+      <div className="flex flex-col flex-1 min-w-0 border-r border-line bg-surface">
           {/* Header */}
-          <header className="shrink-0 bg-white/95 backdrop-blur-xl sticky top-0 z-10 border-b border-slate-100/80 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
-            {/* Row 1: nav + project info */}
-            <div className="h-14 px-5 flex items-center gap-3">
+          <header className="shrink-0 bg-surface/95 backdrop-blur-xl sticky top-0 z-10 border-b border-line">
+            <div className="h-14 px-5 flex items-center gap-3 relative">
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => router.push('/')}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-500 hover:text-slate-900 active:scale-95"
-                  title="Back to Projects"
+                  className="p-2 hover:bg-surface-muted rounded-xl transition-colors text-ink-muted hover:text-ink active:scale-95"
+                  title="Back to projects"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 {!isSidebarOpen && (
                   <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-500 hover:text-slate-900 active:scale-95"
-                    title="Expand Sidebar"
+                    className="p-2 hover:bg-surface-muted rounded-xl transition-colors text-ink-muted hover:text-ink active:scale-95"
+                    title="Expand sidebar"
                   >
                     <PanelLeftOpen className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <div className="w-px h-5 bg-slate-200 shrink-0" />
-              <div className="min-w-0 flex-1">
+              <div className="w-px h-5 bg-line shrink-0" />
+              <div className="min-w-0 shrink">
                 <div className="flex items-baseline gap-2 min-w-0">
-                  <h1 className="font-bold text-[15px] text-slate-900 truncate leading-none">{initialProject.name}</h1>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">{playbook.label}</span>
+                  <h1 className="text-h2 text-ink truncate leading-none">{initialProject.name}</h1>
+                  <span className="text-micro text-ink-subtle shrink-0">{playbook.label}</span>
                 </div>
               </div>
-            </div>
-
-          </header>
-
-          {/* Vision Document Panel (dual-mode) */}
-          <VisionPanel
-            content={currentVisionDoc}
-            title={initialProject.name}
-            versionCount={versionsForThread.length}
-            onSaveEdit={handleVisionSaveEdit}
-            onAskAiFocus={handleAskAiFocus}
-            onOpenHistory={() => setHistoryDrawerOpen(true)}
-            publishedIsStale={publishedIsStale}
-            onPublishLatest={
-              latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
-            }
-            centerContent={<PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />}
-            panelActions={
-              <>
+              {/* Phase stepper — absolutely centered */}
+              <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+                <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />
+              </div>
+              {/* Context tabs — right side */}
+              <div className="ml-auto flex items-center gap-0.5 shrink-0">
                 {(
                   [
                     { key: 'status' as const, label: 'Status', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
-                    { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
-                    { key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
+                    ...(importedSources.length > 0 ? [{ key: 'sources' as const, label: 'Sources', badge: importedSources.length as number | undefined }] : []),
+                    ...(workflowContract ? [{ key: 'workflow-notes' as const, label: 'Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? (initialProject.workpad?.blockers.length as number | undefined) : undefined }] : []),
                     { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
                   ]
                 ).map(({ key, label, badge }) => (
                   <button
                     key={key}
                     onClick={() => setActiveContextTab((prev) => (prev === key ? null : key))}
-                    className={`flex items-center gap-1 text-[11px] font-semibold transition-colors px-1 py-0.5 rounded ${
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case transition-colors ${
                       activeContextTab === key
-                        ? 'text-indigo-600'
-                        : 'text-slate-400 hover:text-slate-600'
+                        ? 'bg-brand-subtle text-brand'
+                        : 'text-ink-subtle hover:text-ink-muted hover:bg-surface-muted'
                     }`}
                   >
                     {label}
                     {badge !== undefined && (
-                      <span className={`text-[9px] font-black px-1 rounded-full ${activeContextTab === key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                      <span className={`text-micro normal-case px-1.5 py-0.5 rounded-full ${activeContextTab === key ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted'}`}>
                         {badge}
                       </span>
                     )}
                   </button>
                 ))}
-              </>
-            }
-          />
+              </div>
+            </div>
+          </header>
+
+          {/* Vision Document Panel — only shown once the AI has drafted content */}
+          {currentVisionDoc && (
+            <VisionPanel
+              content={currentVisionDoc}
+              title={initialProject.name}
+              versionCount={versionsForThread.length}
+              onSaveEdit={handleVisionSaveEdit}
+              onAskAiFocus={handleAskAiFocus}
+              onOpenHistory={() => setHistoryDrawerOpen(true)}
+              publishedIsStale={publishedIsStale}
+              onPublishLatest={
+                latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
+              }
+            />
+          )}
 
           {/* Context drawer — slides in from the right like History */}
           <ContextDrawer
@@ -823,24 +832,40 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           />
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 md:px-10 md:py-7 space-y-5 bg-[linear-gradient(160deg,#f8fafc_0%,#f3f7fb_60%,#eef2f8_100%)]">
+          <div className="flex-1 overflow-y-auto px-6 py-6 md:px-10 md:py-7 space-y-5 bg-canvas">
             {messagesLoading ? (
               <div className="flex justify-center py-12">
-                <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+                <span className="w-6 h-6 border-2 border-line border-t-brand rounded-full animate-spin" />
               </div>
             ) : (
               <>
                 {showWelcome && (
-                  <div className="flex justify-start items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
-                      AI
-                    </div>
-                    <div className="max-w-[82%] rounded-2xl rounded-bl-sm px-5 py-3.5 text-[14px] leading-[1.65] bg-white border border-slate-100/80 text-slate-800 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
-                      <div className="prose prose-slate max-w-none ai-prose">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{welcomeText}</ReactMarkdown>
+                  <>
+                    <div className="flex justify-start items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center text-white text-meta font-bold shrink-0 mt-1 shadow-sm">
+                        AI
+                      </div>
+                      <div className="max-w-[82%] rounded-2xl rounded-bl-sm px-5 py-3.5 text-body leading-relaxed bg-surface border border-line text-ink shadow-sm border-l-[3px] border-l-brand">
+                        <div className="ai-prose max-w-none">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{welcomeText}</ReactMarkdown>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                    <div className="flex flex-wrap gap-2 pl-11">
+                      {WELCOME_CHIPS.map((chip) => (
+                        <button
+                          key={chip}
+                          onClick={() => {
+                            setInput(chip)
+                            textareaRef.current?.focus()
+                          }}
+                          className="px-4 py-2 rounded-full bg-surface border border-line text-meta text-ink-muted hover:border-brand hover:text-brand hover:bg-brand-subtle transition-colors shadow-sm active:scale-95"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 {messages.map((msg: PlanningMessage) => (
@@ -864,21 +889,21 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
                 {sendMessage.isPending && (
                   <div className="flex justify-start items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
+                    <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center text-white text-meta font-bold shrink-0 mt-1 shadow-sm">
                       AI
                     </div>
-                    <div className="bg-white border border-slate-100/80 rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
+                    <div className="bg-surface border border-line rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-sm border-l-[3px] border-l-brand">
                       <div className="flex gap-1.5">
                         <span
-                          className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
+                          className="w-2.5 h-2.5 bg-brand/60 rounded-full animate-bounce"
                           style={{ animationDelay: '0ms' }}
                         />
                         <span
-                          className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
+                          className="w-2.5 h-2.5 bg-brand/60 rounded-full animate-bounce"
                           style={{ animationDelay: '150ms' }}
                         />
                         <span
-                          className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
+                          className="w-2.5 h-2.5 bg-brand/60 rounded-full animate-bounce"
                           style={{ animationDelay: '300ms' }}
                         />
                       </div>
@@ -892,14 +917,14 @@ export function PlanningClient({ project: initialProject }: { project: Project }
           </div>
 
           {/* Input Area */}
-          <div className="px-6 pb-6 pt-2 bg-[linear-gradient(180deg,rgba(243,247,251,0)_0%,rgba(243,247,251,0.95)_20%,#f3f7fb_100%)]">
+          <div className="px-6 pb-6 pt-2 bg-canvas">
             {sendMessage.isError && (
-              <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
-                Failed to send message. Please try again.
+              <div className="mb-2 px-4 py-2 bg-danger-bg border border-danger-border rounded-xl text-meta text-danger">
+                Couldn&apos;t send your message. Please try again.
               </div>
             )}
             {pendingVisionEdit && (
-              <div className="mb-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 flex items-center gap-2">
+              <div className="mb-2 px-4 py-2 bg-warning-bg border border-warning-border rounded-xl text-meta text-warning flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
                 Your plan edits will be sent with your next message so the AI knows about them.
               </div>
@@ -909,10 +934,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 {attachedFiles.map((f, i) => (
                   <div
                     key={i}
-                    className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs ${f.kind === 'unsupported'
-                        ? 'bg-amber-50 border border-amber-200 text-amber-700'
-                        : 'bg-blue-50 border border-blue-200 text-blue-700'
-                      }`}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1 text-meta ${
+                      f.kind === 'unsupported'
+                        ? 'bg-warning-bg border border-warning-border text-warning'
+                        : 'bg-brand-subtle border border-brand-border text-brand'
+                    }`}
                   >
                     <FileText className="w-3 h-3 shrink-0" />
                     <span className="max-w-[140px] truncate">{f.name}</span>
@@ -920,7 +946,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                       onClick={() =>
                         setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))
                       }
-                      className="ml-0.5 hover:text-red-500 transition-colors"
+                      className="ml-0.5 hover:text-danger transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -928,7 +954,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 ))}
               </div>
             )}
-            <div className="flex gap-3 items-end bg-white border border-slate-200/80 rounded-[1.75rem] px-4 py-3 shadow-[0_8px_32px_rgba(15,23,42,0.08),0_2px_8px_rgba(15,23,42,0.04)] transition-all focus-within:shadow-[0_8px_32px_rgba(99,102,241,0.12),0_2px_8px_rgba(99,102,241,0.06)] focus-within:border-indigo-200/80">
+            <div className="flex gap-3 items-end bg-surface border border-line rounded-2xl px-4 py-3 shadow-sm transition-colors focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -939,20 +965,20 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!activeThreadId}
-                className="w-8 h-8 rounded-xl text-slate-400 flex items-center justify-center hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-30 shrink-0"
+                className="w-8 h-8 rounded-xl text-ink-subtle flex items-center justify-center hover:text-brand hover:bg-brand-subtle transition-colors disabled:opacity-30 shrink-0"
                 title="Attach files"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
               <textarea
                 ref={textareaRef}
-                className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-slate-400 resize-none outline-none min-h-[24px] max-h-[450px] overflow-y-auto transition-[height] duration-75 leading-6"
+                className="flex-1 bg-transparent text-body text-ink placeholder:text-ink-subtle resize-none outline-none min-h-[24px] max-h-[450px] overflow-y-auto transition-[height] duration-75 leading-6"
                 placeholder={
                   currentPhase === 'discovery'
                     ? 'Tell me about your project…'
                     : currentPhase === 'blueprint'
-                      ? 'Ask me to revise the plan, or edit it directly above…'
-                      : 'Describe your next task or ask a question…'
+                    ? 'Ask me to revise the plan, or edit it directly above…'
+                    : 'Describe your next task or ask a question…'
                 }
                 rows={1}
                 value={input}
@@ -968,11 +994,11 @@ export function PlanningClient({ project: initialProject }: { project: Project }
               <button
                 onClick={handleSendFromInput}
                 disabled={
-                  (!input.trim() && attachedFiles.length === 0 && !pendingVisionEdit)
-                  || sendMessage.isPending
-                  || !activeThreadId
+                  (!input.trim() && attachedFiles.length === 0 && !pendingVisionEdit) ||
+                  sendMessage.isPending ||
+                  !activeThreadId
                 }
-                className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/25 active:scale-95 disabled:opacity-30 shrink-0"
+                className="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-brand-hover transition-colors shadow-sm active:scale-95 disabled:opacity-30 shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -983,7 +1009,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       {/* Task panel resize handle */}
       <div
         onMouseDown={(e) => startResize('task', e)}
-        className="w-1 shrink-0 cursor-col-resize hover:bg-indigo-400 bg-transparent transition-colors duration-150"
+        className="w-1 shrink-0 cursor-col-resize hover:bg-brand bg-transparent transition-colors duration-150"
         title="Drag to resize"
       />
 
@@ -1043,14 +1069,15 @@ function MessageView({
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-3`}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mb-1 shadow-md shadow-indigo-500/25">
+        <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center text-white text-meta font-bold shrink-0 mb-1 shadow-sm">
           AI
         </div>
       )}
         <div
-          className={`rounded-2xl px-5 py-3.5 text-[14px] leading-[1.65] transition-all ${isUser
-            ? 'max-w-[68%] bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-br-sm whitespace-pre-wrap shadow-[0_8px_24px_rgba(99,102,241,0.2)]'
-            : 'max-w-[82%] bg-white border border-slate-100/80 text-slate-800 rounded-bl-sm shadow-[0_4px_16px_rgba(15,23,42,0.06)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.09)] border-l-2 border-l-indigo-200'
+          className={`rounded-2xl px-5 py-3.5 text-body leading-relaxed transition-shadow ${
+            isUser
+              ? 'max-w-[68%] bg-brand text-white rounded-br-sm whitespace-pre-wrap shadow-sm'
+              : 'max-w-[82%] bg-surface border border-line text-ink rounded-bl-sm shadow-sm hover:shadow-md border-l-[3px] border-l-brand'
           }`}
         >
         {isUser ? (
@@ -1058,7 +1085,7 @@ function MessageView({
         ) : (
           <>
             <div className="prose prose-slate max-w-none ai-prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || '…'}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{safePlanContent(msg.content)}</ReactMarkdown>
             </div>
 
             {hasQuestions && (
@@ -1082,14 +1109,14 @@ function MessageView({
                   const approvedCount = decisions.filter((d) => d.action === 'approved').length
                   return (
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">
+                      <div className="text-micro text-ink-muted">
                         Proposed tasks · {approvedCount}/{proposals.length} approved
                       </div>
                       {pendingCount > 0 && (
                         <button
                           onClick={onApproveAll}
                           disabled={disabled}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-40 active:scale-95"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success-bg text-success text-micro normal-case font-semibold border border-success-border hover:opacity-90 transition-opacity disabled:opacity-40 active:scale-95"
                         >
                           ✓ Approve all ({pendingCount})
                         </button>
@@ -1156,9 +1183,9 @@ function PanelToggleButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-colors border ${
+      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-meta font-semibold transition-colors border ${
         active
-          ? 'text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100'
+          ? 'text-brand bg-brand-subtle border-brand-border hover:bg-brand-subtle'
           : 'text-slate-500 border-slate-200 hover:text-slate-700 hover:bg-white'
       }`}
     >
@@ -1185,6 +1212,20 @@ function summarizeBatch(submission: QuestionBatchSubmission): string {
     return `• ${q.text} → **${ans.answer ?? ''}**`
   })
   return `Here are my answers:\n\n${lines.join('\n')}`
+}
+
+/** Guard against persisted messages that contain raw JSON instead of plain text. */
+function safePlanContent(raw: string | null | undefined): string {
+  if (!raw) return '…'
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith('{')) return trimmed
+  try {
+    const parsed = JSON.parse(trimmed)
+    return typeof parsed.content === 'string' ? parsed.content : trimmed
+  } catch {
+    const m = trimmed.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : trimmed
+  }
 }
 
 function diffSummary(previous: string | null, next: string): string[] | null {

@@ -10,14 +10,14 @@ export default function NotFound() {
         </div>
         <div>
           <p className="text-8xl font-black text-slate-100 mb-2">404</p>
-          <h2 className="text-2xl font-bold text-[#0a192f] mb-2">Page not found</h2>
+          <h2 className="text-2xl font-bold text-ink mb-2">Page not found</h2>
           <p className="text-sm text-zinc-500 leading-relaxed">
             The page you're looking for doesn't exist or has been moved.
           </p>
         </div>
         <Link
           href="/"
-          className="px-6 py-3 bg-[#0a192f] text-white rounded-xl font-semibold text-sm hover:bg-blue-900 transition-colors"
+          className="px-6 py-3 bg-ink text-white rounded-xl font-semibold text-sm hover:bg-blue-900 transition-colors"
         >
           Back to home
         </Link>

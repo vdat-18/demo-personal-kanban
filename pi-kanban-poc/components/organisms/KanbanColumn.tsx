@@ -8,16 +8,23 @@ import { AutoModeStatusBar } from '@/components/molecules/AutoModeStatusBar'
 import type { UITaskStatus } from '@/types/domain'
 import { AUTO_MODE_COLUMNS } from '@/lib/auto-mode/constants'
 import type { AutoModeColumnState } from '@/lib/auto-mode/constants'
+import { STATUS_DOT } from '@/constants/status'
 
-/**
- * Kanban column.
- *
- * After Tier 1.4 / 4.13 the TODO column no longer exposes a column-level
- * "Auto mode" toggle — the breakdown agent is now triggered per-card via the
- * "✨ Break down" button on each TaskCard. The IN_PROGRESS / IN_REVIEW
- * columns still use the legacy column-level auto-mode flow, so we keep the
- * toggle + status bar conditional on `AUTO_MODE_COLUMNS` (which excludes TODO).
- */
+const COLUMN_COUNT_CHIP: Record<UITaskStatus, string> = {
+  TODO: 'bg-surface-muted text-ink-muted border-line',
+  IN_PROGRESS: 'bg-info-bg text-info border-info-border',
+  IN_REVIEW: 'bg-warning-bg text-warning border-warning-border',
+  DONE: 'bg-success-bg text-success border-success-border',
+  BLOCKED: 'bg-danger-bg text-danger border-danger-border',
+}
+
+const COLUMN_STRIP: Record<UITaskStatus, string> = {
+  TODO:        'bg-gradient-to-r from-line-strong to-line',
+  IN_PROGRESS: 'bg-gradient-to-r from-brand via-brand/80 to-brand/30',
+  IN_REVIEW:   'bg-gradient-to-r from-spark via-spark/70 to-spark/20',
+  DONE:        'bg-gradient-to-r from-success via-success/70 to-success/20',
+  BLOCKED:     'bg-gradient-to-r from-danger via-danger/70 to-danger/20',
+}
 
 interface Task {
   id: string
@@ -74,29 +81,36 @@ export function KanbanColumn({
   getNextStatus,
 }: KanbanColumnProps) {
   const isLegacyAutoModeColumn = AUTO_MODE_COLUMNS.includes(columnId)
+  const dot = STATUS_DOT[columnId]
+  const countChip = COLUMN_COUNT_CHIP[columnId]
+  const strip = COLUMN_STRIP[columnId]
 
   return (
     <div
-      className={`w-80 flex flex-col rounded-[2.5rem] border transition-all duration-500 shrink-0 ${
+      className={`flex-1 min-w-0 flex flex-col rounded-2xl border transition-all duration-300 overflow-hidden bg-surface ${
         isHovering && isValid
-          ? 'border-blue-300 bg-blue-50/70 shadow-2xl shadow-blue-500/10 scale-[1.02]'
+          ? 'border-brand shadow-panel ring-2 ring-brand/15'
           : isDragging && !isValid
-          ? 'border-gray-200 bg-gray-100/30 opacity-50 cursor-not-allowed'
-          : 'border-white bg-white/40 backdrop-blur-xl shadow-xl shadow-slate-200/40'
+          ? 'border-line opacity-50 cursor-not-allowed'
+          : 'border-line shadow-panel'
       }`}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Column Header */}
-      <div className="px-8 pt-10 pb-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <h2 className="font-black text-[12px] text-[#0a192f] uppercase tracking-[0.25em]">{label}</h2>
-          <span className="text-[10px] font-black text-blue-600 bg-white px-3 py-1.5 rounded-[0.8rem] shadow-sm border border-slate-50">
+      {/* Status strip */}
+      <div className={`h-[4px] w-full flex-none ${strip}`} />
+
+      {/* Column header */}
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+          <h2 className="text-micro text-ink">{label}</h2>
+          <span className={`text-micro normal-case px-2 py-0.5 rounded-md border ${countChip}`}>
             {tasks.length}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {isLegacyAutoModeColumn && autoModeState && (
             <AutoModeToggle
               enabled={autoModeState.enabled}
@@ -104,13 +118,13 @@ export function KanbanColumn({
               onToggle={onToggleAutoMode}
             />
           )}
-          <button className="text-gray-400 hover:text-black transition-all p-2.5 hover:bg-white rounded-2xl shadow-sm hover:shadow-md active:scale-90">
+          <button className="text-ink-subtle hover:text-ink-muted transition-colors p-2 hover:bg-surface-muted rounded-lg active:scale-95">
             <MoreHorizontal className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Auto-mode status bar (legacy columns only) */}
+      {/* Auto-mode status bar */}
       {isLegacyAutoModeColumn && autoModeState && autoModeState.enabled && (
         <AutoModeStatusBar
           status={autoModeState.status}
@@ -132,22 +146,23 @@ export function KanbanColumn({
         />
       )}
 
-      <div className="p-4 overflow-y-auto flex flex-col gap-4 flex-1">
+      <div className="p-3 overflow-y-auto flex flex-col gap-2.5 flex-1">
         {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              id={task.id}
-              title={task.title}
-              description={task.description}
-              status={task.status}
-              dependsOnTaskIds={task.dependsOnTaskIds}
-              blockedByTaskIds={task.blockedByTaskIds}
-              runtimeState={task.runtimeState}
-              runtimeLastAction={task.runtimeLastAction}
-              runtimeNextAction={task.runtimeNextAction}
-              onDragStart={onDragStart}
-              onClick={() => onTaskClick(task.id, task.status)}
-              onUpdateStatus={onUpdateStatus}
+          <TaskCard
+            key={task.id}
+            id={task.id}
+            title={task.title}
+            description={task.description}
+            status={task.status}
+            priority={task.priority}
+            dependsOnTaskIds={task.dependsOnTaskIds}
+            blockedByTaskIds={task.blockedByTaskIds}
+            runtimeState={task.runtimeState}
+            runtimeLastAction={task.runtimeLastAction}
+            runtimeNextAction={task.runtimeNextAction}
+            onDragStart={onDragStart}
+            onClick={() => onTaskClick(task.id, task.status)}
+            onUpdateStatus={onUpdateStatus}
             onCancelRequest={() => onCancelRequest(task)}
             getNextStatus={getNextStatus}
           />

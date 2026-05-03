@@ -35,36 +35,39 @@ export function DirectoryProjectCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all group"
+      className="bg-surface rounded-3xl border border-line shadow-card cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group overflow-hidden"
     >
+      {/* Brand top strip — gradient, same visual language as kanban columns */}
+      <div className="h-[4px] bg-gradient-to-r from-brand via-brand/80 to-brand/20 w-full" />
+      <div className="p-6">
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-black text-[#0a192f] group-hover:text-blue-600 transition-colors leading-tight line-clamp-2 flex-1 min-w-0 mr-2">
+        <h3 className="font-bold text-ink group-hover:text-brand transition-colors leading-tight line-clamp-2 flex-1 min-w-0 mr-2">
           {name}
         </h3>
-        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-600 transition-colors shrink-0 mt-0.5" />
+        <ArrowRight className="w-4 h-4 text-ink-subtle/40 group-hover:text-brand transition-colors shrink-0 mt-0.5" />
       </div>
 
       {description && (
-        <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">{description}</p>
+        <p className="text-meta text-ink-subtle mb-3 line-clamp-2 leading-relaxed">{description}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+        <span className="px-2.5 py-1 rounded-lg bg-surface-muted border border-line text-micro text-ink-muted">
           {playbook.label}
         </span>
         {importedSourceCount > 0 && (
-          <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-600">
+          <span className="px-2.5 py-1 rounded-lg bg-brand-subtle border border-brand-border text-micro text-brand">
             {importedSourceCount} source{importedSourceCount === 1 ? '' : 's'}
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
+      <div className="flex items-center gap-3 text-meta text-ink-subtle mb-3">
         <span className="font-semibold">
           {doneCount}/{taskCount} tasks done
         </span>
         {artifactCount != null && artifactCount > 0 && (
-          <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+          <span className="flex items-center gap-1 text-brand font-semibold">
             <Package className="w-3 h-3" />
             {artifactCount} artifact{artifactCount === 1 ? '' : 's'}
           </span>
@@ -80,13 +83,10 @@ export function DirectoryProjectCard({
       <ProgressBar
         value={progress}
         className="h-1.5"
-        trackClassName="bg-gray-100 border-0"
-        barClassName={
-          progress === 100
-            ? 'bg-gradient-to-r from-emerald-400 to-green-500'
-            : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-        }
+        trackClassName="bg-surface-muted border-0"
+        barClassName={progress === 100 ? 'bg-success' : 'bg-brand'}
       />
+      </div>
     </div>
   )
 }

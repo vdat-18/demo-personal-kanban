@@ -73,8 +73,8 @@ export function VisionHistoryDrawer({
               <History className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-black text-sm text-[#0a192f]">Plan history</h3>
-              <p className="text-[10px] text-slate-400 font-semibold">{versions.length} version{versions.length !== 1 ? 's' : ''}</p>
+              <h3 className="font-black text-sm text-ink">Plan history</h3>
+              <p className="text-meta text-slate-400 font-semibold">{versions.length} version{versions.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <button
@@ -118,31 +118,31 @@ export function VisionHistoryDrawer({
               >
                 <div className="px-4 py-3 flex items-start gap-3">
                   <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
-                    v.createdBy === 'user' ? 'bg-blue-100' : 'bg-indigo-100'
+                    v.createdBy === 'user' ? 'bg-blue-100' : 'bg-brand-subtle'
                   }`}>
                     <Icon className={`w-3.5 h-3.5 ${
-                      v.createdBy === 'user' ? 'text-blue-600' : 'text-indigo-600'
+                      v.createdBy === 'user' ? 'text-blue-600' : 'text-brand'
                     }`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[11px] font-black text-[#0a192f]">
+                      <span className="text-meta font-black text-ink">
                         {CHANGE_LABEL[v.changeType]}
                       </span>
                       {isCurrent && (
-                        <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">
+                        <span className="text-micro font-bold text-green-600 uppercase tracking-wider">
                           • current
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-meta text-slate-500">
                       {formatRelative(v.createdAt)}
                     </p>
                     {v.summary && (
                       <p className="text-xs text-slate-600 mt-1 italic">&quot;{v.summary}&quot;</p>
                     )}
                     {v.diffFromPrevious && v.diffFromPrevious.length > 0 && (
-                      <ul className="text-[10px] text-slate-500 mt-1.5 list-disc list-inside">
+                      <ul className="text-meta text-slate-500 mt-1.5 list-disc list-inside">
                         {v.diffFromPrevious.slice(0, 3).map((c, i) => (
                           <li key={i}>{c}</li>
                         ))}
@@ -158,7 +158,7 @@ export function VisionHistoryDrawer({
                             setOpenMode('view')
                           }
                         }}
-                        className={`text-[10px] font-bold transition-colors ${
+                        className={`text-meta font-bold transition-colors ${
                           isExpanded && openMode === 'view'
                             ? 'text-blue-700'
                             : 'text-blue-600 hover:text-blue-700'
@@ -177,7 +177,7 @@ export function VisionHistoryDrawer({
                             }
                           }}
                           title={compareLabel ?? undefined}
-                          className={`flex items-center gap-1 text-[10px] font-bold transition-colors ${
+                          className={`flex items-center gap-1 text-meta font-bold transition-colors ${
                             isExpanded && openMode === 'compare'
                               ? 'text-emerald-700'
                               : 'text-emerald-600 hover:text-emerald-700'
@@ -195,7 +195,7 @@ export function VisionHistoryDrawer({
                               onClose()
                             }
                           }}
-                          className="flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700"
+                          className="flex items-center gap-1 text-meta font-bold text-amber-600 hover:text-amber-700"
                         >
                           <RotateCcw className="w-2.5 h-2.5" />
                           Restore
@@ -207,20 +207,20 @@ export function VisionHistoryDrawer({
                       {onPublish && isCurrent && v.status !== 'published' && (
                         <button
                           onClick={() => onPublish(v.id)}
-                          className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                          className="flex items-center gap-1 text-meta font-bold text-blue-600 hover:text-blue-700"
                           title="Publish this version as the official plan for this thread"
                         >
                           ✓ Publish
                         </button>
                       )}
                       {v.status === 'published' && !v.supersededAt && (
-                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                        <span className="flex items-center gap-1 text-micro text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
                           ★ Published
                         </span>
                       )}
                       {v.status === 'published' && v.supersededAt && (
                         <span
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full"
+                          className="flex items-center gap-1 text-micro text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full"
                           title="This version was published but has been superseded by a newer one"
                         >
                           Superseded
@@ -234,14 +234,14 @@ export function VisionHistoryDrawer({
                     <div className="rounded-[1.5rem] border border-slate-200/90 bg-white shadow-sm overflow-hidden">
                       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          <p className="text-micro text-slate-400">
                             Revision View
                           </p>
-                          <p className="text-xs font-semibold text-[#0a192f] mt-1">
+                          <p className="text-xs font-semibold text-ink mt-1">
                             {CHANGE_LABEL[v.changeType]}
                           </p>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 shrink-0">
+                        <span className="text-micro text-slate-400 shrink-0">
                           Readable draft
                         </span>
                       </div>
@@ -293,17 +293,17 @@ function DiffView({ from, to, fromLabel, toLabel }: DiffViewProps) {
   return (
     <div className="border-t border-slate-100">
       <div className="px-4 py-2 flex items-center justify-between bg-slate-50/60">
-        <div className="text-[10px] font-bold text-slate-500">
-          <span className="text-rose-600">−{fromLabel}</span>
+        <div className="text-meta font-bold text-slate-500">
+          <span className="text-danger">−{fromLabel}</span>
           <span className="mx-1.5 text-slate-300">vs</span>
           <span className="text-emerald-600">+{toLabel}</span>
         </div>
-        <div className="text-[10px] font-bold flex items-center gap-2">
+        <div className="text-meta font-bold flex items-center gap-2">
           <span className="text-emerald-600">+{summary.added}</span>
-          <span className="text-rose-600">−{summary.removed}</span>
+          <span className="text-danger">−{summary.removed}</span>
         </div>
       </div>
-      <div className="px-1 py-2 bg-white max-h-[280px] overflow-y-auto font-mono text-[11px] leading-snug">
+      <div className="px-1 py-2 bg-white max-h-[280px] overflow-y-auto font-mono text-meta leading-snug">
         {diff.map((line, i) => {
           const base = 'px-3 py-0.5 whitespace-pre-wrap break-words'
           if (line.kind === 'added') {
@@ -316,8 +316,8 @@ function DiffView({ from, to, fromLabel, toLabel }: DiffViewProps) {
           }
           if (line.kind === 'removed') {
             return (
-              <div key={i} className={`${base} bg-rose-50 text-rose-900 border-l-2 border-rose-400`}>
-                <span className="text-rose-500 mr-2">−</span>
+              <div key={i} className={`${base} bg-danger-bg text-danger border-l-2 border-rose-400`}>
+                <span className="text-danger mr-2">−</span>
                 {line.text || ' '}
               </div>
             )
