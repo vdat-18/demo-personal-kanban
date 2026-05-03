@@ -191,11 +191,7 @@ export function TodoStepPlannerPanel({
     if (hasSubtasks) return
 
     autoStartedRef.current = true
-
-    const loadedFromCache = breakdown.loadFromCacheIfAvailable()
-    if (!loadedFromCache) {
-      void breakdown.startBreakdown()
-    }
+    breakdown.loadFromCacheIfAvailable()
   }, [taskStatus, hasSubtasks, breakdown])
 
   return (

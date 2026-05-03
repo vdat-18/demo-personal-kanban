@@ -1,16 +1,31 @@
 'use client'
 
 import { ArrowRight } from 'lucide-react'
-import { StatusPill } from '@/components/atoms/StatusPill'
 import type { UITaskStatus } from '@/types/domain'
 
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
+const STATUS_DOT: Record<UITaskStatus, string> = {
+  TODO:        'bg-slate-300',
+  IN_PROGRESS: 'bg-blue-500',
+  IN_REVIEW:   'bg-amber-400',
+  DONE:        'bg-green-500',
+  BLOCKED:     'bg-red-400',
+}
+
+const STATUS_LABEL: Record<UITaskStatus, string> = {
+  TODO:        'To Do',
+  IN_PROGRESS: 'In Progress',
+  IN_REVIEW:   'In Review',
+  DONE:        'Done',
+  BLOCKED:     'Blocked',
+}
+
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  URGENT: 'bg-red-100 text-red-700 border-red-200',
-  HIGH: 'bg-orange-100 text-orange-700 border-orange-200',
-  MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  LOW: 'bg-slate-100 text-slate-500 border-slate-200',
+  URGENT: 'bg-red-50 text-red-600 border-red-200',
+  HIGH:   'bg-orange-50 text-orange-600 border-orange-200',
+  MEDIUM: 'bg-yellow-50 text-yellow-600 border-yellow-100',
+  LOW:    'bg-slate-50 text-slate-400 border-slate-200',
 }
 
 export interface DirectoryTaskCardProps {
@@ -27,24 +42,31 @@ export function DirectoryTaskCard({ title, description, status, priority, projec
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all group"
+      className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all group"
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusPill status={status} />
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${PRIORITY_COLORS[priority]}`}>
-            {priority}
-          </span>
-        </div>
-        <ArrowRight className="w-3.5 h-3.5 text-gray-200 group-hover:text-blue-500 transition-colors shrink-0" />
-      </div>
-      <h3 className="font-bold text-sm text-[#0a192f] group-hover:text-blue-600 transition-colors mb-1 line-clamp-2">
+      {/* Breadcrumb */}
+      <p className="text-[10px] text-slate-400 mb-2 truncate">{projectName}</p>
+
+      {/* Title */}
+      <h3 className="font-semibold text-[14px] text-[#0a192f] group-hover:text-blue-600 transition-colors leading-snug mb-1.5 line-clamp-2">
         {title}
       </h3>
+
+      {/* Description */}
       {description && (
-        <p className="text-xs text-slate-400 line-clamp-2 mb-2 leading-relaxed">{description}</p>
+        <p className="text-[12px] text-slate-500 line-clamp-2 mb-3 leading-relaxed">{description}</p>
       )}
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{projectName}</p>
+
+      {/* Footer: status + priority */}
+      <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-slate-50">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
+          <span className="text-[11px] text-slate-500">{STATUS_LABEL[status]}</span>
+        </div>
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${PRIORITY_COLORS[priority]}`}>
+          {priority.charAt(0) + priority.slice(1).toLowerCase()}
+        </span>
+      </div>
     </div>
   )
 }

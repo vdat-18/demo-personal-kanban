@@ -221,7 +221,6 @@ export function ImportProjectFlow({ isOpen, onClose, onSubmit }: ImportProjectFl
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#0a192f] tracking-tight">Import a project brief</h3>
               <h3 className="text-base font-bold text-[#0a192f] tracking-tight">{t('importFlow.title', 'Import a project brief')}</h3>
               <p className="text-xs text-slate-500">
                 Step {step === 'pick' ? 1 : step === 'review' ? 2 : 3} of 3 ·{' '}

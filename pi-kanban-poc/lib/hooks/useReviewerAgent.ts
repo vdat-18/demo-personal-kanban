@@ -359,7 +359,6 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       }
 
       setEnvelope(parsed)
-      persistIteration(deriveVerdict(parsed))
       for (const review of parsed.stepReviews) {
         saveReviewerStepResult(taskId, review.subtaskId, {
           summary: review.summary,
@@ -381,13 +380,14 @@ export function useReviewerAgent({ taskId, taskTitle, taskDescription }: UseRevi
       if (abortRef.current === controller) abortRef.current = null
       isRunningRef.current = false
     }
-  }, [buildContinuationPrompt, saveReviewerStepResult, persistIteration, task, taskDescription, taskId, taskTitle, state])
+  }, [buildContinuationPrompt, saveReviewerStepResult, task, taskDescription, taskId, taskTitle, state])
 
   const reset = useCallback(() => {
     setState('idle')
     setError(null)
     setEnvelope(null)
-  }, [])
+    updateTask(taskId, { reviewIterationCount: 0 })
+  }, [taskId, updateTask])
 
   const nextAction: NextAction | null = useMemo(() => {
     if (!envelope || state !== 'result') return null

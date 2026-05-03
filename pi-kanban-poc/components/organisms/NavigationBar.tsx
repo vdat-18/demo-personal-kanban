@@ -32,8 +32,6 @@ export function Navigation() {
   const navLinks = [
     { href: '/', label: t('nav.projects', 'Projects') },
     { href: '/directory', label: t('nav.directory', 'Directory') },
-    { href: '/timeline', label: t('nav.timeline', 'Timeline') },
-    { href: '/insights', label: t('nav.insights', 'Insights') },
   ]
 
   const localeOptions: Array<{ value: UiLocale; label: string }> = [

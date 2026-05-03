@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChatPanel } from '@/components/organisms/ChatPanel'
 import { TaskInfoSidebar } from '@/components/organisms/TaskInfoSidebar'
@@ -20,6 +20,7 @@ import { deriveVerdict, verdictBadge } from '@/lib/reviewer-loop'
 import type { NextAction } from '@/lib/reviewer-loop'
 import type { ReviewerEnvelope } from '@/types/domain'
 import { EtaIndicator } from '@/components/molecules/EtaIndicator'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 interface Task {
   id: string
@@ -46,6 +47,7 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
   const [task, setTask] = useState(initialTask)
   const createConversationInStore = useKanbanStore((s) => s.createConversation)
   const updateTaskInStore = useKanbanStore((s) => s.updateTask)
+  const updateSubtaskInStore = useKanbanStore((s) => s.updateSubtask)
   const allSubtasks = useKanbanStore((s) => s.subtasks)
   const allTasks = useKanbanStore((s) => s.tasks)
   const getNextPendingSubtask = useKanbanStore((s) => s.getNextPendingSubtask)
@@ -68,7 +70,7 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     return [
       {
         role: 'assistant',
-        content: `I'm your AI agent for task: **${initialTask.title}**.\n\nStatus: \`${initialTask.status}\`\n\nHow can I help? I can:\n- Break it down into subtasks\n- Research and analyse\n- Generate implementation plans\n- Review and provide feedback`,
+        content: `I'm your AI agent for task: **${initialTask.title}**.\n\nHow can I help? I can:\n- Break it down into subtasks\n- Research and analyse\n- Generate implementation plans\n- Review and provide feedback`,
       },
     ]
   })
@@ -91,6 +93,14 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
     window.addEventListener('mouseup', onUp)
   }, [sidebarWidth])
   const [activeAgentIdx, setActiveAgentIdx] = useState(() => getDefaultAgentIndex(initialTask.status))
+
+  const allowedAgentIndices = useMemo(() => {
+    if (task.status === 'TODO') return [0]
+    if (task.status === 'IN_PROGRESS') return [1]
+    if (task.status === 'IN_REVIEW') return [2]
+    if (task.status === 'BLOCKED') return [0]
+    return [0, 1, 2] // DONE: all read-only
+  }, [task.status])
   const [progressEvents, setProgressEvents] = useState<StreamEvent[]>([])
 
   const activeOption = AGENT_OPTIONS[activeAgentIdx]
@@ -156,10 +166,18 @@ export function ChatTemplate({ task: initialTask }: ChatTemplateProps) {
         console.warn(result.message)
         return
       }
-      const updated = updateTaskInStore(task.id, { status })
+      if (task.status === 'IN_PROGRESS' && status === 'IN_REVIEW') {
+        const approved = allSubtasks.filter((s) => s.taskId === task.id && !s.deletedAt && s.approvalStatus === 'approved')
+        const allApprovedDone = approved.length > 0 && approved.every((s) => s.completed)
+        if (!allApprovedDone) {
+          console.warn(`Not all approved steps are completed yet. Finish the remaining steps before sending to review.`)
+          return
+        }
+      }
+      const updated = updateTaskInStore(task.id, { status, ...(status === 'IN_REVIEW' ? { reviewIterationCount: 0 } : {}) })
       if (updated) setTask((prev) => ({ ...prev, status: updated.status }))
     },
-    [task.id, task.status, updateTaskInStore],
+    [task.id, task.status, allSubtasks, updateTaskInStore],
   )
 
   const taskSubtasks = useMemo(
@@ -257,12 +275,30 @@ const topPanel =
         subtasks={taskSubtasks}
         reviewer={reviewer}
         onApproveDone={() => updateTaskStatus('DONE')}
-        onRequestChanges={() => updateTaskStatus('IN_PROGRESS')}
+        onRequestChanges={() => {
+          const changeActions = reviewer.envelope?.changeActions ?? []
+          updateTaskStatus('IN_PROGRESS')
+          // Unmark subtasks the reviewer flagged for revision so Doer can redo them
+          changeActions
+            .filter((a) => a.action === 'revise' && a.subtaskId)
+            .forEach((a) => updateSubtaskInStore(a.subtaskId!, { completed: false }))
+        }}
       />
     ) : null
 
+  const onBack = () =>
+    task.projectId ? router.push(`/mission-control/${task.projectId}`) : router.push('/')
+
   return (
     <div className="flex h-full w-full bg-white font-sans overflow-hidden">
+      {task.status === 'DONE' ? (
+        <TaskDoneView
+          taskTitle={task.title}
+          taskDescription={task.description}
+          finalDraft={liveTask?.finalDraft ?? null}
+          onBack={onBack}
+        />
+      ) : (
       <ChatPanel
         taskTitle={task.title}
         taskStatus={task.status}
@@ -275,19 +311,17 @@ const topPanel =
         onSend={sendMessage}
         activeAgentIdx={activeAgentIdx}
         onAgentChange={setActiveAgentIdx}
+        allowedAgentIndices={allowedAgentIndices}
         isStreaming={isStreaming}
         streamingContent={streamingContent}
         streamError={streamError}
         progressEvents={progressEvents}
         onAbort={abort}
-        onBack={() =>
-          task.projectId
-            ? router.push(`/mission-control/${task.projectId}`)
-            : router.push('/')
-        }
+        onBack={onBack}
         onViewSummary={() => router.push(`/summary/${task.id}`)}
-        isDone={task.status === 'DONE'}
+        isDone={false}
       />
+      )}
 
       <div
         className="w-1.5 shrink-0 cursor-col-resize flex items-center justify-center group relative z-10 hover:bg-indigo-100/60 transition-colors"
@@ -328,6 +362,69 @@ const topPanel =
   )
 }
 
+// ─── Done view ────────────────────────────────────────────────────────────────
+
+interface TaskDoneViewProps {
+  taskTitle: string
+  taskDescription: string | null
+  finalDraft: string | null
+  onBack: () => void
+}
+
+function TaskDoneView({ taskTitle, taskDescription, finalDraft, onBack }: TaskDoneViewProps) {
+  return (
+    <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#f8f9fa]">
+      {/* Header */}
+      <div className="h-14 px-5 border-b border-gray-100 bg-white flex items-center gap-3 shrink-0">
+        <button
+          onClick={onBack}
+          className="p-1.5 hover:bg-gray-100 rounded-xl transition-all text-gray-400 hover:text-black active:scale-95 shrink-0"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <h1 className="font-black text-[15px] text-[#0a192f] tracking-tight leading-none truncate flex-1 min-w-0">{taskTitle}</h1>
+        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-[0.14em] shrink-0">
+          <CheckCircle2 className="w-3 h-3" />
+          Done
+        </span>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-[0.15em] hover:bg-blue-600 transition-all active:scale-95 shrink-0"
+        >
+          <ArrowLeft className="w-3 h-3" />
+          Back to board
+        </button>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Final draft */}
+          <div className="rounded-2xl border border-green-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-green-100 bg-green-50/70 flex items-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-green-700">Final Output</div>
+              <span className="text-[10px] text-slate-400 ml-1">· synthesized from all completed steps</span>
+            </div>
+            <div className="px-5 py-4">
+              {finalDraft ? (
+                <div className="prose prose-sm max-w-none text-[#0a192f] text-[13px] leading-relaxed whitespace-pre-wrap">
+                  {finalDraft}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 italic">No final draft recorded for this task.</p>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface ReviewerWorkspacePanelProps {
   taskId: string
   taskTitle: string
@@ -346,25 +443,31 @@ function ReviewerWorkspacePanel({
   onRequestChanges,
 }: ReviewerWorkspacePanelProps) {
   const [clarifyAnswer, setClarifyAnswer] = useState('')
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (autoStartedRef.current) return
+    autoStartedRef.current = true
+    void reviewer.start()
+  }, [reviewer])
 
   return (
     <div className="rounded-3xl border border-amber-100 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-sm overflow-hidden mb-6">
       <div className="px-6 py-5 border-b border-amber-100 bg-white/50 flex items-start justify-between gap-4">
         <div className="flex-1">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 mb-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700 mb-1">
             Reviewer Workspace
           </div>
           <h3 className="text-base font-bold text-[#0a192f] leading-snug">
             Check the quality before marking this task done.
           </h3>
-          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+          <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed">
             The reviewer looks at the work already produced, surfaces issues, and suggests whether the task is ready for done. A human still decides.
           </p>
         </div>
         {reviewer.state === 'idle' && (
           <button
             onClick={() => reviewer.start()}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition-colors active:scale-95 shadow-sm"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-amber-700 transition-colors active:scale-95 shadow-sm"
           >
             🔎 Review task
           </button>
@@ -388,7 +491,7 @@ function ReviewerWorkspacePanel({
           <div className="rounded-2xl bg-amber-50/60 border border-amber-100 px-4 py-3">
             <div className="flex items-center gap-3 mb-1">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700 flex-1">
                 AI reviewing
               </div>
             </div>
@@ -404,10 +507,10 @@ function ReviewerWorkspacePanel({
         {reviewer.state === 'needs-input' && reviewer.envelope?.needsHumanInput && (
           <div className="rounded-2xl bg-amber-50/70 border border-amber-100 p-4 space-y-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700 mb-1">
                 The Reviewer needs one thing
               </div>
-              <p className="text-[11px] text-amber-900 leading-relaxed">
+              <p className="text-[12px] text-amber-900 leading-relaxed">
                 {reviewer.envelope.needsHumanInput.question}
               </p>
             </div>
@@ -424,7 +527,7 @@ function ReviewerWorkspacePanel({
                   void reviewer.answerClarification(clarifyAnswer.trim())
                   setClarifyAnswer('')
                 }}
-                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors"
+                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
               >
                 Send
               </button>
@@ -435,7 +538,7 @@ function ReviewerWorkspacePanel({
         {reviewer.state === 'result' && reviewer.envelope && (
           <div className="rounded-2xl bg-white border border-amber-100 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between gap-2">
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700">
                 Review result
               </div>
               <ReviewerVerdictBadge envelope={reviewer.envelope} />
@@ -468,20 +571,20 @@ function ReviewerWorkspacePanel({
             </div>
 
             <div className="px-4 py-4 space-y-4">
-              <p className="text-[11px] italic text-slate-600 leading-relaxed">
+              <p className="text-[12px] italic text-slate-500 leading-relaxed">
                 “{reviewer.envelope.reviewUnderstanding}”
               </p>
 
               {reviewer.envelope.taskReview && (
                 <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-1">
                     Task summary
                   </div>
-                  <p className="text-[11px] text-[#0a192f] leading-relaxed">
+                  <p className="text-[12px] text-[#0a192f] leading-relaxed">
                     {reviewer.envelope.taskReview.summary}
                   </p>
                   {reviewer.envelope.taskReview.findings.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-[11px] text-rose-700 leading-relaxed">
+                    <ul className="mt-2 space-y-1 text-[12px] text-rose-700 leading-relaxed">
                       {reviewer.envelope.taskReview.findings.map((f, i) => (
                         <li key={i}>• {f}</li>
                       ))}
@@ -496,12 +599,12 @@ function ReviewerWorkspacePanel({
                     const step = subtasks.find((s) => s.id === sr.subtaskId)
                     return (
                       <div key={sr.subtaskId} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-1">
                           {step?.title ?? sr.subtaskId}
                         </div>
-                        <p className="text-[11px] text-[#0a192f] leading-relaxed">{sr.summary}</p>
+                        <p className="text-[12px] text-[#0a192f] leading-relaxed">{sr.summary}</p>
                         {sr.findings.length > 0 && (
-                          <ul className="mt-2 space-y-1 text-[11px] text-rose-700 leading-relaxed">
+                          <ul className="mt-2 space-y-1 text-[12px] text-rose-700 leading-relaxed">
                             {sr.findings.map((f, i) => (
                               <li key={i}>• {f}</li>
                             ))}
@@ -515,7 +618,7 @@ function ReviewerWorkspacePanel({
 
               {reviewer.envelope.changeRequest && (
                 <div className="rounded-xl bg-rose-50 border border-rose-100 p-3">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-rose-600 mb-1">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-600 mb-1">
                     Recommended changes
                   </div>
                   <p className="text-[11px] text-rose-900 leading-relaxed">{reviewer.envelope.changeRequest}</p>
@@ -569,27 +672,38 @@ function DoerExecutionPanel({
 }: DoerExecutionPanelProps) {
   const [clarifyAnswer, setClarifyAnswer] = useState('')
   const [refinePrompt, setRefinePrompt] = useState('')
+  const [isEditingArtifact, setIsEditingArtifact] = useState(false)
+  const [editedArtifact, setEditedArtifact] = useState('')
 
-  const allDone = subtasks.length > 0 && subtasks.every((s) => s.completed)
+  // Sync edited artifact when a new result arrives
+  useEffect(() => {
+    if (doer.envelope?.result?.artifact) {
+      setEditedArtifact(doer.envelope.result.artifact)
+      setIsEditingArtifact(false)
+    }
+  }, [doer.envelope?.result?.artifact])
+
+  const approvedSubtasks = subtasks.filter((s) => s.approvalStatus === 'approved')
+  const allDone = approvedSubtasks.length > 0 && approvedSubtasks.every((s) => s.completed)
 
   return (
     <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 shadow-sm overflow-hidden mb-6">
       <div className="px-6 py-5 border-b border-blue-100 bg-white/50 flex items-start justify-between gap-4">
         <div className="flex-1">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 mb-1">
+          <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-700 mb-1">
             Doer Workspace
           </div>
           <h3 className="text-base font-bold text-[#0a192f] leading-snug">
             Work through this task one step at a time.
           </h3>
-          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+          <p className="text-[12px] text-slate-500 mt-1.5 leading-relaxed">
             The Doer focuses on the next unfinished step, drafts the actual output, and you decide when it is done.
           </p>
         </div>
         {nextPendingSubtask && doer.state === 'idle' && (
           <button
             onClick={() => doer.start(nextPendingSubtask.id)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
             title="Estimated ~8k tokens for this call"
           >
             🤖 Do next step
@@ -612,10 +726,27 @@ function DoerExecutionPanel({
                 {nextPendingSubtask.description}
               </p>
             )}
+            {nextPendingSubtask.reviewResult && nextPendingSubtask.reviewResult.findings.length > 0 && (
+              <div className="mt-3 rounded-xl bg-amber-50/70 border border-amber-100 px-3 py-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700 mb-1.5">
+                  Reviewer feedback — needs fixing
+                </div>
+                <ul className="space-y-0.5">
+                  {nextPendingSubtask.reviewResult.findings.map((f, i) => (
+                    <li key={i} className="text-[12px] text-amber-900 leading-relaxed">• {f}</li>
+                  ))}
+                </ul>
+                {nextPendingSubtask.reviewResult.recommendation && (
+                  <p className="text-[11px] text-amber-700 font-medium mt-1.5">
+                    💡 {nextPendingSubtask.reviewResult.recommendation}
+                  </p>
+                )}
+              </div>
+            )}
             {nextPendingSubtask.doerResult?.summary && (
               <div className="mt-3 rounded-xl bg-blue-50/60 border border-blue-100 px-3 py-2">
-                <div className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
-                  Latest AI output
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-600 mb-1">
+                  Previous AI output
                 </div>
                 <p className="text-[11px] text-blue-900 leading-relaxed">
                   {nextPendingSubtask.doerResult.summary}
@@ -624,21 +755,13 @@ function DoerExecutionPanel({
             )}
           </div>
         ) : (
-          <div className="rounded-2xl bg-green-50/60 border border-green-100 px-4 py-4 flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-green-700 mb-1">
-                All steps complete
-              </div>
-              <div className="text-sm font-semibold text-[#0a192f] leading-snug">
-                This task is ready to send to review.
-              </div>
+          <div className="rounded-2xl bg-green-50/40 border border-green-100 px-4 py-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-green-700 mb-0.5">
+              All steps complete
             </div>
-            <button
-              onClick={onMoveToReview}
-              className="shrink-0 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-green-500/20 flex items-center gap-1.5"
-            >
-              Send to Review →
-            </button>
+            <div className="text-xs text-slate-500">
+              Generate the final draft below to send to review.
+            </div>
           </div>
         )}
 
@@ -646,7 +769,7 @@ function DoerExecutionPanel({
           <div className="rounded-2xl bg-violet-50/60 border border-violet-100 px-4 py-3">
             <div className="flex items-center gap-3 mb-1">
               <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse shrink-0" />
-              <div className="text-[10px] font-black uppercase tracking-wider text-violet-700 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-700 flex-1">
                 AI working
               </div>
             </div>
@@ -662,10 +785,10 @@ function DoerExecutionPanel({
         {doer.state === 'needs-input' && doer.envelope?.needsHumanInput && (
           <div className="rounded-2xl bg-amber-50/70 border border-amber-100 p-4 space-y-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700 mb-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-700 mb-1">
                 The Doer needs one thing
               </div>
-              <p className="text-[11px] text-amber-900 leading-relaxed">
+              <p className="text-[12px] text-amber-900 leading-relaxed">
                 {doer.envelope.needsHumanInput.question}
               </p>
             </div>
@@ -682,7 +805,7 @@ function DoerExecutionPanel({
                   void doer.answerClarification(clarifyAnswer.trim())
                   setClarifyAnswer('')
                 }}
-                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors"
+                className="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
               >
                 Send
               </button>
@@ -693,29 +816,59 @@ function DoerExecutionPanel({
         {doer.state === 'result' && doer.envelope?.result && nextPendingSubtask && (
           <div className="rounded-2xl bg-white border border-blue-100 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-blue-100 bg-blue-50/50">
-              <div className="text-[10px] font-black uppercase tracking-wider text-blue-700">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-700">
                 Draft output for this step
               </div>
             </div>
             <div className="px-4 py-4 space-y-3">
-              <p className="text-[11px] italic text-slate-600 leading-relaxed">
+              <p className="text-[12px] italic text-slate-500 leading-relaxed">
                 “{doer.envelope.stepUnderstanding}”
               </p>
               <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Summary
-                </div>
-                <p className="text-[11px] text-[#0a192f] leading-relaxed">
+                <div className="text-[10px] font-medium text-slate-400 mb-1">Summary</div>
+                <p className="text-[12px] text-[#0a192f] leading-relaxed">
                   {doer.envelope.result.summary}
                 </p>
               </div>
               <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Deliverable
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-[10px] font-medium text-slate-400">Deliverable</div>
+                  {!isEditingArtifact ? (
+                    <button
+                      onClick={() => setIsEditingArtifact(true)}
+                      className="text-[10px] font-bold text-blue-500 hover:text-blue-700 transition-colors"
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsEditingArtifact(false)}
+                        className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => setIsEditingArtifact(false)}
+                        className="text-[10px] font-bold text-green-600 hover:text-green-800 transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="prose prose-sm max-w-none text-[#0a192f] whitespace-pre-wrap">
-                  {doer.envelope.result.artifact}
-                </div>
+                {isEditingArtifact ? (
+                  <textarea
+                    value={editedArtifact}
+                    onChange={(e) => setEditedArtifact(e.target.value)}
+                    className="w-full min-h-[160px] bg-white border border-blue-200 rounded-lg px-3 py-2 text-[12px] text-[#0a192f] leading-relaxed resize-y focus:outline-none focus:border-blue-400"
+                    autoFocus
+                  />
+                ) : (
+                  <div className="prose prose-sm max-w-none text-[#0a192f] whitespace-pre-wrap text-[12px]">
+                    {editedArtifact || doer.envelope.result.artifact}
+                  </div>
+                )}
               </div>
               {doer.envelope.result.nextAction && (
                 <div className="text-[11px] text-blue-700 font-medium">
@@ -723,7 +876,7 @@ function DoerExecutionPanel({
                 </div>
               )}
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 space-y-2">
-                <div className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-700">
                   Refine with prompt
                 </div>
                 <div className="flex gap-2">
@@ -746,7 +899,7 @@ function DoerExecutionPanel({
                       void doer.refineOutput(refinePrompt.trim())
                       setRefinePrompt('')
                     }}
-                    className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors"
+                    className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
                   >
                     Refine
                   </button>
@@ -754,8 +907,8 @@ function DoerExecutionPanel({
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => doer.acceptCurrentStep()}
-                  className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors"
+                  onClick={() => doer.acceptCurrentStep(editedArtifact || undefined)}
+                  className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-green-700 transition-colors"
                 >
                   Accept step
                 </button>
@@ -770,14 +923,71 @@ function DoerExecutionPanel({
           </div>
         )}
 
-        {allDone && (
-          <div className="flex items-center justify-end">
+        {allDone && doer.synthState === 'idle' && (
+          <div className="rounded-2xl bg-indigo-50/60 border border-indigo-100 px-4 py-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-700 mb-1">
+                All steps complete
+              </div>
+              <div className="text-sm font-semibold text-[#0a192f] leading-snug">
+                Generate a unified final draft before sending to review.
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                AI will combine all step outputs into one coherent document.
+              </p>
+            </div>
             <button
-              onClick={onMoveToReview}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-colors active:scale-95 shadow-sm"
+              onClick={() => doer.synthesize()}
+              className="shrink-0 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold transition-all active:scale-95 shadow-sm"
             >
-              Send to review
+              Generate Final Draft
             </button>
+          </div>
+        )}
+
+        {allDone && doer.synthState === 'working' && (
+          <div className="rounded-2xl bg-indigo-50/60 border border-indigo-100 px-4 py-3">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-700">
+                Synthesizing final draft…
+              </div>
+            </div>
+            <p className="text-[12px] text-slate-500 leading-relaxed">
+              AI is combining all step outputs into one unified document.
+            </p>
+          </div>
+        )}
+
+        {allDone && doer.synthState === 'done' && doer.synthDraft && (
+          <div className="rounded-2xl bg-white border border-indigo-100 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-indigo-100 bg-indigo-50/50 flex items-center justify-between gap-2">
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-700">
+                Final draft — ready for review
+              </div>
+              <button
+                onClick={() => doer.synthesize()}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Regenerate
+              </button>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              <p className="text-[11px] italic text-slate-500 leading-relaxed">{doer.synthDraft.summary}</p>
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 max-h-60 overflow-y-auto">
+                <div className="prose prose-sm max-w-none text-[#0a192f] whitespace-pre-wrap text-[12px]">
+                  {doer.synthDraft.artifact}
+                </div>
+              </div>
+            </div>
+            <div className="px-4 pb-4 flex justify-end">
+              <button
+                onClick={onMoveToReview}
+                className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[11px] font-semibold transition-all active:scale-95 shadow-sm shadow-green-500/20 flex items-center gap-1.5"
+              >
+                Send to Review →
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -825,7 +1035,7 @@ function ReviewerActionBar({
   if (nextAction.kind === 'approve_done') {
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors">
+        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-green-700 transition-colors">
           Approve task (DONE)
         </button>
         <button onClick={onReviewAgain} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors">
@@ -838,7 +1048,7 @@ function ReviewerActionBar({
   if (nextAction.kind === 'auto_retry') {
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-700 transition-colors" title="Returns the task to IN_PROGRESS so the Doer can address the findings">
+        <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-amber-700 transition-colors" title="Returns the task to IN_PROGRESS so the Doer can address the findings">
           Send back to Doer (iteration {nextAction.iteration})
         </button>
         <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-white border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-50 transition-colors" title="Approve anyway despite reviewer findings">
@@ -855,7 +1065,7 @@ function ReviewerActionBar({
           <strong>Reviewer thinks the underlying plan is wrong.</strong> Open this task in Mission Control and use "Re-plan task" instead of running the Doer again.
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-rose-700 transition-colors">
+          <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-rose-700 transition-colors">
             Send back (planner-aware)
           </button>
           <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-white border border-green-200 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-50 transition-colors">
@@ -886,7 +1096,7 @@ function ReviewerActionBar({
         <strong>Stuck on this task.</strong> {nextAction.reason} Choose a path below.
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-green-700 transition-colors">
+        <button onClick={onApprove} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-[10px] font-bold uppercase tracking-[0.1em] hover:bg-green-700 transition-colors">
           Mark as DONE anyway
         </button>
         <button onClick={onSendBackToDoer} className="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-slate-800 transition-colors">

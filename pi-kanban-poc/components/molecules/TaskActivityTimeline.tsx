@@ -59,23 +59,23 @@ export function TaskActivityTimeline({ taskId, maxItems = 30 }: TaskActivityTime
       {items.map((entry) => {
         const colorClass = TYPE_COLOR[entry.type] ?? 'text-slate-600'
         return (
-          <li key={entry.id} className="relative pl-8">
+          <li key={entry.id} className="relative pl-8 pr-2">
             <span
-              className={`absolute left-1 top-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px]`}
+              className="absolute left-1 top-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px]"
               aria-hidden
             >
               {ACTOR_ICON[entry.actor]}
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className={`text-[11px] font-semibold ${colorClass}`}>
+            <div className="flex items-start justify-between gap-2">
+              <span className={`text-[12px] font-medium leading-snug ${colorClass}`}>
                 {entry.summary}
               </span>
-              <span className="text-[9px] text-slate-400 font-bold">
+              <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
                 {formatTime(entry.timestamp)}
               </span>
             </div>
             {entry.metadata?.fromStatus != null && entry.metadata?.toStatus != null && (
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 {String(entry.metadata.fromStatus)} → {String(entry.metadata.toStatus)}
               </p>
             )}

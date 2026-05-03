@@ -551,6 +551,8 @@ export const useKanbanStore = create<KanbanState>()(
               runtimeState: nextRuntimeState,
               runtimeLastAction: patch.status ? `Status moved to ${patch.status}` : (patch.runtimeLastAction ?? t.runtimeLastAction),
               runtimeBlockedReason: patch.status === 'BLOCKED' ? (patch.runtimeBlockedReason ?? t.runtimeBlockedReason ?? 'Task was manually blocked.') : patch.status ? null : (patch.runtimeBlockedReason ?? t.runtimeBlockedReason),
+              // Save the status we're leaving when going BLOCKED so we can restore correctly
+              statusBeforeBlocked: patch.status === 'BLOCKED' ? t.status : patch.status && t.status === 'BLOCKED' ? null : t.statusBeforeBlocked,
               updatedAt: now(),
               ...(statusChanged ? { statusChangedAt: now() } : {}),
             } as Task
@@ -595,6 +597,21 @@ export const useKanbanStore = create<KanbanState>()(
             resourceLink: null,
           }
           set((s) => ({ activities: [...s.activities, editActivity] }))
+        }
+
+        // When a task is moved back to TODO from IN_PROGRESS, reset all subtask
+        // execution state so Step Planner starts clean.
+        if (patch.status === 'TODO' && finalPrev?.status === 'IN_PROGRESS') {
+          set((s) => ({
+            subtasks: s.subtasks.map((sub) =>
+              sub.taskId === id && !sub.deletedAt
+                ? { ...sub, completed: false, doerResult: null, reviewResult: null, approvalStatus: 'pending' }
+                : sub,
+            ),
+            tasks: s.tasks.map((t) =>
+              t.id === id ? { ...t, reviewIterationCount: 0 } : t,
+            ),
+          }))
         }
 
         // When a task is marked DONE, check if any blocked tasks are now ready.
@@ -697,6 +714,32 @@ export const useKanbanStore = create<KanbanState>()(
             return updated
           }),
         }))
+        // When approvalStatus changes on a subtask, sync parent task runtimeState.
+        // If task is TODO and now has ≥1 approved subtask → 'ready'; else → 'idle'.
+        if (patch.approvalStatus !== undefined && updated) {
+          const taskId = (updated as Subtask).taskId
+          const parentTask = get().tasks.find((t) => t.id === taskId)
+          if (parentTask && parentTask.status === 'TODO') {
+            const allSubs = get().subtasks
+            const hasApproved = allSubs.some(
+              (s) => s.taskId === taskId && !s.deletedAt &&
+                (s.id === id ? patch.approvalStatus === 'approved' : s.approvalStatus === 'approved'),
+            )
+            set((s) => ({
+              tasks: s.tasks.map((t) =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      runtimeState: hasApproved ? 'ready' : 'idle',
+                      runtimeNextAction: hasApproved
+                        ? 'Steps approved — ready to start execution.'
+                        : 'Refine or start this task.',
+                    }
+                  : t,
+              ),
+            }))
+          }
+        }
         return updated
       },
 

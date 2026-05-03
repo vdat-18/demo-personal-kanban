@@ -25,7 +25,7 @@ export function DirectoryTaskList({ tasks, viewMode, onTaskClick }: DirectoryTas
   if (tasks.length === 0) {
     return (
       <section>
-        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Tasks (0)</h2>
+        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mb-4">Tasks (0)</h2>
         <div className="py-20 text-center">
           <p className="text-sm font-bold text-gray-300">No tasks match your filters.</p>
         </div>
@@ -35,7 +35,7 @@ export function DirectoryTaskList({ tasks, viewMode, onTaskClick }: DirectoryTas
 
   return (
     <section>
-      <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+      <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] mb-4">
         Tasks ({tasks.length})
       </h2>
 

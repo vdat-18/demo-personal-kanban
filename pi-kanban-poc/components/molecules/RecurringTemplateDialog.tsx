@@ -17,9 +17,8 @@ interface Props {
 }
 
 export function RecurringTemplateDialog({ projectId, onClose }: Props) {
-  const templates = useKanbanStore(
-    (s) => s.recurringTemplates.filter((t) => t.projectId === projectId),
-  )
+  const allTemplates = useKanbanStore((s) => s.recurringTemplates)
+  const templates = allTemplates.filter((t) => t.projectId === projectId)
   const createRecurringTemplate = useKanbanStore((s) => s.createRecurringTemplate)
   const deleteRecurringTemplate = useKanbanStore((s) => s.deleteRecurringTemplate)
 

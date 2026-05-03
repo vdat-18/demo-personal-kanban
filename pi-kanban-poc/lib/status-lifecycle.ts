@@ -21,7 +21,7 @@ export const TRANSITION_MAP: Record<TaskStatusValue, TaskStatusValue[]> = {
   IN_PROGRESS: ['IN_REVIEW', 'TODO', 'BLOCKED'],
   IN_REVIEW:   ['DONE', 'IN_PROGRESS', 'BLOCKED'],
   DONE:        [],           // terminal — no transitions out
-  BLOCKED:     ['TODO'],     // restore only
+  BLOCKED:     ['TODO', 'IN_PROGRESS'],  // restore to prior status
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

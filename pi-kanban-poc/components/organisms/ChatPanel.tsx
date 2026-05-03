@@ -27,6 +27,7 @@ export interface ChatPanelProps {
   onSend: () => void
   activeAgentIdx: number
   onAgentChange: (idx: number) => void
+  allowedAgentIndices?: number[]
   isStreaming: boolean
   streamingContent: string
   streamError: string | null
@@ -48,6 +49,7 @@ export function ChatPanel({
   onSend,
   activeAgentIdx,
   onAgentChange,
+  allowedAgentIndices,
   isStreaming,
   streamingContent,
   streamError,
@@ -123,6 +125,7 @@ export function ChatPanel({
         activeIndex={activeAgentIdx}
         onSelect={onAgentChange}
         disabled={isStreaming}
+        allowedIndices={allowedAgentIndices}
       />
 
       {/* Main content area (Scrollable) */}

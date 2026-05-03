@@ -16,16 +16,24 @@ import type { TaskStatusValue } from '@/lib/status-lifecycle'
  * to open the task chat/detail view.
  */
 
+const PRIORITY_STYLES: Record<string, string> = {
+  URGENT: 'bg-purple-50 text-purple-700 border-purple-200',
+  HIGH:   'bg-red-50 text-red-600 border-red-200',
+  MEDIUM: 'bg-amber-50 text-amber-600 border-amber-100',
+  LOW:    'bg-slate-50 text-slate-500 border-slate-100',
+}
+
 export interface TaskCardProps {
   id: string
   title: string
   description: string | null
   status: UITaskStatus
-   dependsOnTaskIds?: string[]
-   blockedByTaskIds?: string[]
-   runtimeState?: string
-   runtimeLastAction?: string | null
-   runtimeNextAction?: string | null
+  priority?: string
+  dependsOnTaskIds?: string[]
+  blockedByTaskIds?: string[]
+  runtimeState?: string
+  runtimeLastAction?: string | null
+  runtimeNextAction?: string | null
   onDragStart: (e: React.DragEvent, taskId: string, status: UITaskStatus) => void
   onClick: () => void
   onUpdateStatus: (taskId: string, status: UITaskStatus) => void
@@ -38,6 +46,7 @@ export function TaskCard({
   title,
   description,
   status,
+  priority,
   dependsOnTaskIds = [],
   blockedByTaskIds = [],
   runtimeState,
@@ -51,10 +60,9 @@ export function TaskCard({
 }: TaskCardProps) {
   const allTasks = useKanbanStore((s) => s.tasks)
 
-  const hintDismissedOnTask = useMemo(
-    () => allTasks.find((t) => t.id === id)?.hintDismissed ?? false,
-    [allTasks, id],
-  )
+  const taskRecord = useMemo(() => allTasks.find((t) => t.id === id), [allTasks, id])
+  const hintDismissedOnTask = taskRecord?.hintDismissed ?? false
+  const restoreStatus: UITaskStatus = (taskRecord?.statusBeforeBlocked as UITaskStatus | undefined) ?? 'TODO'
 
   const isCardActive = status === 'IN_PROGRESS'
   const isBusyUI = false
@@ -92,10 +100,15 @@ export function TaskCard({
       />
 
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <StatusPill status={status} />
+          {priority && priority !== 'MEDIUM' && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${PRIORITY_STYLES[priority] ?? PRIORITY_STYLES.LOW}`}>
+              {priority.charAt(0) + priority.slice(1).toLowerCase()}
+            </span>
+          )}
           {status === 'TODO' && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-500 border border-blue-100 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5" />
               Plan in chat
             </span>
@@ -103,7 +116,7 @@ export function TaskCard({
         </div>
 
         <h3
-          className={`font-black text-[15px] tracking-tight leading-snug pr-4 ${
+          className={`font-bold text-[14px] tracking-tight leading-snug pr-4 ${
             isBusyUI
               ? 'text-violet-700'
               : status === 'BLOCKED'
@@ -116,11 +129,11 @@ export function TaskCard({
 
         {/* Hover actions (status transitions) */}
         <div className="absolute top-5 right-5 flex items-center gap-2 translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300">
-          {status === 'BLOCKED' && getAllowedTransitions(status as TaskStatusValue).includes('TODO') && (
+          {status === 'BLOCKED' && (
             <button
-              onClick={(e) => { e.stopPropagation(); onUpdateStatus(id, 'TODO') }}
+              onClick={(e) => { e.stopPropagation(); onUpdateStatus(id, restoreStatus) }}
               className="w-9 h-9 rounded-[1rem] bg-green-50 hover:bg-green-600 text-green-500 hover:text-white flex items-center justify-center transition-all shadow-md active:scale-90"
-              title="Restore task"
+              title={`Restore to ${restoreStatus}`}
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -150,7 +163,7 @@ export function TaskCard({
         </div>
 
         {description && status !== 'BLOCKED' && (
-          <p className="text-xs text-slate-400 leading-relaxed font-medium max-h-0 overflow-hidden group-hover:max-h-96 transition-all duration-300">
+          <p className="text-[12px] text-slate-500 leading-relaxed max-h-0 overflow-hidden group-hover:max-h-96 transition-all duration-300">
             {description}
           </p>
         )}
@@ -158,17 +171,17 @@ export function TaskCard({
         {(dependsOnTaskIds.length > 0 || blockedByTaskIds.length > 0 || runtimeNextAction || runtimeLastAction) && (
           <div className="pt-2 border-t border-slate-100 space-y-1">
             {dependsOnTaskIds.length > 0 && (
-              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-[0.12em]">
+              <p className="text-[11px] text-slate-400">
                 Depends on {dependsOnTaskIds.length} task{dependsOnTaskIds.length === 1 ? '' : 's'}
               </p>
             )}
             {blockedByTaskIds.length > 0 && (
-              <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-[0.12em]">
+              <p className="text-[11px] text-amber-600 font-medium">
                 Blocked by {blockedByTaskIds.length} task{blockedByTaskIds.length === 1 ? '' : 's'}
               </p>
             )}
             {runtimeState && runtimeState.toLowerCase() !== 'idle' && (
-              <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-[0.12em]">
+              <p className="text-[11px] text-blue-600 font-medium">
                 {runtimeState}
               </p>
             )}
@@ -176,7 +189,7 @@ export function TaskCard({
               <p className="text-[11px] text-slate-500 leading-relaxed">Last: {runtimeLastAction}</p>
             )}
             {runtimeNextAction && (
-              <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Next: {runtimeNextAction}</p>
+              <p className="text-[11px] text-slate-700 leading-relaxed font-medium">Next: {runtimeNextAction}</p>
             )}
           </div>
         )}

@@ -624,6 +624,13 @@ export function PlanningClient({ project: initialProject }: { project: Project }
 
   const welcomeText = `👋 Hi — I'm here to help you plan **${initialProject.name}**.\n\nJust tell me about it in your own words — what you want to do, who it's for, any timeline in your head. I'll ask follow-ups in one go, draft a plan you can review or edit, then break it into concrete action items.\n\nWhat are you trying to do?`
 
+  const WELCOME_CHIPS = [
+    'I want to build a product',
+    'Planning a team initiative',
+    'Launching a campaign',
+    'Working towards a personal goal',
+  ]
+
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [taskWidth, setTaskWidth] = useState(420)
 
@@ -691,8 +698,8 @@ export function PlanningClient({ project: initialProject }: { project: Project }
       <div className="flex flex-col flex-1 min-w-0 border-r border-slate-200/60 bg-white">
           {/* Header */}
           <header className="shrink-0 bg-white/95 backdrop-blur-xl sticky top-0 z-10 border-b border-slate-100/80 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
-            {/* Row 1: nav + project info */}
-            <div className="h-14 px-5 flex items-center gap-3">
+            {/* Single header row: nav | project name | [center: stepper] | [right: context tabs] */}
+            <div className="h-14 px-5 flex items-center gap-3 relative">
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => router.push('/')}
@@ -712,59 +719,62 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                 )}
               </div>
               <div className="w-px h-5 bg-slate-200 shrink-0" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 shrink">
                 <div className="flex items-baseline gap-2 min-w-0">
                   <h1 className="font-bold text-[15px] text-slate-900 truncate leading-none">{initialProject.name}</h1>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">{playbook.label}</span>
                 </div>
               </div>
-            </div>
-
-          </header>
-
-          {/* Vision Document Panel (dual-mode) */}
-          <VisionPanel
-            content={currentVisionDoc}
-            title={initialProject.name}
-            versionCount={versionsForThread.length}
-            onSaveEdit={handleVisionSaveEdit}
-            onAskAiFocus={handleAskAiFocus}
-            onOpenHistory={() => setHistoryDrawerOpen(true)}
-            publishedIsStale={publishedIsStale}
-            onPublishLatest={
-              latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
-            }
-            centerContent={<PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />}
-            panelActions={
-              <>
+              {/* Phase stepper — absolutely centered */}
+              <div className="absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+                <PhaseStepper current={currentPhase} onJumpTo={handleStepperJump} compact />
+              </div>
+              {/* Context tabs — right side */}
+              <div className="ml-auto flex items-center gap-0.5 shrink-0">
                 {(
                   [
                     { key: 'status' as const, label: 'Status', badge: attentionItems.length > 0 ? attentionItems.length : undefined },
-                    { key: 'sources' as const, label: 'Sources', badge: importedSources.length > 0 ? importedSources.length : undefined },
-                    { key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? initialProject.workpad?.blockers.length : undefined },
+                    ...(importedSources.length > 0 ? [{ key: 'sources' as const, label: 'Sources', badge: importedSources.length as number | undefined }] : []),
+                    ...(workflowContract ? [{ key: 'workflow-notes' as const, label: 'Workflow Notes', badge: (initialProject.workpad?.blockers.length ?? 0) > 0 ? (initialProject.workpad?.blockers.length as number | undefined) : undefined }] : []),
                     { key: 'timeline' as const, label: 'Timeline', badge: undefined as number | undefined },
                   ]
                 ).map(({ key, label, badge }) => (
                   <button
                     key={key}
                     onClick={() => setActiveContextTab((prev) => (prev === key ? null : key))}
-                    className={`flex items-center gap-1 text-[11px] font-semibold transition-colors px-1 py-0.5 rounded ${
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] transition-colors ${
                       activeContextTab === key
-                        ? 'text-indigo-600'
-                        : 'text-slate-400 hover:text-slate-600'
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     {label}
                     {badge !== undefined && (
-                      <span className={`text-[9px] font-black px-1 rounded-full ${activeContextTab === key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${activeContextTab === key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
                         {badge}
                       </span>
                     )}
                   </button>
                 ))}
-              </>
-            }
-          />
+              </div>
+            </div>
+          </header>
+
+          {/* Vision Document Panel — only shown once the AI has drafted content */}
+          {currentVisionDoc && (
+            <VisionPanel
+              content={currentVisionDoc}
+              title={initialProject.name}
+              versionCount={versionsForThread.length}
+              onSaveEdit={handleVisionSaveEdit}
+              onAskAiFocus={handleAskAiFocus}
+              onOpenHistory={() => setHistoryDrawerOpen(true)}
+              publishedIsStale={publishedIsStale}
+              onPublishLatest={
+                latestVersion ? () => publishVisionVersionFn(latestVersion.id) : undefined
+              }
+            />
+          )}
 
           {/* Context drawer — slides in from the right like History */}
           <ContextDrawer
@@ -831,16 +841,29 @@ export function PlanningClient({ project: initialProject }: { project: Project }
             ) : (
               <>
                 {showWelcome && (
-                  <div className="flex justify-start items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
-                      AI
-                    </div>
-                    <div className="max-w-[82%] rounded-2xl rounded-bl-sm px-5 py-3.5 text-[14px] leading-[1.65] bg-white border border-slate-100/80 text-slate-800 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
-                      <div className="prose prose-slate max-w-none ai-prose">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{welcomeText}</ReactMarkdown>
+                  <>
+                    <div className="flex justify-start items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
+                        AI
+                      </div>
+                      <div className="max-w-[82%] rounded-2xl rounded-bl-sm px-5 py-3.5 text-[14px] leading-[1.65] bg-slate-50/80 border border-slate-200/70 text-slate-800 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-[3px] border-l-indigo-300">
+                        <div className="prose prose-slate max-w-none ai-prose">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{welcomeText}</ReactMarkdown>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                    <div className="flex flex-wrap gap-2 pl-11">
+                      {WELCOME_CHIPS.map((chip) => (
+                        <button
+                          key={chip}
+                          onClick={() => { setInput(chip); textareaRef.current?.focus() }}
+                          className="px-4 py-2 rounded-full bg-white border border-slate-200 text-sm text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-all shadow-sm active:scale-95"
+                        >
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 {messages.map((msg: PlanningMessage) => (
@@ -867,7 +890,7 @@ export function PlanningClient({ project: initialProject }: { project: Project }
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-1 shadow-md shadow-indigo-500/25">
                       AI
                     </div>
-                    <div className="bg-white border border-slate-100/80 rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-2 border-l-indigo-200">
+                    <div className="bg-slate-50/80 border border-slate-200/70 rounded-2xl rounded-bl-sm px-5 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] border-l-[3px] border-l-indigo-300">
                       <div className="flex gap-1.5">
                         <span
                           className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
@@ -1049,8 +1072,8 @@ function MessageView({
       )}
         <div
           className={`rounded-2xl px-5 py-3.5 text-[14px] leading-[1.65] transition-all ${isUser
-            ? 'max-w-[68%] bg-gradient-to-br from-indigo-600 to-indigo-800 text-white rounded-br-sm whitespace-pre-wrap shadow-[0_8px_24px_rgba(99,102,241,0.2)]'
-            : 'max-w-[82%] bg-white border border-slate-100/80 text-slate-800 rounded-bl-sm shadow-[0_4px_16px_rgba(15,23,42,0.06)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.09)] border-l-2 border-l-indigo-200'
+            ? 'max-w-[68%] bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-br-sm whitespace-pre-wrap shadow-[0_8px_24px_rgba(99,102,241,0.28)]'
+            : 'max-w-[82%] bg-slate-50/80 border border-slate-200/70 text-slate-800 rounded-bl-sm shadow-[0_4px_16px_rgba(15,23,42,0.06)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.09)] border-l-[3px] border-l-indigo-300'
           }`}
         >
         {isUser ? (

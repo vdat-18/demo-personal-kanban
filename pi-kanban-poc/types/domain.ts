@@ -163,6 +163,8 @@ export interface Project {
    * legacy projects start at 0 via the selector.
    */
   totalTokenUsage?: { input: number; output: number }
+  /** AI-generated project-level synthesis once all tasks are DONE. */
+  finalReport?: string | null
 }
 
 export type SubtaskType = 'research' | 'create' | 'communicate' | 'decide' | 'custom'
@@ -254,9 +256,13 @@ export interface Task {
   runtimeNextAction?: string | null
   runtimeRetryCount?: number
   runtimeBlockedReason?: string | null
+  /** Status the task held before transitioning to BLOCKED, used to restore correctly. */
+  statusBeforeBlocked?: TaskStatus | null
   validationChecklist?: string[]
   acceptanceCriteria?: string[]
   proofOfWork?: string[]
+  /** Synthesized final draft written by the Doer after all subtasks complete. Sent to Reviewer. */
+  finalDraft?: string | null
   /**
    * Soft-delete timestamp. When set, the task is hidden from all selectors
    * but kept in the store so the user can hit "Undo" within the toast

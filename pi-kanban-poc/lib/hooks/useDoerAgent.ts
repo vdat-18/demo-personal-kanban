@@ -20,6 +20,7 @@ interface DoerContext {
     description: string | null
     completed: boolean
     output: string | null
+    reviewFindings: string[]
   }>
   project: { name: string; description: string | null } | null
   visionDocument: string | null
@@ -41,7 +42,7 @@ export function getNextPendingSubtaskContext(subtasks: Subtask[]): Subtask | nul
     .sort((a, b) => a.order - b.order)[0] ?? null
 }
 
-export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgentArgs) {
+export function useDoerAgent({ taskId, taskTitle, taskDescription, taskStatus }: UseDoerAgentArgs) {
   const tasks = useKanbanStore((s) => s.tasks)
   const subtasks = useKanbanStore((s) => s.subtasks)
   const projects = useKanbanStore((s) => s.projects)
@@ -59,6 +60,18 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
   const [envelope, setEnvelope] = useState<DoerEnvelope | null>(null)
   const [currentSubtaskId, setCurrentSubtaskId] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [synthState, setSynthState] = useState<'idle' | 'working' | 'done'>('idle')
+  const [synthDraft, setSynthDraft] = useState<{ summary: string; artifact: string } | null>(null)
+
+  // Reset synthesis when task is sent back from IN_REVIEW → IN_PROGRESS
+  const prevStatusRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (prevStatusRef.current === 'IN_REVIEW' && taskStatus === 'IN_PROGRESS') {
+      setSynthState('idle')
+      setSynthDraft(null)
+    }
+    prevStatusRef.current = taskStatus
+  }, [taskStatus])
 
   const abortRef = useRef<AbortController | null>(null)
   const isMountedRef = useRef(true)
@@ -84,7 +97,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     updateTask(taskId, { runtimeLastAction: null })
     logActivity({
       taskId,
-      type: 'doer_started_subtask',
+      type: 'status_changed',
       actor: 'user',
       summary: 'You cancelled the Doer',
     })
@@ -111,13 +124,16 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     return {
       task,
       currentSubtask,
-      allSubtasks: taskSubtasks.map((s) => ({
-        id: s.id,
-        title: s.title,
-        description: s.description ?? null,
-        completed: s.completed,
-        output: s.output,
-      })),
+      allSubtasks: taskSubtasks
+        .filter((s) => s.approvalStatus !== 'denied')
+        .map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description ?? null,
+          completed: s.completed,
+          output: s.output,
+          reviewFindings: s.reviewResult?.findings ?? [],
+        })),
       project: project
         ? { name: project.name, description: project.description }
         : null,
@@ -358,16 +374,24 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     }
   }, [buildContext, currentSubtaskId, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask, state])
 
-  const acceptCurrentStep = useCallback(() => {
+  const acceptCurrentStep = useCallback((overrideArtifact?: string) => {
     const currentId = envelope?.targetSubtaskId ?? currentSubtaskId
     if (!currentId) return
+    if (overrideArtifact !== undefined && envelope?.result) {
+      saveDoerResult(taskId, currentId, { ...envelope.result, artifact: overrideArtifact })
+    }
     markSubtaskCompletedByDoer(taskId, currentId)
     updateTask(taskId, { runtimeLastAction: null, runtimeRetryCount: 0 })
     setEnvelope(null)
     setCurrentSubtaskId(null)
     setRetryCount(0)
     setState('idle')
-  }, [currentSubtaskId, envelope?.targetSubtaskId, markSubtaskCompletedByDoer, taskId, updateTask])
+    // Auto-advance: start the next approved+pending step immediately
+    const nextSub = getNextPendingSubtask(taskId)
+    if (nextSub) {
+      void start(nextSub.id)
+    }
+  }, [currentSubtaskId, envelope, getNextPendingSubtask, markSubtaskCompletedByDoer, saveDoerResult, start, taskId, updateTask])
 
   // Pattern 2: exponential backoff — wait before retry
   const retryCurrentStep = useCallback(() => {
@@ -474,7 +498,7 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
 
       logActivity({
         taskId,
-        type: 'doer_started_subtask',
+        type: 'ai_refined',
         actor: 'user',
         summary: `Output refined based on: "${instruction}"`,
         metadata: { subtaskId: currentId },
@@ -495,6 +519,79 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     }
   }, [addTokenUsage, buildContext, currentSubtaskId, envelope, logActivity, saveDoerResult, task, taskDescription, taskId, taskTitle, updateTask, state])
 
+  const synthesize = useCallback(async () => {
+    if (isRunningRef.current) return
+    isRunningRef.current = true
+
+    if (!task) { isRunningRef.current = false; return }
+
+    const completedApproved = taskSubtasks.filter(
+      (s) => s.approvalStatus === 'approved' && s.completed
+    )
+    if (completedApproved.length === 0) { isRunningRef.current = false; return }
+
+    setSynthState('working')
+    setSynthDraft(null)
+    updateTask(taskId, { runtimeLastAction: 'Synthesizing final draft…' })
+
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const stallTimer = setTimeout(() => {
+      controller.abort()
+      if (!isMountedRef.current) return
+      setSynthState('idle')
+      isRunningRef.current = false
+    }, STALL_TIMEOUT_MS)
+
+    try {
+      const systemPrompt = buildSynthesisPrompt(task, completedApproved)
+      const response = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'doer',
+          messages: [{ role: 'user', content: `Synthesize all completed steps into a final draft for: ${task.title}` }],
+          taskId,
+          taskTitle,
+          taskDescription,
+          systemPromptOverride: systemPrompt,
+        }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error ?? `Synthesis request failed (${response.status})`)
+      }
+      const data = (await response.json()) as { envelope?: DoerEnvelope; tokenUsage?: { input: number; output: number } }
+      const parsed = data.envelope ?? null
+      if (!parsed?.result) throw new Error('Synthesis response was not valid')
+
+      if (!isMountedRef.current || controller.signal.aborted) return
+
+      if (data.tokenUsage && task) addTokenUsage(task.projectId, data.tokenUsage)
+
+      updateTask(taskId, { finalDraft: parsed.result.artifact, runtimeLastAction: 'Final draft ready' })
+      setSynthDraft({ summary: parsed.result.summary, artifact: parsed.result.artifact })
+      setSynthState('done')
+      logActivity({
+        taskId,
+        type: 'doer_saved_result',
+        actor: 'ai',
+        summary: 'Final draft synthesized from all completed steps',
+      })
+    } catch (e) {
+      if (!isMountedRef.current) return
+      if (e instanceof Error && e.name === 'AbortError') { setSynthState('idle'); return }
+      setSynthState('idle')
+    } finally {
+      clearTimeout(stallTimer)
+      if (abortRef.current === controller) abortRef.current = null
+      isRunningRef.current = false
+    }
+  }, [addTokenUsage, logActivity, task, taskDescription, taskId, taskSubtasks, taskTitle, updateTask])
+
   return {
     state,
     error,
@@ -502,13 +599,63 @@ export function useDoerAgent({ taskId, taskTitle, taskDescription }: UseDoerAgen
     currentSubtaskId,
     retryCount,
     maxRetryCount: MAX_RETRY_COUNT,
+    synthState,
+    synthDraft,
     start,
     answerClarification,
     acceptCurrentStep,
     retryCurrentStep,
     refineOutput,
+    synthesize,
     abort,
   }
+}
+
+function buildSynthesisPrompt(
+  task: { title: string; description: string | null; priority: string },
+  completedSubtasks: Array<{ title: string; description: string | null; doerResult?: { summary: string; artifact: string; nextAction: string | null } | null; output: string | null }>,
+): string {
+  const lines: string[] = [
+    'You are the Doer Agent. All approved subtasks are complete.',
+    'Your ONLY job now is to synthesize all individual subtask outputs into ONE single coherent final draft for the whole task.',
+    '',
+    'Rules:',
+    '- Do NOT invent new content. Only combine and organize the existing outputs.',
+    '- If outputs conflict, pick the most complete version and note the discrepancy briefly.',
+    '- The final artifact must read as one unified document, not a list of pasted sections.',
+    '- Maintain logical flow and remove repetition.',
+    '',
+    'Output MUST be a SINGLE JSON object (no markdown fences, no prose outside JSON):',
+    '{',
+    '  "stepUnderstanding": string,',
+    '  "targetSubtaskId": null,',
+    '  "result": {',
+    '    "summary": string,',
+    '    "artifact": string,',
+    '    "nextAction": null',
+    '  },',
+    '  "needsHumanInput": null,',
+    '  "markSubtaskCompleted": false,',
+    '  "readyForReview": true,',
+    '  "taskSummary": string | null',
+    '}',
+    '',
+    `Task: ${task.title}`,
+  ]
+  if (task.description) lines.push(`Details: ${task.description}`)
+  lines.push('', 'Subtask outputs to synthesize:')
+  for (const sub of completedSubtasks) {
+    lines.push(`\n### ${sub.title}`)
+    if (sub.doerResult?.artifact) {
+      lines.push(sub.doerResult.artifact.length > 1200 ? sub.doerResult.artifact.slice(0, 1200) + '\n…[truncated]' : sub.doerResult.artifact)
+    } else if (sub.output) {
+      lines.push(sub.output.length > 600 ? sub.output.slice(0, 600) + '\n…[truncated]' : sub.output)
+    } else {
+      lines.push('(no output recorded)')
+    }
+  }
+  lines.push('', 'Write the unified final draft in result.artifact.')
+  return lines.join('\n')
 }
 
 function buildDoerPrompt(
@@ -574,6 +721,9 @@ function buildDoerPrompt(
       lines.push(`- [${st.completed ? 'DONE' : 'TODO'}] ${st.id}: ${st.title}`)
       if (st.description) lines.push(`  Details: ${st.description}`)
       if (st.output) lines.push(`  Previous output: ${st.output.slice(0, 300)}${st.output.length > 300 ? '…' : ''}`)
+      if (!st.completed && st.reviewFindings.length > 0) {
+        lines.push(`  ⚠ Reviewer feedback (must address): ${st.reviewFindings.join('; ')}`)
+      }
     }
   } else {
     // Continuation: only remind of task title so agent doesn't lose context

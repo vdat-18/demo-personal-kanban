@@ -9,7 +9,8 @@ interface Props {
 }
 
 export function SkillsPanel({ projectId }: Props) {
-  const skills = useKanbanStore((s) => s.skills.filter((sk) => sk.projectId === projectId))
+  const allSkills = useKanbanStore((s) => s.skills)
+  const skills = allSkills.filter((sk) => sk.projectId === projectId)
   const createSkill = useKanbanStore((s) => s.createSkill)
   const deleteSkill = useKanbanStore((s) => s.deleteSkill)
 
