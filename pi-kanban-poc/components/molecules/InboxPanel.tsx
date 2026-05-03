@@ -1,25 +1,26 @@
 'use client'
 
-import { Bell, X, ChevronRight } from 'lucide-react'
+import { Bell, X, ChevronRight, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { AttentionType } from '@/types/domain'
 
 const TYPE_LABELS: Record<AttentionType, string> = {
   clarification_needed: 'Needs clarification',
   task_approval_pending: 'Pending approval',
-  plan_unpublished: 'Plan unpublished',
+  plan_unpublished: 'Plan not published',
   source_needs_review: 'Source needs review',
   execution_blocked: 'Blocked',
   validation_required: 'Needs validation',
 }
 
-const TYPE_COLORS: Record<AttentionType, string> = {
-  clarification_needed: 'text-amber-700 bg-amber-100',
-  task_approval_pending: 'text-blue-700 bg-blue-100',
-  plan_unpublished: 'text-purple-700 bg-purple-100',
-  source_needs_review: 'text-orange-700 bg-orange-100',
-  execution_blocked: 'text-red-700 bg-red-100',
-  validation_required: 'text-green-700 bg-green-100',
+// Reduced from 6 colors → 3 semantic groups (warning / info / danger)
+const TYPE_TONE: Record<AttentionType, { chip: string; icon: React.ComponentType<{ className?: string }> }> = {
+  clarification_needed: { chip: 'bg-warning-bg text-warning', icon: AlertTriangle },
+  task_approval_pending: { chip: 'bg-warning-bg text-warning', icon: AlertCircle },
+  plan_unpublished: { chip: 'bg-warning-bg text-warning', icon: AlertCircle },
+  source_needs_review: { chip: 'bg-info-bg text-info', icon: Info },
+  execution_blocked: { chip: 'bg-danger-bg text-danger', icon: AlertTriangle },
+  validation_required: { chip: 'bg-warning-bg text-warning', icon: AlertCircle },
 }
 
 interface Props {
@@ -38,32 +39,37 @@ export function InboxPanel({ onNavigate }: Props) {
   if (openItems.length === 0) return null
 
   return (
-    <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 p-5 shadow-sm">
+    <div className="rounded-2xl border border-warning-border bg-warning-bg/50 p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
-        <Bell className="w-4 h-4 text-amber-600" />
-        <h3 className="text-sm font-bold text-[#0a192f]">Needs attention</h3>
-        <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
+        <Bell className="w-4 h-4 text-warning" />
+        <h3 className="text-h2 text-ink">Needs your attention</h3>
+        <span className="ml-auto px-2 py-0.5 rounded-full bg-warning text-white text-micro">
           {openItems.length}
         </span>
       </div>
       <div className="space-y-2">
         {openItems.map((item) => {
           const project = projects.find((p) => p.id === item.projectId)
+          const tone = TYPE_TONE[item.type]
+          const Icon = tone.icon
           return (
             <div
               key={item.id}
-              className="flex items-start gap-3 bg-white rounded-xl border border-amber-100 px-3 py-2.5"
+              className="flex items-start gap-3 bg-surface rounded-xl border border-line px-3 py-2.5"
             >
               <span
-                className={`mt-0.5 shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${TYPE_COLORS[item.type]}`}
+                className={`mt-0.5 shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-micro ${tone.chip}`}
               >
+                <Icon className="w-3 h-3" />
                 {TYPE_LABELS[item.type]}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#0a192f] truncate">{item.title}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{item.detail}</p>
+                <p className="text-meta font-semibold text-ink truncate">{item.title}</p>
+                <p className="text-meta text-ink-muted mt-0.5 line-clamp-2">{item.detail}</p>
                 {project && (
-                  <p className="text-[10px] text-slate-400 mt-1">📁 {project.name}</p>
+                  <p className="text-micro text-ink-subtle mt-1 normal-case tracking-normal">
+                    📁 {project.name}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -71,7 +77,7 @@ export function InboxPanel({ onNavigate }: Props) {
                   <button
                     onClick={() => onNavigate(item.projectId)}
                     title="Open project"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    className="p-1.5 rounded-lg text-ink-subtle hover:text-brand hover:bg-brand-subtle transition-colors"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -79,7 +85,7 @@ export function InboxPanel({ onNavigate }: Props) {
                 <button
                   onClick={() => resolveAttentionItem(item.id)}
                   title="Mark as resolved"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="p-1.5 rounded-lg text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

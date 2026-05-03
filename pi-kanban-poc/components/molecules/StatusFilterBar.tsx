@@ -33,9 +33,9 @@ export function StatusFilterBar({ statuses, selected, counts, onSelect }: Status
           <button
             key={s}
             onClick={() => onSelect(s)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-meta font-medium transition-colors ${
               isSelected
-                ? 'bg-[#0a192f] text-white'
+                ? 'bg-ink text-white'
                 : 'bg-white text-slate-500 border border-gray-100 hover:border-slate-300 hover:text-slate-700'
             }`}
           >
@@ -43,7 +43,7 @@ export function StatusFilterBar({ statuses, selected, counts, onSelect }: Status
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot} ${isSelected ? 'opacity-70' : ''}`} />
             )}
             {labelFor(s)}
-            <span className={`text-[11px] ${isSelected ? 'opacity-70' : 'text-slate-400'}`}>
+            <span className={`text-meta ${isSelected ? 'opacity-70' : 'text-slate-400'}`}>
               {counts[s] || 0}
             </span>
           </button>

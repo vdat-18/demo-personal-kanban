@@ -31,31 +31,36 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
       <div className="flex justify-between items-end mb-6 px-1">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-3.5 h-3.5 text-blue-500" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
-              {t('dashboard.projectHistory', 'Project History')}
+            <Clock className="w-3.5 h-3.5 text-brand" />
+            <span className="text-micro text-ink-muted">
+              {t('dashboard.projectHistory', 'Project history')}
             </span>
           </div>
-          <h2 className="text-2xl font-bold text-[#0a192f] tracking-tight">
-            {t('dashboard.recentJourneys', 'Your recent journeys')}
+          <h2 className="text-h1 text-ink">
+            {t('dashboard.recentJourneys', 'Your recent projects')}
           </h2>
         </div>
-        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.18em] bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
-          {projects.length > 0 ? t('dashboard.projectsCount', `${projects.length} projects`) : t('dashboard.ready', 'Ready')}
+        <span className="text-micro text-brand bg-brand-subtle px-2.5 py-1 rounded-full border border-brand-border">
+          {projects.length > 0
+            ? t('dashboard.projectsCount', `${projects.length} projects`)
+            : t('dashboard.ready', 'Ready')}
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {projects.length === 0 ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center bg-white/60 rounded-3xl border border-slate-100 shadow-sm">
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-md flex items-center justify-center text-blue-400 mb-4">
+          <div className="col-span-full py-16 flex flex-col items-center justify-center bg-surface/60 rounded-2xl border border-line shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-surface shadow-sm flex items-center justify-center text-brand mb-4">
               <Layout className="w-7 h-7" />
             </div>
-            <p className="text-sm font-bold text-[#0a192f] mb-1">
-              {t('dashboard.journeysEmptyTitle', 'Your journeys will appear here')}
+            <p className="text-h2 text-ink mb-1">
+              {t('dashboard.journeysEmptyTitle', 'Your projects will appear here')}
             </p>
-            <p className="text-sm text-slate-400 text-center max-w-xs">
-              {t('dashboard.journeysEmptyDescription', 'Start a new project and let AI help you plan and execute it.')}
+            <p className="text-body text-ink-muted text-center max-w-xs">
+              {t(
+                'dashboard.journeysEmptyDescription',
+                'Start a new project and let AI help you plan and execute it.',
+              )}
             </p>
           </div>
         ) : (

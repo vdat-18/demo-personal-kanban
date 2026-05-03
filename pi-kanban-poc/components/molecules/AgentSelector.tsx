@@ -16,7 +16,6 @@ export interface AgentSelectorProps {
   activeIndex: number
   onSelect: (index: number) => void
   disabled?: boolean
-  /** Indices the user is allowed to click. Omit to allow all. */
   allowedIndices?: number[]
 }
 
@@ -28,21 +27,23 @@ export function AgentSelector({
   allowedIndices,
 }: AgentSelectorProps) {
   return (
-    <div className="px-6 py-3 border-b border-gray-50 flex gap-2 overflow-x-auto shrink-0">
+    <div className="px-6 py-3 border-b border-line flex gap-2 overflow-x-auto shrink-0 bg-surface">
       {options.map((opt, i) => {
         const isLocked = allowedIndices !== undefined && !allowedIndices.includes(i)
         return (
           <button
             key={opt.role}
-            onClick={() => { if (!isLocked) onSelect(i) }}
+            onClick={() => {
+              if (!isLocked) onSelect(i)
+            }}
             disabled={disabled || isLocked}
             title={isLocked ? 'Not available for current task status' : undefined}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-meta font-semibold whitespace-nowrap transition-colors ${
               isLocked
-                ? 'opacity-30 cursor-not-allowed bg-gray-100 text-gray-400'
+                ? 'opacity-30 cursor-not-allowed bg-surface-muted text-ink-subtle'
                 : activeIndex === i
-                ? 'bg-[#0a192f] text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                ? 'bg-brand text-white'
+                : 'bg-surface-muted text-ink-muted hover:bg-line'
             }`}
           >
             {opt.label}

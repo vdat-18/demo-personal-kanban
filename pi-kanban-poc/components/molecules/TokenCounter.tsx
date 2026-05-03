@@ -20,7 +20,7 @@ export function TokenCounter({ input, output, label, className }: Props) {
   if (total === 0) return null
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-700 ${className ?? ''}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-meta font-semibold text-slate-700 ${className ?? ''}`}
       title={`${input} input · ${output} output tokens`}
     >
       <Coins className="w-3 h-3 text-slate-500" />

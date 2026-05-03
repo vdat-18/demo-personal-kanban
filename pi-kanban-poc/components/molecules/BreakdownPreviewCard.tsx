@@ -18,11 +18,11 @@ import type { BreakdownEnvelope, SubtaskProposal, SubtaskType } from '@/types/do
  */
 
 const TYPE_STYLE: Record<SubtaskType, { chip: string; emoji: string; label: string }> = {
-  research:    { chip: 'bg-blue-100 text-blue-700',     emoji: '🔍', label: 'Research' },
-  create:      { chip: 'bg-amber-100 text-amber-700',   emoji: '🎨', label: 'Create' },
-  communicate: { chip: 'bg-violet-100 text-violet-700', emoji: '💬', label: 'Communicate' },
-  decide:      { chip: 'bg-orange-100 text-orange-700', emoji: '🎯', label: 'Decide' },
-  custom:      { chip: 'bg-slate-100 text-slate-700',   emoji: '👤', label: 'Custom' },
+  research:    { chip: 'bg-brand-subtle text-brand',  emoji: '🔍', label: 'Research' },
+  create:      { chip: 'bg-warning-bg text-warning',  emoji: '🎨', label: 'Create' },
+  communicate: { chip: 'bg-brand-subtle text-brand', emoji: '💬', label: 'Communicate' },
+  decide:      { chip: 'bg-warning-bg text-warning',  emoji: '🎯', label: 'Decide' },
+  custom:      { chip: 'bg-surface-muted text-ink-muted', emoji: '👤', label: 'Custom' },
 }
 
 interface EditableProposal extends SubtaskProposal {
@@ -125,27 +125,27 @@ export function BreakdownPreviewCard({
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-blue-50/60 overflow-hidden shadow-sm">
-      <div className="px-4 py-2.5 bg-white/50 border-b border-indigo-100 flex items-center gap-2">
-        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-        <span className="text-[10px] font-black text-indigo-700 uppercase tracking-[0.15em] flex-1">
+    <div className="mt-3 rounded-2xl border border-brand-border bg-brand-subtle/40 overflow-hidden shadow-sm">
+      <div className="px-4 py-2.5 bg-surface/60 border-b border-brand-border flex items-center gap-2">
+        <Sparkles className="w-3.5 h-3.5 text-brand" />
+        <span className="text-meta font-semibold text-brand flex-1">
           AI suggests {envelope.subtasks.length} step{envelope.subtasks.length === 1 ? '' : 's'}
         </span>
       </div>
 
       <div className="px-4 py-3 space-y-3" onClick={(e) => e.stopPropagation()}>
         {envelope.taskUnderstanding && (
-          <p className="text-[11px] italic text-slate-600 leading-relaxed border-l-2 border-indigo-200 pl-2.5">
+          <p className="text-meta italic text-ink-muted leading-relaxed border-l-2 border-brand-border pl-2.5">
             &ldquo;{envelope.taskUnderstanding}&rdquo;
           </p>
         )}
 
         {envelope.prerequisites.length > 0 && (
-          <div className="rounded-xl bg-amber-50/80 border border-amber-100 px-3 py-2">
-            <div className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1">
+          <div className="rounded-xl bg-warning-bg border border-warning-border px-3 py-2">
+            <div className="text-micro normal-case font-semibold text-warning mb-1">
               ⚠️ Before you start
             </div>
-            <ul className="text-[11px] text-amber-800 space-y-0.5">
+            <ul className="text-meta text-warning space-y-0.5">
               {envelope.prerequisites.map((p, i) => (
                 <li key={i}>• {p}</li>
               ))}
@@ -171,19 +171,19 @@ export function BreakdownPreviewCard({
         <button
           onClick={addCustom}
           disabled={disabled}
-          className="w-full flex items-center justify-center gap-1 py-1.5 rounded-xl border border-dashed border-indigo-200 text-[11px] font-bold text-indigo-600 hover:bg-white/60 transition-colors disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-1 py-1.5 rounded-xl border border-dashed border-brand-border text-meta font-semibold text-brand hover:bg-surface transition-colors disabled:opacity-40"
         >
           <Plus className="w-3 h-3" />
           Add my own step
         </button>
 
         {envelope.risks.length > 0 && (
-          <div className="rounded-xl bg-rose-50/80 border border-rose-100 px-3 py-2">
-            <div className="text-[10px] font-black text-rose-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+          <div className="rounded-xl bg-danger-bg border border-danger-border px-3 py-2">
+            <div className="text-micro normal-case font-semibold text-danger mb-1 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" />
               Heads up
             </div>
-            <ul className="text-[11px] text-rose-800 space-y-0.5">
+            <ul className="text-meta text-danger space-y-0.5">
               {envelope.risks.map((r, i) => (
                 <li key={i}>• {r}</li>
               ))}
@@ -192,14 +192,14 @@ export function BreakdownPreviewCard({
         )}
       </div>
 
-      <div className="px-4 py-3 border-t border-indigo-100 bg-white/40 flex items-center gap-1.5 flex-wrap">
+      <div className="px-4 py-3 border-t border-brand-border bg-surface/40 flex items-center gap-1.5 flex-wrap">
         <button
           onClick={(e) => {
             e.stopPropagation()
             onDismiss()
           }}
           disabled={disabled}
-          className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-slate-500 hover:bg-white/80 transition-colors active:scale-95 disabled:opacity-40"
+          className="px-2.5 py-1.5 rounded-lg text-meta font-semibold text-ink-muted hover:bg-surface transition-colors active:scale-95 disabled:opacity-40"
         >
           Dismiss all
         </button>
@@ -210,7 +210,7 @@ export function BreakdownPreviewCard({
               onRefineRequest()
             }}
             disabled={disabled}
-            className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-indigo-600 hover:bg-white/80 transition-colors active:scale-95 disabled:opacity-40"
+            className="px-2.5 py-1.5 rounded-lg text-meta font-semibold text-brand hover:bg-surface transition-colors active:scale-95 disabled:opacity-40"
           >
             ✨ Ask to refine
           </button>
@@ -222,7 +222,7 @@ export function BreakdownPreviewCard({
               handleApproveSelected()
             }}
             disabled={disabled || selectedCount === 0}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider hover:bg-indigo-50 transition-colors active:scale-95 disabled:opacity-40"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface border border-brand-border text-brand text-meta font-semibold hover:bg-brand-subtle transition-colors active:scale-95 disabled:opacity-40"
           >
             <ListChecks className="w-3 h-3" />
             Selected ({selectedCount})
@@ -233,7 +233,7 @@ export function BreakdownPreviewCard({
               handleApproveAll()
             }}
             disabled={disabled || totalCount === 0}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0a192f] text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 disabled:opacity-40 shadow-sm"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors active:scale-95 disabled:opacity-40 shadow-sm"
           >
             <Check className="w-3 h-3" />
             Approve all
@@ -271,28 +271,28 @@ function SubtaskRow({
 
   if (item.isEditing) {
     return (
-      <div className="rounded-xl bg-white border border-indigo-200 p-2.5 space-y-1.5">
+      <div className="rounded-xl bg-surface border border-brand-border p-2.5 space-y-1.5">
         <input
           type="text"
           autoFocus
           value={draftTitle}
           onChange={(e) => setDraftTitle(e.target.value)}
           placeholder="Step title (required)"
-          className="w-full bg-transparent text-xs font-semibold text-[#0a192f] placeholder:text-slate-300 border-b border-slate-100 focus:border-indigo-400 outline-none pb-1"
+          className="w-full bg-transparent text-meta font-semibold text-ink placeholder:text-ink-subtle border-b border-line focus:border-brand outline-none pb-1"
         />
         <textarea
           value={draftDesc}
           onChange={(e) => setDraftDesc(e.target.value)}
           placeholder="Description (optional)"
           rows={2}
-          className="w-full bg-transparent text-[11px] text-slate-600 placeholder:text-slate-300 resize-none outline-none"
+          className="w-full bg-transparent text-meta text-ink-muted placeholder:text-ink-subtle resize-none outline-none"
         />
         <input
           type="text"
           value={draftEffort}
           onChange={(e) => setDraftEffort(e.target.value)}
           placeholder="Estimated effort (e.g. 30 min)"
-          className="w-full bg-transparent text-[10px] text-slate-500 placeholder:text-slate-300 border-t border-slate-100 pt-1 outline-none"
+          className="w-full bg-transparent text-meta text-ink-muted placeholder:text-ink-subtle border-t border-line pt-1 outline-none"
         />
         <div className="flex items-center justify-end gap-1.5 pt-1">
           <button
@@ -300,7 +300,7 @@ function SubtaskRow({
               e.stopPropagation()
               onCancelEdit()
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50"
+            className="p-1 rounded-lg text-ink-subtle hover:text-ink hover:bg-surface-muted"
           >
             <X className="w-3 h-3" />
           </button>
@@ -314,7 +314,7 @@ function SubtaskRow({
                 estimatedEffort: draftEffort.trim() || null,
               })
             }}
-            className="p-1 rounded-lg text-indigo-600 hover:text-white hover:bg-indigo-600"
+            className="p-1 rounded-lg text-brand hover:text-white hover:bg-brand"
           >
             <Check className="w-3 h-3" />
           </button>
@@ -328,7 +328,7 @@ function SubtaskRow({
   return (
     <div
       className={`flex items-start gap-2 rounded-xl px-2.5 py-2 transition-colors ${
-        item.selected ? 'bg-white border border-indigo-100' : 'bg-white/40 border border-transparent'
+        item.selected ? 'bg-surface border border-brand-border' : 'bg-surface/40 border border-transparent'
       }`}
     >
       <input
@@ -337,22 +337,22 @@ function SubtaskRow({
         onChange={onToggle}
         onClick={(e) => e.stopPropagation()}
         disabled={disabled}
-        className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 shrink-0 cursor-pointer"
+        className="mt-0.5 w-3.5 h-3.5 rounded border-line text-brand focus:ring-brand shrink-0 cursor-pointer"
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
-          <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${style.chip}`}>
+          <span className={`text-micro normal-case px-1.5 py-0.5 rounded font-semibold ${style.chip}`}>
             {style.emoji} {style.label}
           </span>
           {item.estimatedEffort && (
-            <span className="text-[9px] text-slate-400 font-bold">~ {item.estimatedEffort}</span>
+            <span className="text-micro normal-case text-ink-subtle">~ {item.estimatedEffort}</span>
           )}
         </div>
-        <p className={`text-xs font-semibold leading-snug ${item.selected ? 'text-[#0a192f]' : 'text-slate-400 line-through'}`}>
-          {item.title || <em className="text-slate-300">Untitled step</em>}
+        <p className={`text-meta font-semibold leading-snug ${item.selected ? 'text-ink' : 'text-ink-subtle line-through'}`}>
+          {item.title || <em className="text-ink-subtle">Untitled step</em>}
         </p>
         {item.description && (
-          <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{item.description}</p>
+          <p className="text-meta text-ink-muted mt-0.5 leading-relaxed">{item.description}</p>
         )}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
@@ -362,7 +362,7 @@ function SubtaskRow({
             onStartEdit()
           }}
           disabled={disabled}
-          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+          className="p-1 rounded-lg text-ink-subtle hover:text-brand hover:bg-brand-subtle transition-colors"
           title="Edit"
         >
           <Edit3 className="w-3 h-3" />
@@ -373,7 +373,7 @@ function SubtaskRow({
             onRemove()
           }}
           disabled={disabled}
-          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+          className="p-1 rounded-lg text-ink-subtle hover:text-danger hover:bg-danger-bg transition-colors"
           title="Remove"
         >
           <Trash2 className="w-3 h-3" />

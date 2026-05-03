@@ -51,27 +51,27 @@ export function ConfirmDialog({
 
   const Icon = variant === 'danger' ? AlertCircle : variant === 'warning' ? AlertTriangle : Info
   const iconColor =
-    variant === 'danger' ? 'text-rose-500' : variant === 'warning' ? 'text-amber-500' : 'text-blue-500'
+    variant === 'danger' ? 'text-danger' : variant === 'warning' ? 'text-amber-500' : 'text-blue-500'
   const confirmBtn =
     variant === 'danger'
-      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+      ? 'bg-danger hover:opacity-90 text-white'
       : variant === 'warning'
       ? 'bg-amber-600 hover:bg-amber-700 text-white'
       : 'bg-blue-600 hover:bg-blue-700 text-white'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#0a192f]/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl border border-white overflow-hidden animate-in zoom-in-95 duration-200">
         <header className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${iconColor}`} />
-            <h3 className="text-base font-bold text-[#0a192f] tracking-tight">{title}</h3>
+            <h3 className="text-base font-bold text-ink tracking-tight">{title}</h3>
           </div>
           <button
             onClick={onCancel}
             aria-label="Close"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-[#0a192f] hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-ink hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

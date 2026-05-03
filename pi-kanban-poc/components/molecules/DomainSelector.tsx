@@ -14,7 +14,7 @@ interface DomainOption {
 
 const DOMAIN_OPTIONS: DomainOption[] = [
   { value: 'SOFTWARE_ENGINEERING', label: 'Software', icon: Code2, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-  { value: 'MARKETING', label: 'Marketing', icon: Megaphone, color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
+  { value: 'MARKETING', label: 'Marketing', icon: Megaphone, color: 'text-brand', bgColor: 'bg-brand-subtle', borderColor: 'border-brand-border' },
   { value: 'SALES', label: 'Sales', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
   { value: 'LOGISTICS', label: 'Logistics', icon: Truck, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
 ]
@@ -39,7 +39,7 @@ export function DomainSelector({ selected, onSelect }: DomainSelectorProps) {
           }`}
         >
           <Icon className="w-6 h-6" />
-          <span className="text-[10px] font-black uppercase tracking-wider">{label}</span>
+          <span className="text-micro">{label}</span>
         </button>
       ))}
     </div>

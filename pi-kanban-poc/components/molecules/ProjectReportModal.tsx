@@ -62,8 +62,8 @@ export function ProjectReportModal({ open, onClose, projectName, report }: Proje
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#0a192f]">Project Final Report</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-sm">{projectName}</p>
+            <h2 className="text-sm font-semibold text-ink">Project Final Report</h2>
+            <p className="text-meta text-slate-400 mt-0.5 truncate max-w-sm">{projectName}</p>
           </div>
           <div className="flex items-center gap-1.5">
             {content && (
@@ -107,13 +107,13 @@ export function ProjectReportModal({ open, onClose, projectName, report }: Proje
           {/* No report yet — prompt to generate */}
           {!content && !isGenerating && report.state !== 'error' && (
             <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-              <p className="text-sm font-semibold text-[#0a192f]">All tasks are complete</p>
+              <p className="text-sm font-semibold text-ink">All tasks are complete</p>
               <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
                 Generate a final report that synthesizes all task deliverables into a single cohesive document.
               </p>
               <button
                 onClick={report.generate}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#0a192f] text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 bg-ink text-white rounded-xl text-micro hover:bg-blue-700 transition-colors"
               >
                 ✨ Generate Report
               </button>

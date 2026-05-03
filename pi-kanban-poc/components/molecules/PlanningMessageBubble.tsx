@@ -35,10 +35,10 @@ export function PlanningMessageBubble({
     <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
       {role === 'assistant' && <AiAvatar className="mr-3 mt-1" />}
       <div
-        className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-relaxed ${
+        className={`max-w-[80%] rounded-2xl px-5 py-4 text-body leading-relaxed ${
           role === 'user'
-            ? 'bg-[#0a192f] text-white rounded-br-lg'
-            : 'bg-gray-50 text-[#0a192f] rounded-bl-lg'
+            ? 'bg-brand text-white rounded-br-md'
+            : 'bg-surface-muted text-ink rounded-bl-md border border-line'
         }`}
       >
         {role === 'assistant' ? (

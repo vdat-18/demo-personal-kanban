@@ -60,14 +60,14 @@ export function EtaIndicator({ mode, running, label, onAbort, className }: Props
           {label ?? 'Processing'}
           {over && ' — taking longer than usual'}
         </div>
-        <div className="text-[11px] opacity-80">
+        <div className="text-meta opacity-80">
           Usually ~{formatEta(etaMs)} · elapsed {Math.round(elapsedMs / 1000)}s
         </div>
       </div>
       {onAbort && (
         <button
           onClick={onAbort}
-          className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors active:scale-95"
+          className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-micro hover:bg-slate-50 transition-colors active:scale-95"
         >
           ■ Stop
         </button>

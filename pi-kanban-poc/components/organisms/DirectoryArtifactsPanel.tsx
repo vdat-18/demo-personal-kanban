@@ -95,10 +95,10 @@ export function DirectoryArtifactsPanel() {
 
   if (tree.filter((e) => e.totalArtifacts > 0).length === 0 && projectReports.length === 0) {
     return (
-      <section className="rounded-2xl bg-white border border-slate-100 p-10 text-center">
-        <Sparkles className="w-7 h-7 mx-auto text-slate-300 mb-3" />
-        <p className="text-sm font-semibold text-[#0a192f] mb-1">No artifacts yet</p>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+      <section className="rounded-2xl bg-surface border border-line shadow-card p-10 text-center">
+        <Sparkles className="w-7 h-7 mx-auto text-ink-subtle/40 mb-3" />
+        <p className="text-sm font-semibold text-ink mb-1">No artifacts yet</p>
+        <p className="text-xs text-ink-muted max-w-sm mx-auto leading-relaxed">
           As you plan projects and run tasks, the AI's outputs will collect here so you can find them later.
         </p>
       </section>
@@ -110,21 +110,21 @@ export function DirectoryArtifactsPanel() {
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-subtle pointer-events-none" />
           <input
             type="text"
             value={artifactSearch}
             onChange={(e) => setArtifactSearch(e.target.value)}
             placeholder="Search artifacts by title or content..."
-            className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full h-10 pl-9 pr-4 rounded-xl border border-line bg-surface text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-2 focus:ring-brand/40"
           />
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-          <span className="font-semibold text-slate-700">{totalItems}</span> items
-          <span className="text-slate-300 mx-1">·</span>
-          <button onClick={expandAll} className="hover:text-slate-700 transition-colors">Expand all</button>
-          <span className="text-slate-300">·</span>
-          <button onClick={collapseAll} className="hover:text-slate-700 transition-colors">Collapse all</button>
+        <div className="flex items-center gap-1.5 text-meta text-ink-muted">
+          <span className="font-semibold text-ink">{totalItems}</span> items
+          <span className="text-line-strong mx-1">·</span>
+          <button onClick={expandAll} className="hover:text-ink transition-colors">Expand all</button>
+          <span className="text-line-strong">·</span>
+          <button onClick={collapseAll} className="hover:text-ink transition-colors">Collapse all</button>
         </div>
       </div>
 
@@ -132,9 +132,9 @@ export function DirectoryArtifactsPanel() {
       {projectReports.length > 0 && !artifactSearch.trim() && (
         <div>
           <div className="flex items-center gap-2 mb-2.5">
-            <ScrollText className="w-3.5 h-3.5 text-violet-500" />
-            <span className="text-[11px] font-semibold text-slate-600">Project Reports</span>
-            <span className="text-[10px] text-slate-400">· {projectReports.length}</span>
+            <ScrollText className="w-3.5 h-3.5 text-brand" />
+            <span className="text-meta font-semibold text-ink-muted">Project Reports</span>
+            <span className="text-meta text-ink-subtle">· {projectReports.length}</span>
           </div>
           <div className="space-y-1.5">
             {projectReports.map((p) => (
@@ -151,7 +151,7 @@ export function DirectoryArtifactsPanel() {
 
       {filteredTree.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-slate-400">No artifacts match your search.</p>
+          <p className="text-sm text-ink-subtle">No artifacts match your search.</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -162,31 +162,31 @@ export function DirectoryArtifactsPanel() {
             const total = visCount + delCount
 
             return (
-              <li key={project.id} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+              <li key={project.id} className="rounded-2xl border border-line bg-surface shadow-card overflow-hidden">
                 {/* Project header */}
                 <button
                   onClick={() => toggle(project.id)}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 text-left hover:bg-slate-50/70 transition-colors"
+                  className="w-full px-4 py-3.5 flex items-center gap-3 text-left hover:bg-surface-muted/70 transition-colors"
                 >
-                  <span className="text-slate-400 shrink-0">
+                  <span className="text-ink-subtle shrink-0">
                     {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </span>
-                  <FolderOpen className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span className="text-sm font-semibold text-[#0a192f] flex-1 truncate">
+                  <FolderOpen className="w-4 h-4 text-brand shrink-0" />
+                  <span className="text-sm font-semibold text-ink flex-1 truncate">
                     {project.name}
                   </span>
-                  <span className="text-[11px] text-slate-400 shrink-0">
+                  <span className="text-meta text-ink-subtle shrink-0">
                     {total} item{total === 1 ? '' : 's'}
                   </span>
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-slate-100 px-4 py-4 space-y-5">
+                  <div className="border-t border-line px-4 py-4 space-y-5">
                     {/* Planning artifacts */}
                     {visions.length > 0 && (
                       <ArtifactGroup
                         label="Planning"
-                        icon={<FileText className="w-3.5 h-3.5 text-indigo-400" />}
+                        icon={<FileText className="w-3.5 h-3.5 text-brand/60" />}
                         count={visions.length}
                       >
                         {visions
@@ -215,11 +215,11 @@ export function DirectoryArtifactsPanel() {
                             <div key={task.id} className="space-y-1.5">
                               {/* Task sub-header */}
                               <div className="flex items-center gap-2 py-1">
-                                <div className="h-px flex-1 bg-slate-100" />
-                                <span className="text-[11px] font-medium text-slate-500 shrink-0 px-1">
+                                <div className="h-px flex-1 bg-line" />
+                                <span className="text-meta text-ink-muted shrink-0 px-1">
                                   {task.title}
                                 </span>
-                                <div className="h-px flex-1 bg-slate-100" />
+                                <div className="h-px flex-1 bg-line" />
                               </div>
                               {subs.map((sub) => (
                                 <ArtifactItem
@@ -257,8 +257,8 @@ function ArtifactGroup({ label, icon, count, children }: ArtifactGroupProps) {
     <div>
       <div className="flex items-center gap-2 mb-2.5">
         {icon}
-        <span className="text-[11px] font-semibold text-slate-600">{label}</span>
-        <span className="text-[10px] text-slate-400">· {count}</span>
+        <span className="text-meta font-semibold text-ink-muted">{label}</span>
+        <span className="text-meta text-ink-subtle">· {count}</span>
       </div>
       <div className="space-y-1.5">{children}</div>
     </div>
@@ -274,8 +274,11 @@ interface ArtifactItemProps {
 function ArtifactItem({ title, content, filename }: ArtifactItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
-  const previewLines = content.split('\n').slice(0, 2).join('\n')
-  const isLong = content.length > 160
+
+  // Preview: skip blank lines, show first 3 non-empty lines
+  const meaningfulLines = content.split('\n').filter((l) => l.trim().length > 0)
+  const previewText = meaningfulLines.slice(0, 3).join('\n')
+  const isLong = meaningfulLines.length > 3
 
   const handleDownload = () => {
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
@@ -298,41 +301,55 @@ function ArtifactItem({ title, content, filename }: ArtifactItemProps) {
   }
 
   return (
-    <div className="group rounded-xl border border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm transition-all p-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[13px] font-medium text-[#0a192f] leading-snug flex-1 min-w-0">
-          {title}
-        </p>
-        {/* Actions — only visible on hover */}
-        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="rounded-xl border border-line bg-surface hover:border-line-strong hover:shadow-card transition-all overflow-hidden">
+      {/* Title row — always visible */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <p className="text-sm font-semibold text-ink leading-snug flex-1 min-w-0">{title}</p>
+        <div className="flex items-center gap-0.5 shrink-0">
           {isLong && (
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="text-[10px] font-medium text-blue-600 hover:underline px-1.5 py-1"
+              className="text-micro font-semibold normal-case text-brand px-2 py-1 rounded-lg hover:bg-brand-subtle transition-colors"
             >
-              {expanded ? 'Collapse' : 'Expand'}
+              {expanded ? 'Collapse' : 'View'}
             </button>
           )}
           <button
             onClick={handleCopy}
             title="Copy to clipboard"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+            className="p-1.5 rounded-lg text-ink-subtle hover:text-success hover:bg-success-bg transition-colors"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={handleDownload}
             title="Download as Markdown"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            className="p-1.5 rounded-lg text-ink-subtle hover:text-brand hover:bg-brand-subtle transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
-      <div className="prose prose-xs max-w-none text-slate-500 text-[12px] leading-relaxed mt-1">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {expanded ? content : previewLines + (isLong && !expanded ? '\n…' : '')}
-        </ReactMarkdown>
+
+      {/* Content area — separated visually from title */}
+      <div
+        className={`border-t border-line bg-surface-muted/50 px-4 pt-3 pb-4 ${
+          expanded ? 'max-h-[420px] overflow-y-auto' : ''
+        }`}
+      >
+        <div className="prose prose-sm max-w-none
+          [&_h1]:text-base [&_h1]:font-bold [&_h1]:text-ink [&_h1]:mt-0 [&_h1]:mb-2 [&_h1]:leading-snug
+          [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2]:leading-snug
+          [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:text-ink-muted [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:uppercase [&_h3]:tracking-wide
+          [&_p]:text-xs [&_p]:text-ink-muted [&_p]:leading-relaxed [&_p]:my-1
+          [&_li]:text-xs [&_li]:text-ink-muted [&_li]:leading-relaxed [&_li]:my-0.5
+          [&_ul]:my-1.5 [&_ol]:my-1.5
+          [&_strong]:text-ink [&_strong]:font-semibold
+        ">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {expanded ? content : previewText + (isLong ? '\n\n…' : '')}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   )

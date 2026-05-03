@@ -10,8 +10,6 @@ import {
   FileStack,
   BookOpen,
   ClipboardList,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react'
 import { SearchInput } from '@/components/molecules/SearchInput'
 import { StatusFilterBar } from '@/components/molecules/StatusFilterBar'
@@ -23,7 +21,7 @@ import { useKanbanStore } from '@/lib/storage/kanbanStore'
 import type { UITaskStatus } from '@/types/domain'
 
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-type SortBy = 'title' | 'priority' | 'status' | 'date'
+type SortBy = 'title' | 'priority' | 'date'
 
 interface Task {
   id: string
@@ -54,12 +52,30 @@ export interface DirectoryTemplateProps {
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
 
+const STATUS_ORDER: UITaskStatus[] = ['IN_PROGRESS', 'IN_REVIEW', 'TODO', 'BLOCKED', 'DONE']
+
 const STATUS_DOT: Record<UITaskStatus, string> = {
-  TODO:        'bg-slate-300',
-  IN_PROGRESS: 'bg-blue-500',
-  IN_REVIEW:   'bg-amber-400',
-  DONE:        'bg-green-500',
-  BLOCKED:     'bg-red-400',
+  TODO:        'bg-ink-subtle',
+  IN_PROGRESS: 'bg-brand',
+  IN_REVIEW:   'bg-spark',
+  DONE:        'bg-success',
+  BLOCKED:     'bg-danger',
+}
+
+const STATUS_LABEL: Record<UITaskStatus, string> = {
+  TODO:        'To Do',
+  IN_PROGRESS: 'In Progress',
+  IN_REVIEW:   'In Review',
+  DONE:        'Done',
+  BLOCKED:     'Blocked',
+}
+
+const STATUS_COUNT_CHIP: Record<UITaskStatus, string> = {
+  TODO:        'bg-surface-muted text-ink-muted border-line',
+  IN_PROGRESS: 'bg-info-bg text-info border-info-border',
+  IN_REVIEW:   'bg-warning-bg text-warning border-warning-border',
+  DONE:        'bg-success-bg text-success border-success-border',
+  BLOCKED:     'bg-danger-bg text-danger border-danger-border',
 }
 
 export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
@@ -70,9 +86,6 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
   const [selectedStatus, setSelectedStatus] = useState<UITaskStatus | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<SortBy>('date')
   const [tab, setTab] = useState<Tab>('projects')
-  const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(
-    () => new Set(projects.map((p) => p.id))
-  )
 
   const planningThreads = useKanbanStore((s) => s.planningThreads)
   const visionVersions = useKanbanStore((s) => s.visionVersions)
@@ -106,26 +119,28 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
     )
   }, [projects, projectSearch])
 
-  // Per-project filtered + sorted tasks
-  const projectsWithFilteredTasks = useMemo(() => {
-    return projects.map((p) => {
-      let tasks = p.tasks.filter((t) => {
-        const matchSearch =
-          !searchQuery.trim() ||
-          t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.name.toLowerCase().includes(searchQuery.toLowerCase())
-        const matchStatus = selectedStatus === 'ALL' || t.status === selectedStatus
-        return matchSearch && matchStatus
-      })
+  // Tasks grouped by status
+  const tasksByStatus = useMemo(() => {
+    const filtered = allTasks.filter((t) => {
+      const matchSearch =
+        !searchQuery.trim() ||
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.description ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.projectName.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchStatus = selectedStatus === 'ALL' || t.status === selectedStatus
+      return matchSearch && matchStatus
+    })
 
-      if (sortBy === 'title') tasks = [...tasks].sort((a, b) => a.title.localeCompare(b.title))
-      else if (sortBy === 'priority') tasks = [...tasks].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
-      else if (sortBy === 'status') tasks = [...tasks].sort((a, b) => a.status.localeCompare(b.status))
-      else tasks = [...tasks].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title)
+      if (sortBy === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+      return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+    })
 
-      return { project: p, tasks }
-    }).filter((p) => p.tasks.length > 0 || !searchQuery.trim() && selectedStatus === 'ALL')
-  }, [projects, searchQuery, selectedStatus, sortBy])
+    return STATUS_ORDER
+      .map((status) => ({ status, tasks: sorted.filter((t) => t.status === status) }))
+      .filter((g) => g.tasks.length > 0)
+  }, [allTasks, searchQuery, selectedStatus, sortBy])
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: allTasks.length }
@@ -135,24 +150,17 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
 
   const STATUSES = ['ALL', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED'] as const
 
-  const toggleProject = (id: string) => {
-    setOpenProjectIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   return (
-    <div className="flex flex-col h-full w-full bg-[#f8f9fa] font-sans overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-canvas font-sans overflow-hidden">
       {/* Header */}
-      <header className="h-16 px-8 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+      <header className="h-16 px-8 border-b border-line bg-surface flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <FolderOpen className="w-5 h-5 text-blue-600" />
+          <div className="w-9 h-9 rounded-xl bg-brand-subtle border border-brand-border flex items-center justify-center shrink-0">
+            <FolderOpen className="w-4 h-4 text-brand" />
+          </div>
           <div>
-            <h1 className="font-bold text-lg text-[#0a192f] tracking-tight">Directory</h1>
-            <p className="text-[11px] text-slate-400">
+            <h1 className="font-bold text-lg text-ink tracking-tight">Directory</h1>
+            <p className="text-meta text-ink-subtle">
               {projects.length} projects · {allTasks.length} tasks
             </p>
           </div>
@@ -160,7 +168,7 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/hub"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-subtle text-brand text-xs font-medium hover:bg-brand-subtle/70 transition-colors border border-brand-border"
           >
             <BookOpen className="w-3.5 h-3.5" />
             Knowledge Hub
@@ -170,14 +178,14 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
               <button
                 onClick={() => setViewMode('grid')}
                 aria-label="Grid view"
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-ink text-white' : 'text-ink-subtle hover:bg-surface-muted'}`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
                 aria-label="List view"
-                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-[#0a192f] text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-ink text-white' : 'text-ink-subtle hover:bg-surface-muted'}`}
               >
                 <ListIcon className="w-4 h-4" />
               </button>
@@ -187,8 +195,8 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
       </header>
 
       {/* Tab switcher */}
-      <div className="border-b border-slate-100 bg-white px-8 shrink-0">
-        <div className="max-w-7xl mx-auto flex items-center gap-1">
+      <div className="border-b border-line bg-surface px-8 shrink-0">
+        <div className="max-w-7xl mx-auto flex items-center gap-1.5 py-2">
           <TabButton active={tab === 'projects'} onClick={() => setTab('projects')} icon={<FolderOpen className="w-3.5 h-3.5" />}>
             Projects
           </TabButton>
@@ -210,7 +218,7 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
               <SearchInput value={projectSearch} onChange={setProjectSearch} placeholder="Search projects..." />
               {filteredProjects.length === 0 ? (
                 <div className="py-20 text-center">
-                  <p className="text-sm text-slate-400">No projects match your search.</p>
+                  <p className="text-sm text-ink-subtle">No projects match your search.</p>
                 </div>
               ) : (
                 <DirectoryProjectGrid
@@ -237,11 +245,10 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="h-10 px-3 rounded-xl border border-line bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/40"
                 >
                   <option value="date">Newest first</option>
                   <option value="priority">Priority</option>
-                  <option value="status">Status</option>
                   <option value="title">Title A–Z</option>
                 </select>
               </div>
@@ -253,98 +260,59 @@ export function DirectoryTemplate({ projects }: DirectoryTemplateProps) {
                 onSelect={setSelectedStatus}
               />
 
-              {/* Hierarchical project → task list */}
-              {projectsWithFilteredTasks.length === 0 ? (
+              {/* Status-grouped task list */}
+              {tasksByStatus.length === 0 ? (
                 <div className="py-16 text-center">
-                  <p className="text-sm text-slate-400">No tasks match your filters.</p>
+                  <p className="text-sm text-ink-subtle">No tasks match your filters.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {projectsWithFilteredTasks.map(({ project, tasks }) => {
-                    const isOpen = openProjectIds.has(project.id)
-                    const doneTasks = tasks.filter((t) => t.status === 'DONE').length
-                    const inProgressTasks = tasks.filter((t) => t.status === 'IN_PROGRESS').length
-
-                    return (
-                      <div key={project.id} className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                        {/* Project header */}
-                        <button
-                          onClick={() => toggleProject(project.id)}
-                          className="w-full px-5 py-4 flex items-center gap-3 text-left hover:bg-slate-50/70 transition-colors"
-                        >
-                          <span className="text-slate-400 shrink-0">
-                            {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                          </span>
-                          <FolderOpen className="w-4 h-4 text-blue-500 shrink-0" />
-                          <span className="font-semibold text-[14px] text-[#0a192f] flex-1 truncate">
-                            {project.name}
-                          </span>
-                          {/* Status summary dots */}
-                          <div className="flex items-center gap-3 shrink-0">
-                            {inProgressTasks > 0 && (
-                              <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                {inProgressTasks} active
-                              </span>
-                            )}
-                            {doneTasks > 0 && (
-                              <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                {doneTasks} done
-                              </span>
-                            )}
-                            <span className="text-[11px] text-slate-400">
-                              {tasks.length} task{tasks.length === 1 ? '' : 's'}
-                            </span>
-                          </div>
-                        </button>
-
-                        {/* Tasks */}
-                        {isOpen && tasks.length > 0 && (
-                          <div className="border-t border-slate-100">
-                            {viewMode === 'grid' ? (
-                              <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                {tasks.map((task) => (
-                                  <DirectoryTaskCard
-                                    key={task.id}
-                                    id={task.id}
-                                    title={task.title}
-                                    description={task.description}
-                                    status={task.status}
-                                    priority={task.priority}
-                                    projectName={project.name}
-                                    onClick={() => router.push(`/chat/${task.id}`)}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <div>
-                                {tasks.map((task, i) => (
-                                  <DirectoryTaskRow
-                                    key={task.id}
-                                    id={task.id}
-                                    title={task.title}
-                                    description={task.description}
-                                    status={task.status}
-                                    priority={task.priority}
-                                    projectName={project.name}
-                                    onClick={() => router.push(`/chat/${task.id}`)}
-                                    showBorder={i > 0}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {isOpen && tasks.length === 0 && (
-                          <div className="border-t border-slate-100 px-5 py-4">
-                            <p className="text-[12px] text-slate-400">No tasks match the current filter.</p>
-                          </div>
-                        )}
+                <div className="space-y-8">
+                  {tasksByStatus.map(({ status, tasks }) => (
+                    <div key={status}>
+                      {/* Status section header */}
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
+                        <span className="font-semibold text-sm text-ink">{STATUS_LABEL[status]}</span>
+                        <span className={`text-micro px-1.5 py-0.5 rounded-md border font-semibold ${STATUS_COUNT_CHIP[status]}`}>
+                          {tasks.length}
+                        </span>
+                        <div className="h-px flex-1 bg-line" />
                       </div>
-                    )
-                  })}
+
+                      {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {tasks.map((task) => (
+                            <DirectoryTaskCard
+                              key={task.id}
+                              id={task.id}
+                              title={task.title}
+                              description={task.description}
+                              status={task.status}
+                              priority={task.priority}
+                              projectName={task.projectName}
+                              onClick={() => router.push(`/chat/${task.id}`)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-line bg-surface overflow-hidden shadow-card">
+                          {tasks.map((task, i) => (
+                            <DirectoryTaskRow
+                              key={task.id}
+                              id={task.id}
+                              title={task.title}
+                              description={task.description}
+                              status={task.status}
+                              priority={task.priority}
+                              projectName={task.projectName}
+                              onClick={() => router.push(`/chat/${task.id}`)}
+                              showBorder={i > 0}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </>
@@ -369,8 +337,10 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-        active ? 'text-[#0a192f] border-blue-500' : 'text-slate-500 border-transparent hover:text-slate-700'
+      className={`inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-semibold rounded-xl transition-all ${
+        active
+          ? 'bg-brand text-white shadow-card'
+          : 'text-ink-subtle hover:text-ink hover:bg-surface-muted'
       }`}
     >
       {icon}

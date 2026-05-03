@@ -12,9 +12,9 @@ export function StatusPill({ status, className }: StatusPillProps) {
   return (
     <span
       className={cn(
-        'text-[9px] font-black px-2 py-0.5 rounded-md tracking-[0.2em] uppercase border w-fit',
+        'inline-flex items-center text-micro uppercase px-2 py-0.5 rounded-md border w-fit',
         STATUS_COLORS[status],
-        className
+        className,
       )}
     >
       {formatTaskStatus(status as TaskStatus).label}

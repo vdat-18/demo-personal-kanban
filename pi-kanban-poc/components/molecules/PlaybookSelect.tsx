@@ -8,19 +8,19 @@ import { useI18n } from '@/lib/i18n/context'
 function PlaybookPreview({ playbook }: { playbook: PlaybookDefinition }) {
   return (
     <div className="absolute left-full top-0 ml-3 w-72 z-50 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 pointer-events-none">
-      <p className="text-xs font-black text-[#0a192f] leading-snug">{playbook.label}</p>
-      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{playbook.description}</p>
+      <p className="text-xs font-black text-ink leading-snug">{playbook.label}</p>
+      <p className="text-meta text-slate-500 mt-1 leading-relaxed">{playbook.description}</p>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Objective</p>
-        <p className="text-[11px] text-slate-600 leading-relaxed">{playbook.workflowContract.objective}</p>
+        <p className="text-micro text-slate-400 mb-1.5">Objective</p>
+        <p className="text-meta text-slate-600 leading-relaxed">{playbook.workflowContract.objective}</p>
       </div>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">You will have</p>
+        <p className="text-micro text-slate-400 mb-1.5">You will have</p>
         <ul className="space-y-1">
           {playbook.workflowContract.acceptanceCriteria.map((c) => (
-            <li key={c} className="flex items-start gap-1.5 text-[11px] text-slate-600">
+            <li key={c} className="flex items-start gap-1.5 text-meta text-slate-600">
               <span className="text-green-500 mt-0.5 shrink-0">✓</span>
               {c}
             </li>
@@ -29,10 +29,10 @@ function PlaybookPreview({ playbook }: { playbook: PlaybookDefinition }) {
       </div>
 
       <div className="mt-3 pt-3 border-t border-slate-100">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Best for</p>
+        <p className="text-micro text-slate-400 mb-1.5">Best for</p>
         <div className="flex flex-wrap gap-1">
           {playbook.discoveryFocus.map((f) => (
-            <span key={f} className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] text-slate-600 font-medium">
+            <span key={f} className="px-2 py-0.5 rounded-md bg-slate-100 text-meta text-slate-600 font-medium">
               {f}
             </span>
           ))}
@@ -54,7 +54,7 @@ export function PlaybookSelect({
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+      <label className="text-xs font-semibold text-slate-500">
         {t('playbook.label', 'Playbook')}
       </label>
 
@@ -86,11 +86,11 @@ export function PlaybookSelect({
                   >
                     {selected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </span>
-                  <span className={`text-sm font-semibold ${selected ? 'text-blue-700' : 'text-[#0a192f]'}`}>
+                  <span className={`text-sm font-semibold ${selected ? 'text-blue-700' : 'text-ink'}`}>
                     {playbook.label}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1 ml-5 leading-relaxed line-clamp-1">
+                <p className="text-meta text-slate-500 mt-1 ml-5 leading-relaxed line-clamp-1">
                   {playbook.description}
                 </p>
               </button>

@@ -19,12 +19,12 @@ export function IconButton({
   return (
     <button
       className={cn(
-        'flex items-center justify-center rounded-full transition-colors',
+        'flex items-center justify-center rounded-xl transition-colors',
         size === 'sm' ? 'p-1.5' : 'p-2',
         variant === 'ghost'
-          ? 'hover:bg-gray-100 text-gray-500 hover:text-black'
-          : 'bg-[#0a192f] text-white hover:bg-blue-900',
-        className
+          ? 'hover:bg-surface-muted text-ink-muted hover:text-ink'
+          : 'bg-brand text-white hover:bg-brand-hover',
+        className,
       )}
       {...props}
     >

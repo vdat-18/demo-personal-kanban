@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Be_Vietnam_Pro, Geist_Mono } from 'next/font/google'
+import { Be_Vietnam_Pro } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
 import { Providers } from './providers'
@@ -7,19 +7,19 @@ import { Providers } from './providers'
 const beVietnamPro = Be_Vietnam_Pro({
   variable: '--font-be-vietnam-pro',
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 })
 
 export const metadata: Metadata = {
-  title: 'Personal Kanban',
-  description: 'AI-powered personal kanban with multi-agent support',
+  title: 'Agent for Everyone — Your work, done together',
+  description:
+    'A friendly AI workspace that plans, executes, and reviews your work with you — built for non-technical teams.',
+  openGraph: {
+    title: 'Agent for Everyone',
+    description: 'AI agents that help you plan, do, and review your work.',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
@@ -30,17 +30,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${beVietnamPro.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${beVietnamPro.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-canvas text-ink">
         <Providers>{children}</Providers>
         <Toaster
           position="bottom-right"
           richColors
           closeButton
-          duration={7000}
+          duration={6000}
           toastOptions={{
-            style: { borderRadius: '16px', fontFamily: 'inherit' },
+            style: { borderRadius: '12px', fontFamily: 'inherit' },
           }}
         />
       </body>

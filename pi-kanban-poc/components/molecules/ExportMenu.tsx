@@ -65,8 +65,8 @@ export function ExportMenu({ content, title }: ExportMenuProps) {
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #0a192f; line-height: 1.6; }
-  h1, h2, h3 { color: #0a192f; margin-top: 1.5em; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1C1917; line-height: 1.6; }
+  h1, h2, h3 { color: #1C1917; margin-top: 1.5em; }
   h1 { border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; }
   h2 { border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }
   code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
@@ -111,7 +111,7 @@ export function ExportMenu({ content, title }: ExportMenuProps) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-white/50 transition-colors"
+        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-meta font-bold text-blue-600 hover:text-blue-700 hover:bg-white/50 transition-colors"
         title="Export"
       >
         <Download className="w-3 h-3" />

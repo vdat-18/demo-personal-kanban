@@ -22,7 +22,12 @@ export interface PlanningChatPanelProps {
   activeThreadId: string | null
   onBack: () => void
   onApproveMutation: (mutation: TaskMutation) => Promise<void>
-  onPersistMutationAction: (threadId: string, messageId: string, mutationIndex: number, action: string) => Promise<void>
+  onPersistMutationAction: (
+    threadId: string,
+    messageId: string,
+    mutationIndex: number,
+    action: string,
+  ) => Promise<void>
 }
 
 export function PlanningChatPanel({
@@ -47,54 +52,54 @@ export function PlanningChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-resize textarea as content grows
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    const maxHeight = 192 // max-h-48 = 12rem = 192px
+    const maxHeight = 192
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
     el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
   }, [input])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      onSend()
-    }
-  }, [onSend])
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        onSend()
+      }
+    },
+    [onSend],
+  )
 
   return (
-    <div className="flex flex-col flex-1 min-w-0 border-r border-gray-100 bg-white">
-      {/* Header */}
-      <header className="h-16 px-6 border-b border-gray-100 flex items-center gap-4 shrink-0">
+    <div className="flex flex-col flex-1 min-w-0 border-r border-line bg-surface">
+      <header className="h-16 px-6 border-b border-line flex items-center gap-4 shrink-0">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+          className="p-2 hover:bg-surface-muted rounded-xl transition-colors text-ink-muted hover:text-ink"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <h1 className="font-bold text-sm text-[#0a192f]">{projectName}</h1>
-          <p className="text-xs text-gray-400">AI Planning Session</p>
+          <h1 className="text-h2 text-ink">{projectName}</h1>
+          <p className="text-meta text-ink-subtle">AI planning session</p>
         </div>
       </header>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messagesLoading ? (
           <div className="flex justify-center py-12">
-            <span className="w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+            <span className="w-6 h-6 border-2 border-line border-t-brand rounded-full animate-spin" />
           </div>
         ) : (
           <>
             {showWelcome && (
               <div className="flex justify-start">
                 <AiAvatar className="mr-3 mt-1" />
-                <div className="max-w-[80%] rounded-3xl rounded-bl-lg px-5 py-4 text-sm leading-relaxed bg-gray-50 text-[#0a192f]">
-                  <div className="prose prose-sm max-w-none">
+                <div className="max-w-[80%] rounded-2xl rounded-bl-sm px-5 py-4 text-body bg-surface-muted text-ink">
+                  <div className="ai-prose max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {`Welcome! I'm your AI Planning Agent for **${projectName}**.\n\nI can see all your project tasks and help you manage them. I can suggest adding new tasks, updating existing ones, or removing completed ones.\n\nWhat would you like to plan?`}
+                      {`Welcome! I'm your AI planner for **${projectName}**.\n\nI can see all your project tasks. I'll suggest things to add, update, or remove as we chat.\n\nWhat would you like to plan?`}
                     </ReactMarkdown>
                   </div>
                 </div>
@@ -117,7 +122,7 @@ export function PlanningChatPanel({
             {isSending && (
               <div className="flex justify-start">
                 <AiAvatar className="mr-3" />
-                <div className="bg-gray-50 rounded-3xl rounded-bl-lg px-5 py-4">
+                <div className="bg-surface-muted rounded-2xl rounded-bl-sm px-5 py-4">
                   <TypingDots />
                 </div>
               </div>
@@ -128,19 +133,18 @@ export function PlanningChatPanel({
         )}
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-line">
         {sendError && (
-          <div className="mb-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
-            Failed to send message. Please try again.
+          <div className="mb-2 px-4 py-2 bg-danger-bg border border-danger-border rounded-xl text-meta text-danger">
+            Couldn&apos;t send your message. Please try again.
           </div>
         )}
-        <div className="flex gap-3 items-end bg-gray-50 rounded-3xl px-5 py-3">
+        <div className="flex gap-3 items-end bg-surface-muted rounded-2xl px-5 py-3 border border-line focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15 transition-colors">
           <textarea
             ref={textareaRef}
-            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-gray-300 resize-none outline-none min-h-[20px]"
+            className="flex-1 bg-transparent text-body text-ink placeholder:text-ink-subtle resize-none outline-none min-h-[20px]"
             style={{ overflowY: 'hidden' }}
-            placeholder="Describe your project goals..."
+            placeholder="Tell me about your project…"
             rows={1}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
@@ -150,7 +154,7 @@ export function PlanningChatPanel({
           <button
             onClick={onSend}
             disabled={!input.trim() || isSending || !activeThreadId}
-            className="w-9 h-9 rounded-2xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-900 transition-colors disabled:opacity-30 shrink-0"
+            className="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-brand-hover transition-colors disabled:opacity-30 shrink-0 shadow-sm"
           >
             <Send className="w-4 h-4" />
           </button>

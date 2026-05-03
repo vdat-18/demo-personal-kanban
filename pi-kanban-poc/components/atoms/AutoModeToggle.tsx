@@ -18,12 +18,12 @@ export function AutoModeToggle({ enabled, status, onToggle }: AutoModeToggleProp
         e.stopPropagation()
         onToggle()
       }}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-micro transition-colors border ${
         isError
-          ? 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+          ? 'bg-danger-bg text-danger hover:opacity-90 border-danger-border'
           : enabled
-          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'
-          : 'bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 border border-gray-100'
+          ? 'bg-success-bg text-success hover:opacity-90 border-success-border'
+          : 'bg-surface-muted text-ink-muted hover:bg-line border-line'
       }`}
       title={enabled ? 'Disable auto mode' : 'Enable auto mode'}
     >

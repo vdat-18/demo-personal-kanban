@@ -30,13 +30,13 @@ export function SkillsPanel({ projectId }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-indigo-500" />
-          <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Skills</h4>
+          <BookOpen className="w-4 h-4 text-brand" />
+          <h4 className="text-xs font-semibold tracking-widest text-slate-500">Skills</h4>
         </div>
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-bold hover:bg-indigo-100 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-subtle text-brand text-meta font-bold hover:bg-brand-subtle transition-colors"
           >
             <Plus className="w-3 h-3" /> Add skill
           </button>
@@ -44,7 +44,7 @@ export function SkillsPanel({ projectId }: Props) {
       </div>
 
       {skills.length === 0 && !adding && (
-        <p className="text-[11px] text-slate-400 italic">
+        <p className="text-meta text-slate-400 italic">
           No skills yet. Skills are reusable context — e.g. brand voice, technical constraints — injected into every AI agent in this project.
         </p>
       )}
@@ -53,8 +53,8 @@ export function SkillsPanel({ projectId }: Props) {
         <div key={sk.id} className="rounded-xl border border-slate-200 bg-white p-3">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#0a192f]">{sk.name}</p>
-              <p className="text-[11px] text-slate-500 mt-1 whitespace-pre-wrap leading-relaxed">{sk.content}</p>
+              <p className="text-xs font-bold text-ink">{sk.name}</p>
+              <p className="text-meta text-slate-500 mt-1 whitespace-pre-wrap leading-relaxed">{sk.content}</p>
             </div>
             <button
               onClick={() => deleteSkill(sk.id)}
@@ -68,20 +68,20 @@ export function SkillsPanel({ projectId }: Props) {
       ))}
 
       {adding && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+        <div className="rounded-xl border border-brand-border bg-brand-subtle p-3 space-y-2">
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Skill name (e.g. Brand voice)"
-            className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
+            className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand"
           />
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Skill content — injected into AI agents on every task execution in this project..."
             rows={4}
-            className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400 resize-none leading-relaxed"
+            className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand resize-none leading-relaxed"
           />
           <div className="flex gap-2 justify-end">
             <button
@@ -93,7 +93,7 @@ export function SkillsPanel({ projectId }: Props) {
             <button
               onClick={handleAdd}
               disabled={!name.trim() || !content.trim()}
-              className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors font-bold"
+              className="px-3 py-1.5 text-xs bg-brand text-white rounded-lg hover:bg-brand-hover disabled:opacity-40 transition-colors font-bold"
             >
               Add
             </button>

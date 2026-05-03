@@ -116,18 +116,18 @@ export default function HomeChatPage() {
       <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 shrink-0">
         <button
           onClick={() => router.push('/')}
-          className="p-2 rounded-xl text-slate-400 hover:text-[#0a192f] hover:bg-slate-100 transition-colors"
+          className="p-2 rounded-xl text-slate-400 hover:text-ink hover:bg-slate-100 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
-          <span className="text-sm font-bold text-[#0a192f] truncate">AI Assistant</span>
-          <span className="text-[10px] text-slate-400 font-medium ml-1">· No project needed</span>
+          <span className="text-sm font-bold text-ink truncate">AI Assistant</span>
+          <span className="text-meta text-slate-400 font-medium ml-1">· No project needed</span>
         </div>
         <button
           onClick={clearChat}
-          className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+          className="p-2 rounded-xl text-slate-400 hover:text-danger hover:bg-danger-bg transition-colors"
           title="Clear chat history"
         >
           <Trash2 className="w-4 h-4" />
@@ -175,12 +175,12 @@ export default function HomeChatPage() {
             }}
             placeholder="Ask anything about your work…"
             rows={1}
-            className="flex-1 bg-transparent text-sm text-[#0a192f] placeholder:text-slate-400 focus:outline-none resize-none leading-relaxed"
+            className="flex-1 bg-transparent text-sm text-ink placeholder:text-slate-400 focus:outline-none resize-none leading-relaxed"
           />
           {isStreaming ? (
             <button
               onClick={abort}
-              className="shrink-0 w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition-colors"
+              className="shrink-0 w-8 h-8 rounded-xl bg-danger-bg0 text-white flex items-center justify-center hover:bg-danger transition-colors"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
             </button>
@@ -188,13 +188,13 @@ export default function HomeChatPage() {
             <button
               onClick={() => void send()}
               disabled={!input.trim()}
-              className="shrink-0 w-8 h-8 rounded-xl bg-[#0a192f] text-white flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-30"
+              className="shrink-0 w-8 h-8 rounded-xl bg-ink text-white flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-30"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
-        <p className="text-[10px] text-slate-400 mt-2 text-center">
+        <p className="text-meta text-slate-400 mt-2 text-center">
           Enter to send · Shift+Enter for new line
         </p>
       </div>
@@ -214,8 +214,8 @@ function MessageBubble({ msg, streaming }: { msg: ChatMsg; streaming?: boolean }
       <div
         className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
           isUser
-            ? 'bg-[#0a192f] text-white rounded-tr-sm'
-            : `bg-slate-50 text-[#0a192f] rounded-tl-sm border border-slate-100 ${streaming ? 'animate-pulse' : ''}`
+            ? 'bg-ink text-white rounded-tr-sm'
+            : `bg-slate-50 text-ink rounded-tl-sm border border-slate-100 ${streaming ? 'animate-pulse' : ''}`
         }`}
       >
         {msg.content}

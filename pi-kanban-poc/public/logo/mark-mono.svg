@@ -1,0 +1,7 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agent for Everyone">
+  <title>Agent for Everyone</title>
+  <rect width="64" height="64" rx="14" fill="currentColor"/>
+  <rect width="64" height="64" rx="14" fill="none" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.2"/>
+  <path d="M 13 33 L 26 46 L 51 20" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 51 12.5 L 52.8 17.2 L 57.5 19 L 52.8 20.8 L 51 25.5 L 49.2 20.8 L 44.5 19 L 49.2 17.2 Z" fill="#FFFFFF"/>
+</svg>

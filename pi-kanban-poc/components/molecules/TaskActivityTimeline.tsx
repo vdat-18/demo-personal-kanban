@@ -20,15 +20,15 @@ const ACTOR_ICON: Record<TaskActivityEntry['actor'], string> = {
 const TYPE_COLOR: Partial<Record<TaskActivityType, string>> = {
   created: 'text-slate-600',
   status_changed: 'text-blue-600',
-  ai_suggested_breakdown: 'text-indigo-600',
+  ai_suggested_breakdown: 'text-brand',
   ai_suggestion_approved: 'text-emerald-600',
   ai_suggestion_dismissed: 'text-slate-400',
   ai_needed_human_input: 'text-amber-600',
   ai_clarification_answered: 'text-amber-600',
-  ai_refined: 'text-violet-600',
+  ai_refined: 'text-brand',
   subtask_completed: 'text-emerald-600',
   subtask_added_manually: 'text-blue-600',
-  subtask_removed: 'text-rose-500',
+  subtask_removed: 'text-danger',
   user_edited_task: 'text-blue-600',
 }
 
@@ -47,7 +47,7 @@ export function TaskActivityTimeline({ taskId, maxItems = 30 }: TaskActivityTime
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-6 text-[11px] text-slate-400">
+      <div className="text-center py-6 text-meta text-slate-400">
         No activity yet — actions on this task will show here.
       </div>
     )
@@ -61,21 +61,21 @@ export function TaskActivityTimeline({ taskId, maxItems = 30 }: TaskActivityTime
         return (
           <li key={entry.id} className="relative pl-8 pr-2">
             <span
-              className="absolute left-1 top-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px]"
+              className="absolute left-1 top-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center text-meta"
               aria-hidden
             >
               {ACTOR_ICON[entry.actor]}
             </span>
             <div className="flex items-start justify-between gap-2">
-              <span className={`text-[12px] font-medium leading-snug ${colorClass}`}>
+              <span className={`text-meta font-medium leading-snug ${colorClass}`}>
                 {entry.summary}
               </span>
-              <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">
+              <span className="text-meta text-slate-400 shrink-0 mt-0.5">
                 {formatTime(entry.timestamp)}
               </span>
             </div>
             {entry.metadata?.fromStatus != null && entry.metadata?.toStatus != null && (
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-meta text-slate-400 mt-0.5">
                 {String(entry.metadata.fromStatus)} → {String(entry.metadata.toStatus)}
               </p>
             )}

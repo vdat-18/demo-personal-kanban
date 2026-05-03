@@ -13,7 +13,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search...' }: Sear
       <input
         type="text"
         placeholder={placeholder}
-        className="w-full pl-12 pr-6 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-sm text-[#0a192f] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        className="w-full pl-12 pr-6 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm text-sm text-ink placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

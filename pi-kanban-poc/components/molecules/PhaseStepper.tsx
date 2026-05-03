@@ -12,18 +12,30 @@ const ICON_MAP = {
 
 interface PhaseStepperProps {
   current: PlanningPhase
-  /** Click handler when the user wants to jump to a specific phase (Tier 2.5). */
   onJumpTo?: (target: PlanningPhase) => void
   compact?: boolean
+}
+
+// Phase color mapping — uses semantic tokens.
+// Active = brand-tinted, done = success-tinted, future = neutral.
+const PHASE_TONE: Record<PlanningPhase, { bg: string; text: string; border: string }> = {
+  discovery: { bg: 'bg-warning-bg', text: 'text-warning', border: 'border-warning-border' },
+  blueprint: { bg: 'bg-brand-subtle', text: 'text-brand', border: 'border-brand-border' },
+  task_mapping: { bg: 'bg-success-bg', text: 'text-success', border: 'border-success-border' },
 }
 
 export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) {
   const currentStep = PHASE_DISPLAY[current].step
 
   return (
-    <div className={`inline-flex items-center ${compact ? 'rounded-2xl px-1 py-1 gap-0.5' : 'rounded-[1.5rem] px-2 py-2 gap-0'} border border-slate-200/90 bg-white/90 shadow-[0_4px_16px_rgba(15,23,42,0.06)] backdrop-blur-sm`}>
+    <div
+      className={`inline-flex items-center ${
+        compact ? 'rounded-xl px-1 py-1 gap-0.5' : 'rounded-2xl px-2 py-2 gap-0'
+      } border border-line bg-surface/95 shadow-sm backdrop-blur-sm`}
+    >
       {PHASE_ORDER.map((phase, idx) => {
         const cfg = PHASE_DISPLAY[phase]
+        const tone = PHASE_TONE[phase]
         const Icon = ICON_MAP[cfg.iconKey]
         const isActive = phase === current
         const isDone = cfg.step < currentStep
@@ -31,28 +43,56 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
 
         const content = (
           <div
-            className={`flex items-center transition-all duration-300 ${
+            className={`flex items-center transition-colors duration-200 ${
               compact
-                ? `gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold ${isActive ? `${cfg.bg} ${cfg.color} border ${cfg.border}` : isDone ? 'text-emerald-600' : 'text-slate-400'}`
-                : `min-w-[138px] gap-3 px-4 py-3 rounded-[1.2rem] text-[10px] font-black ${isActive ? `${cfg.bg} ${cfg.color} shadow-sm border ${cfg.border}` : isDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-transparent text-slate-400 hover:text-slate-600'}`
+                ? `gap-1.5 px-3 py-1.5 rounded-lg text-micro normal-case font-semibold ${
+                    isActive
+                      ? `${tone.bg} ${tone.text} border ${tone.border}`
+                      : isDone
+                      ? 'text-success'
+                      : 'text-ink-subtle'
+                  }`
+                : `min-w-[138px] gap-3 px-4 py-3 rounded-xl text-micro normal-case font-semibold ${
+                    isActive
+                      ? `${tone.bg} ${tone.text} shadow-sm border ${tone.border}`
+                      : isDone
+                      ? 'bg-success-bg text-success border border-success-border'
+                      : 'bg-transparent text-ink-subtle hover:text-ink-muted'
+                  }`
             } ${clickable ? 'cursor-pointer hover:opacity-90' : ''}`}
           >
             {compact ? (
-              <Icon className={`w-3 h-3 shrink-0 ${isActive ? cfg.color : isDone ? 'text-emerald-500' : 'text-slate-400'}`} />
+              <Icon
+                className={`w-3 h-3 shrink-0 ${
+                  isActive ? tone.text : isDone ? 'text-success' : 'text-ink-subtle'
+                }`}
+              />
             ) : (
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isActive ? 'bg-white shadow-sm border border-white/80' : isDone ? 'bg-white border border-emerald-100' : 'bg-slate-50 border border-slate-100'}`}>
-                <Icon className={`w-3.5 h-3.5 ${isActive ? cfg.color : isDone ? 'text-emerald-600' : 'text-slate-400'}`} />
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  isActive
+                    ? 'bg-surface shadow-sm border border-surface'
+                    : isDone
+                    ? 'bg-surface border border-success-border'
+                    : 'bg-surface-muted border border-line'
+                }`}
+              >
+                <Icon
+                  className={`w-3.5 h-3.5 ${
+                    isActive ? tone.text : isDone ? 'text-success' : 'text-ink-subtle'
+                  }`}
+                />
               </div>
             )}
             <div className="min-w-0">
-              <div className="uppercase tracking-[0.14em] text-[10px]">{cfg.label}</div>
+              <div className="uppercase tracking-wider text-micro normal-case">{cfg.label}</div>
             </div>
             {isDone && !compact && (
-              <div className="ml-auto w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm shrink-0">
-                <span className="text-[9px] text-white">✓</span>
+              <div className="ml-auto w-5 h-5 rounded-full bg-success flex items-center justify-center shadow-sm shrink-0">
+                <span className="text-micro normal-case text-white">✓</span>
               </div>
             )}
-            {isDone && compact && <span className="text-emerald-500 text-[9px]">✓</span>}
+            {isDone && compact && <span className="text-success text-micro normal-case">✓</span>}
           </div>
         )
 
@@ -62,7 +102,7 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
               <button
                 onClick={() => onJumpTo!(phase)}
                 title={`Jump to "${cfg.label}"`}
-                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-2xl"
+                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-xl"
               >
                 {content}
               </button>
@@ -71,7 +111,11 @@ export function PhaseStepper({ current, onJumpTo, compact }: PhaseStepperProps) 
             )}
             {idx < PHASE_ORDER.length - 1 && (
               <div className={compact ? 'px-1' : 'px-2 md:px-3'}>
-                <div className={`h-[2px] rounded-full transition-all duration-500 ${compact ? 'w-4' : 'w-6 md:w-8'} ${isDone ? 'bg-emerald-200' : 'bg-slate-200'}`} />
+                <div
+                  className={`h-[2px] rounded-full transition-colors duration-300 ${
+                    compact ? 'w-4' : 'w-6 md:w-8'
+                  } ${isDone ? 'bg-success/40' : 'bg-line'}`}
+                />
               </div>
             )}
           </div>

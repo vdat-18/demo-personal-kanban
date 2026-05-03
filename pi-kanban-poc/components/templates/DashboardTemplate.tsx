@@ -296,7 +296,7 @@ export function DashboardTemplate() {
   )
 
   return (
-    <div className="h-full w-full bg-transparent flex flex-col overflow-hidden font-sans text-slate-900">
+    <div className="h-full w-full bg-transparent flex flex-col overflow-hidden font-sans text-ink">
       <div className="flex-1 overflow-y-auto px-5 py-8 md:px-8 lg:px-12">
         <div className="max-w-7xl mx-auto space-y-8 pb-12">
           <HeroSection
@@ -311,11 +311,11 @@ export function DashboardTemplate() {
           <InboxPanel onNavigate={handleProjectClick} />
 
           {overdueTemplates.length > 0 && (
-            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/40 p-5 shadow-sm">
+            <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Repeat className="w-4 h-4 text-indigo-500" />
-                <h3 className="text-sm font-bold text-[#0a192f]">Recurring tasks to create</h3>
-                <span className="ml-auto px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-black">
+                <Repeat className="w-4 h-4 text-brand" />
+                <h3 className="text-h2 text-ink">Recurring tasks to create</h3>
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-brand text-white text-micro">
                   {overdueTemplates.length}
                 </span>
               </div>
@@ -323,20 +323,27 @@ export function DashboardTemplate() {
                 {overdueTemplates.map((t) => {
                   const project = projects.find((p) => p.id === t.projectId)
                   return (
-                    <div key={t.id} className="flex items-center gap-3 bg-white rounded-xl border border-indigo-100 px-3 py-2.5">
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 bg-surface-muted/60 rounded-xl border border-line px-3 py-2.5"
+                    >
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-[#0a192f] truncate">{t.title}</p>
-                        {project && <p className="text-[10px] text-slate-400 mt-0.5">📁 {project.name}</p>}
+                        <p className="text-meta font-semibold text-ink truncate">{t.title}</p>
+                        {project && (
+                          <p className="text-micro text-ink-subtle mt-0.5 normal-case tracking-normal">
+                            📁 {project.name}
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => handleCreateFromTemplate(t)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
+                        className="shrink-0 px-3 py-1.5 rounded-lg bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors"
                       >
                         Create task
                       </button>
                       <button
                         onClick={() => handleDismissTemplate(t.id)}
-                        className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="shrink-0 p-1.5 rounded-lg text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
                         title="Skip this time"
                       >
                         ✕
@@ -349,26 +356,26 @@ export function DashboardTemplate() {
           )}
 
           {showOnboardingHint && (
-            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60 p-5 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/30 shrink-0">
+            <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center shadow-sm shrink-0">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-bold text-[#0a192f] mb-1">New here?</h3>
-                <p className="text-sm text-slate-500 leading-relaxed mb-3">
-                  See a complete walkthrough — discovery questions, drafted plan, and approved tasks — based on a real-life event:{' '}
-                  <strong className="text-[#0a192f]">{ONBOARDING_PROJECT_NAME}</strong>.
+                <h3 className="text-h2 text-ink mb-1">New here?</h3>
+                <p className="text-body text-ink-muted mb-3">
+                  See a full walkthrough — discovery questions, a drafted plan, approved tasks — based on a real-life event:{' '}
+                  <strong className="text-ink">{ONBOARDING_PROJECT_NAME}</strong>.
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={openOnboardingExample}
-                    className="px-4 py-2 rounded-xl bg-[#0a192f] text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
+                    className="px-4 py-2 rounded-xl bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors shadow-sm"
                   >
                     👀 Open example
                   </button>
                   <button
                     onClick={dismissOnboarding}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    className="px-3 py-2 rounded-xl text-meta font-semibold text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors"
                   >
                     Skip
                   </button>
@@ -377,21 +384,21 @@ export function DashboardTemplate() {
             </div>
           )}
 
-          {/* Quick chat entry — chat with AI before creating a project */}
+          {/* Quick chat entry — talk to AI before creating a project */}
           <div
             role="button"
             tabIndex={0}
             onClick={() => router.push('/chat')}
             onKeyDown={(e) => e.key === 'Enter' && router.push('/chat')}
-            className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-300 transition-all cursor-pointer p-5 flex items-center gap-4 group"
+            className="rounded-2xl border border-dashed border-brand-border bg-brand-subtle/40 hover:bg-brand-subtle hover:border-brand transition-all cursor-pointer p-5 flex items-center gap-4 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-100 group-hover:bg-blue-500 transition-colors flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-blue-500 group-hover:text-white transition-colors" />
+            <div className="w-10 h-10 rounded-xl bg-brand-subtle group-hover:bg-brand transition-colors flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#0a192f]">Ask AI before getting started</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Not sure what to do? Chat with AI to brainstorm ideas, no project needed.
+              <p className="text-h2 text-ink">Ask AI before you start</p>
+              <p className="text-body text-ink-muted mt-0.5">
+                Not sure what to do? Chat with AI to brainstorm — no project needed.
               </p>
             </div>
           </div>

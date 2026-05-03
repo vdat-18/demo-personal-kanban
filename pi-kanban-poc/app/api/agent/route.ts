@@ -78,7 +78,7 @@ if (TROLLLLM_API_KEY) {
         input: ['text', 'image'],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 200_000,
-        maxTokens: 8_192,
+        maxTokens: 24_000,
       },
     ],
   })
@@ -345,9 +345,15 @@ function buildPlanSystemPrompt(req: PlanRequest): string {
     '  Each bullet should contain ONE idea. Avoid walls of text.',
     '  If a section has 3 or more points, render them as bullet points.',
     '  Keep each bullet concise and concrete.',
-    '- task_mapping: propose concrete tasks via the "tasks" array. Return them',
-    '  in the structured field, NEVER as inline markdown bullets. Group with',
-    '  the milestone field when natural. Tasks should be small enough to act on.',
+    '- task_mapping: propose HIGH-LEVEL tasks (think epics or major work packages)',
+    '  via the "tasks" array. Return them in the structured field, NEVER as inline',
+    '  markdown bullets. Aim for 4–8 tasks maximum — each task represents a major',
+    '  chunk of work, NOT a granular action step. Granular steps come later when',
+    '  the user opens each task and runs the Step Planner. A good task title is',
+    '  a short deliverable ("Design the event invitation", "Book the venue") not',
+    '  a checklist item ("Send email to venue A"). Group with the milestone field',
+    '  when natural. If you feel the urge to create more than 8 tasks, merge',
+    '  related ones into a single broader task instead.',
     '',
     '── Progressive blueprint drafting ────────────────────────────',
     '- After the user answers batch 1 of discovery questions, produce an',
@@ -809,7 +815,7 @@ async function callMultimodalPlan(
     body: JSON.stringify({
       model: TROLLLLM_MODEL_ID,
       messages: openaiMessages,
-      max_tokens: 8192,
+      max_tokens: 24000,
     }),
   })
   if (!resp.ok) {
@@ -871,8 +877,14 @@ async function handlePlan(req: PlanRequest): Promise<Response> {
   // a synthetic envelope that just shows the raw text.
   let envelope = safeParseEnvelope(assistantText)
   if (!envelope) {
+    // If the raw text looks like JSON but failed to parse (e.g. truncated),
+    // try to salvage the "content" field rather than dumping raw JSON into chat.
+    const contentMatch = assistantText.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    const fallbackContent = contentMatch
+      ? contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+      : assistantText.trim()
     envelope = {
-      content: assistantText.trim(),
+      content: fallbackContent,
       visionDocument: null,
       visionChanges: null,
       readyForNextPhase: false,

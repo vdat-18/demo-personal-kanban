@@ -31,7 +31,7 @@ export function ConversationHistoryPanel({ conversations }: ConversationHistoryP
               key={conv.id}
               className="text-xs text-gray-500 py-2 border-b border-gray-50 last:border-0"
             >
-              <p className="font-semibold text-[#0a192f] text-[10px]">
+              <p className="font-semibold text-ink text-meta">
                 {new Date(conv.createdAt).toLocaleDateString(undefined, {
                   month: 'short',
                   day: 'numeric',
@@ -45,7 +45,7 @@ export function ConversationHistoryPanel({ conversations }: ConversationHistoryP
                 </p>
               )}
               {tu && (tu.input != null || tu.output != null) && (
-                <p className="mt-1 text-[9px] text-gray-400 font-mono">
+                <p className="mt-1 text-micro text-gray-400 font-mono">
                   {tu.input ?? 0}↑ {tu.output ?? 0}↓ tokens
                 </p>
               )}
@@ -59,17 +59,17 @@ export function ConversationHistoryPanel({ conversations }: ConversationHistoryP
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="text-[10px] font-bold text-gray-400 disabled:opacity-30 hover:text-gray-600 transition-colors"
+            className="text-meta font-bold text-gray-400 disabled:opacity-30 hover:text-gray-600 transition-colors"
           >
             ← Newer
           </button>
-          <span className="text-[9px] text-gray-300 font-mono">
+          <span className="text-micro text-gray-300 font-mono">
             {page + 1}/{totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="text-[10px] font-bold text-gray-400 disabled:opacity-30 hover:text-gray-600 transition-colors"
+            className="text-meta font-bold text-gray-400 disabled:opacity-30 hover:text-gray-600 transition-colors"
           >
             Older →
           </button>

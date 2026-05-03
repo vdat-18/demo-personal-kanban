@@ -195,17 +195,13 @@ export function TodoStepPlannerPanel({
   }, [taskStatus, hasSubtasks, breakdown])
 
   return (
-    <div className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-indigo-100 bg-white/50 flex items-start justify-between gap-4">
+    <div className="rounded-2xl border border-brand-border bg-brand-subtle/40 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-brand-border bg-surface/60 flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700 mb-1">
-            Step Planning
-          </div>
-          <h3 className="text-sm font-bold text-[#0a192f] leading-snug">
-            Your task steps live here.
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed max-w-2xl">
-            Mission Control auto-generates steps in the background. If something is missing, you can refine it here.
+          <div className="text-micro text-brand mb-1">Step planning</div>
+          <h3 className="text-h2 text-ink leading-snug">Your task steps live here.</h3>
+          <p className="text-meta text-ink-muted mt-1 leading-relaxed max-w-2xl">
+            We&apos;ll auto-generate steps in the background. If something&apos;s missing, refine it here.
           </p>
         </div>
         {taskStatus === 'TODO' && hasApproved && (
@@ -213,14 +209,18 @@ export function TodoStepPlannerPanel({
             onClick={() => {
               if (pendingSubtasks.length > 0) {
                 const confirmed = window.confirm(
-                  `${pendingSubtasks.length} step${pendingSubtasks.length === 1 ? ' is' : 's are'} still pending. They won't be executed until you approve them. Start anyway?`,
+                  `${pendingSubtasks.length} step${pendingSubtasks.length === 1 ? ' is' : 's are'} still pending. They won't run until you approve them. Start anyway?`,
                 )
                 if (!confirmed) return
               }
               onMoveToInProgress()
             }}
-            title={pendingSubtasks.length > 0 ? `${pendingSubtasks.length} pending step${pendingSubtasks.length === 1 ? '' : 's'} will be skipped` : 'Begin executing approved steps'}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-colors active:scale-95 shadow-sm"
+            title={
+              pendingSubtasks.length > 0
+                ? `${pendingSubtasks.length} pending step${pendingSubtasks.length === 1 ? '' : 's'} will be skipped`
+                : 'Begin executing approved steps'
+            }
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors active:scale-95 shadow-sm"
           >
             🚀 Start working ({approvedSubtasks.length})
           </button>
@@ -232,19 +232,19 @@ export function TodoStepPlannerPanel({
 
       <div className="p-5 space-y-4">
         {/* Section 0: Overall summary + bulk actions toolbar */}
-        {hasSubtasks && (pendingSubtasks.length + approvedSubtasks.length + deniedSubtasks.length) > 0 && (
+        {hasSubtasks && pendingSubtasks.length + approvedSubtasks.length + deniedSubtasks.length > 0 && (
           <div className="flex items-center justify-between gap-3 px-1">
-            <div className="flex items-center gap-3 text-[11px] font-semibold">
-              <span className="inline-flex items-center gap-1.5 text-slate-500">
-                <span className="w-2 h-2 rounded-full bg-indigo-400" />
+            <div className="flex items-center gap-3 text-meta font-semibold">
+              <span className="inline-flex items-center gap-1.5 text-ink-muted">
+                <span className="w-2 h-2 rounded-full bg-brand/60" />
                 {pendingSubtasks.length} pending
               </span>
-              <span className="inline-flex items-center gap-1.5 text-emerald-600">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="inline-flex items-center gap-1.5 text-success">
+                <span className="w-2 h-2 rounded-full bg-success" />
                 {approvedSubtasks.length} approved
               </span>
-              <span className="inline-flex items-center gap-1.5 text-rose-600">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
+              <span className="inline-flex items-center gap-1.5 text-danger">
+                <span className="w-2 h-2 rounded-full bg-danger" />
                 {deniedSubtasks.length} denied
               </span>
             </div>
@@ -253,23 +253,23 @@ export function TodoStepPlannerPanel({
                 <>
                   <button
                     onClick={handleApproveAll}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                    className="px-2.5 py-1 rounded-lg bg-success-bg text-success text-meta font-semibold border border-success-border hover:opacity-90 transition-opacity"
                   >
                     ✓ Approve all
                   </button>
                   <button
                     onClick={handleDenyAll}
-                    className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-wider border border-rose-200 hover:bg-rose-100 transition-colors"
+                    className="px-2.5 py-1 rounded-lg bg-danger-bg text-danger text-meta font-semibold border border-danger-border hover:opacity-90 transition-opacity"
                   >
                     ✗ Deny all
                   </button>
                 </>
               )}
-              {(approvedSubtasks.length + deniedSubtasks.length) > 0 && (
+              {approvedSubtasks.length + deniedSubtasks.length > 0 && (
                 <button
                   onClick={handleResetAll}
                   title="Reset every step back to pending"
-                  className="px-2.5 py-1 rounded-lg text-slate-500 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-100 transition-colors"
+                  className="px-2.5 py-1 rounded-lg text-ink-muted text-meta font-semibold hover:bg-surface-muted transition-colors"
                 >
                   ↺ Reset all
                 </button>
@@ -280,13 +280,11 @@ export function TodoStepPlannerPanel({
 
         {/* Section 1: Pending subtasks - awaiting approval */}
         {pendingSubtasks.length > 0 && (
-          <div className="rounded-2xl bg-white border border-slate-100 p-4">
+          <div className="rounded-2xl bg-surface border border-line p-4">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-                  Pending approval
-                </div>
-                <div className="text-xs font-semibold text-[#0a192f] mt-0.5">
+                <div className="text-micro text-ink-muted">Pending approval</div>
+                <div className="text-meta font-semibold text-ink mt-0.5">
                   {pendingSubtasks.length} step{pendingSubtasks.length === 1 ? '' : 's'} waiting
                 </div>
               </div>
@@ -298,7 +296,7 @@ export function TodoStepPlannerPanel({
               {pendingSubtasks.map((sub) => (
                 <div
                   key={sub.id}
-                  className="w-full flex items-start gap-2 rounded-xl px-3 py-2 bg-indigo-50/50 text-slate-700 hover:bg-indigo-50 transition-colors"
+                  className="w-full flex items-start gap-2 rounded-xl px-3 py-2 bg-brand-subtle/50 text-ink hover:bg-brand-subtle transition-colors"
                 >
                   {editingId === sub.id ? (
                     <div className="flex-1 space-y-1.5">
@@ -307,25 +305,25 @@ export function TodoStepPlannerPanel({
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }}
-                        className="w-full text-xs font-semibold bg-white border border-indigo-300 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                        className="w-full text-xs font-semibold bg-white border border-brand-border rounded-lg px-2 py-1 focus:outline-none focus:border-brand-border0"
                       />
                       <input
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit() }}
                         placeholder="Description (optional)"
-                        className="w-full text-[11px] bg-white border border-indigo-200 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-400"
+                        className="w-full text-meta bg-white border border-brand-border rounded-lg px-2 py-1 focus:outline-none focus:border-brand"
                       />
                       <div className="flex gap-1.5">
-                        <button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700">Save</button>
-                        <button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold hover:bg-slate-200">Cancel</button>
+                        <button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-brand text-white text-meta font-bold hover:bg-brand-hover">Save</button>
+                        <button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-meta font-bold hover:bg-slate-200">Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold leading-snug">{sub.title}</div>
                       {sub.description && (
-                        <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
+                        <div className="text-meta text-slate-500 mt-0.5 leading-relaxed">{sub.description}</div>
                       )}
                     </div>
                   )}
@@ -334,21 +332,21 @@ export function TodoStepPlannerPanel({
                       <button
                         onClick={() => startEdit(sub)}
                         title="Edit"
-                        className="px-1.5 py-1 rounded-lg text-slate-400 text-[11px] hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                        className="px-1.5 py-1 rounded-lg text-slate-400 text-meta hover:bg-brand-subtle hover:text-brand transition-colors"
                       >
                         ✏️
                       </button>
                       <button
                         onClick={() => handleApproveSubtask(sub.id)}
                         title="Approve"
-                        className="px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider hover:bg-green-200 transition-colors"
+                        className="px-2 py-1 rounded-lg bg-success-bg text-success text-meta font-semibold hover:opacity-90 transition-opacity"
                       >
                         ✓
                       </button>
                       <button
                         onClick={() => handleDenySubtask(sub.id)}
                         title="Deny"
-                        className="px-2 py-1 rounded-lg bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider hover:bg-red-200 transition-colors"
+                        className="px-2 py-1 rounded-lg bg-danger-bg text-danger text-meta font-semibold hover:opacity-90 transition-opacity"
                       >
                         ✗
                       </button>
@@ -360,33 +358,30 @@ export function TodoStepPlannerPanel({
           </div>
         )}
 
-        {/* Section 2: Approved (collapsible quick-view) — lets user flip
-            decisions back even after they've already approved a step. */}
+        {/* Section 2: Approved (collapsible quick-view) */}
         {approvedSubtasks.length > 0 && (
-          <div className="rounded-2xl bg-white border border-emerald-100 p-4">
-            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600 mb-3">
-              ✓ Approved · {approvedSubtasks.length}
-            </div>
+          <div className="rounded-2xl bg-surface border border-success-border p-4">
+            <div className="text-micro text-success mb-3">✓ Approved · {approvedSubtasks.length}</div>
             <div className="space-y-1.5">
               {approvedSubtasks.map((sub) => (
                 <div
                   key={sub.id}
-                  className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-emerald-50/40 text-slate-700 group"
+                  className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-success-bg/50 text-ink group"
                 >
-                  <span className="text-emerald-600 text-xs">✓</span>
+                  <span className="text-success text-meta">✓</span>
                   {editingId === sub.id ? (
                     <div className="flex-1 space-y-1 min-w-0">
                       <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }} className="w-full text-xs font-semibold bg-white border border-emerald-300 rounded-lg px-2 py-0.5 focus:outline-none" />
-                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">Cancel</button></div>
+                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-meta font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-meta font-bold">Cancel</button></div>
                     </div>
                   ) : (
                     <span className="text-xs font-semibold flex-1 truncate">{sub.title}</span>
                   )}
                   {editingId !== sub.id && (
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-[11px] hover:bg-emerald-100 hover:text-emerald-700 transition-colors">✏️</button>
-                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
-                      <button onClick={() => handleDenySubtask(sub.id)} title="Change to deny" className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-[10px] font-bold hover:bg-red-100 transition-colors">✗ Deny</button>
+                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-meta hover:bg-emerald-100 hover:text-emerald-700 transition-colors">✏️</button>
+                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-meta font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
+                      <button onClick={() => handleDenySubtask(sub.id)} title="Change to deny" className="px-2 py-0.5 rounded-md bg-red-50 text-red-600 text-meta font-bold hover:bg-red-100 transition-colors">✗ Deny</button>
                     </div>
                   )}
                 </div>
@@ -397,30 +392,28 @@ export function TodoStepPlannerPanel({
 
         {/* Section 3: Denied — same toggle affordances. */}
         {deniedSubtasks.length > 0 && (
-          <div className="rounded-2xl bg-white border border-rose-100 p-4">
-            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-rose-600 mb-3">
-              ✗ Denied · {deniedSubtasks.length}
-            </div>
+          <div className="rounded-2xl bg-surface border border-danger-border p-4">
+            <div className="text-micro text-danger mb-3">✗ Denied · {deniedSubtasks.length}</div>
             <div className="space-y-1.5">
               {deniedSubtasks.map((sub) => (
                 <div
                   key={sub.id}
-                  className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-rose-50/40 text-slate-600 group"
+                  className="w-full flex items-center gap-2 rounded-xl px-3 py-1.5 bg-danger-bg/50 text-ink-muted group"
                 >
-                  <span className="text-rose-600 text-xs">✗</span>
+                  <span className="text-danger text-meta">✗</span>
                   {editingId === sub.id ? (
                     <div className="flex-1 space-y-1 min-w-0">
                       <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }} className="w-full text-xs font-semibold bg-white border border-rose-300 rounded-lg px-2 py-0.5 focus:outline-none" />
-                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">Cancel</button></div>
+                      <div className="flex gap-1"><button onClick={saveEdit} className="px-2 py-0.5 rounded-md bg-danger text-white text-meta font-bold">Save</button><button onClick={cancelEdit} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-meta font-bold">Cancel</button></div>
                     </div>
                   ) : (
                     <span className="text-xs font-semibold flex-1 truncate line-through opacity-70">{sub.title}</span>
                   )}
                   {editingId !== sub.id && (
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-[11px] hover:bg-rose-100 hover:text-rose-700 transition-colors">✏️</button>
-                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-[10px] font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
-                      <button onClick={() => handleApproveSubtask(sub.id)} title="Change to approve" className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold hover:bg-emerald-100 transition-colors">✓ Approve</button>
+                      <button onClick={() => startEdit(sub)} title="Edit" className="px-1 py-0.5 rounded-md text-slate-400 text-meta hover:bg-danger-bg hover:text-danger transition-colors">✏️</button>
+                      <button onClick={() => handleResetSubtask(sub.id)} title="Move back to pending" className="px-2 py-0.5 rounded-md text-slate-500 text-meta font-bold hover:bg-slate-100 transition-colors">↺ Pending</button>
+                      <button onClick={() => handleApproveSubtask(sub.id)} title="Change to approve" className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-meta font-bold hover:bg-emerald-100 transition-colors">✓ Approve</button>
                     </div>
                   )}
                 </div>

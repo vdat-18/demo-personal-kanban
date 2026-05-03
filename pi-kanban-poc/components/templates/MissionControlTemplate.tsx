@@ -195,7 +195,7 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
   }, [initialProject.id, logPlanningEvent])
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#f0f2f5] overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full bg-canvas overflow-hidden font-sans">
       <TodoBreakdownAutoRunner projectId={project.id} tasks={tasks} />
 
       <KanbanHeader
@@ -224,30 +224,30 @@ export function MissionControlTemplate({ project: initialProject }: MissionContr
               <button
                 key={key}
                 onClick={() => setContextDrawerTab(contextDrawerTab === key ? null : key)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] transition-colors ${
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case transition-colors ${
                   contextDrawerTab === key
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                    ? 'bg-brand-subtle text-brand'
+                    : 'text-ink-subtle hover:text-ink-muted hover:bg-surface-muted'
                 }`}
               >
                 {label}
               </button>
             ))}
-            <div className="w-px h-4 bg-gray-200 mx-1" />
+            <div className="w-px h-4 bg-line mx-1" />
             <button
               onClick={() => setShowRecurringDialog(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
             >
               ↺ Recurring
             </button>
             {(report.allDone || report.existingReport) && (
               <>
-                <div className="w-px h-4 bg-gray-200 mx-1" />
+                <div className="w-px h-4 bg-line mx-1" />
                 <button
                   onClick={() => setShowReportModal(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-micro normal-case text-success hover:bg-success-bg transition-colors"
                 >
-                  {report.existingReport ? '📄 Final Report' : '✨ Generate Report'}
+                  {report.existingReport ? '📄 Final report' : '✨ Generate report'}
                 </button>
               </>
             )}

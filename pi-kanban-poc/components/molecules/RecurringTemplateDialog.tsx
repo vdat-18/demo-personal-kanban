@@ -47,8 +47,8 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <Repeat className="w-4 h-4 text-indigo-500" />
-            <h2 className="text-sm font-bold text-[#0a192f]">Recurring tasks</h2>
+            <Repeat className="w-4 h-4 text-brand" />
+            <h2 className="text-sm font-bold text-ink">Recurring tasks</h2>
           </div>
           <button
             onClick={onClose}
@@ -61,7 +61,7 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
         {/* Body */}
         <div className="p-5 space-y-3 max-h-72 overflow-y-auto">
           {templates.length === 0 && !adding && (
-            <p className="text-[11px] text-slate-400 italic text-center py-4">
+            <p className="text-meta text-slate-400 italic text-center py-4">
               No templates yet. Add one to get reminders for recurring tasks.
             </p>
           )}
@@ -72,11 +72,11 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
               className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#0a192f]">{t.title}</p>
+                <p className="text-xs font-semibold text-ink">{t.title}</p>
                 {t.description && (
-                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{t.description}</p>
+                  <p className="text-meta text-slate-500 mt-0.5 leading-relaxed">{t.description}</p>
                 )}
-                <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full bg-brand-subtle text-brand text-meta font-bold">
                   {FREQ_LABELS[t.frequency]}
                 </span>
               </div>
@@ -90,29 +90,29 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
           ))}
 
           {adding && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+            <div className="rounded-xl border border-brand-border bg-brand-subtle p-3 space-y-2">
               <input
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Task name (e.g. Weekly report)"
-                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
+                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand"
               />
               <textarea
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Description (optional)"
                 rows={2}
-                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400 resize-none"
+                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-brand resize-none"
               />
               <div className="flex gap-2">
                 {(['daily', 'weekly', 'monthly'] as RecurringFrequency[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFreq(f)}
-                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                    className={`flex-1 py-1.5 rounded-lg text-meta font-bold border transition-colors ${
                       freq === f
-                        ? 'border-indigo-400 bg-indigo-600 text-white'
+                        ? 'border-brand bg-brand text-white'
                         : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white'
                     }`}
                   >
@@ -137,7 +137,7 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
               <button
                 onClick={handleAdd}
                 disabled={!title.trim()}
-                className="px-4 py-2 text-xs bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors font-bold flex items-center gap-1.5"
+                className="px-4 py-2 text-xs bg-brand text-white rounded-xl hover:bg-brand-hover disabled:opacity-40 transition-colors font-bold flex items-center gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" /> Add
               </button>
@@ -152,7 +152,7 @@ export function RecurringTemplateDialog({ projectId, onClose }: Props) {
               </button>
               <button
                 onClick={() => setAdding(true)}
-                className="px-4 py-2 text-xs bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-bold flex items-center gap-1.5"
+                className="px-4 py-2 text-xs bg-brand text-white rounded-xl hover:bg-brand-hover transition-colors font-bold flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" /> Add template
               </button>

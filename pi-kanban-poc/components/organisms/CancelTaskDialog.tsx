@@ -26,11 +26,11 @@ export function CancelTaskDialog({
       <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl">
         <div className="flex items-center gap-3 mb-3">
           <AlertTriangle className="w-5 h-5 text-red-500" />
-          <h2 className="text-xl font-black text-[#0a192f]">Cancel Task</h2>
+          <h2 className="text-xl font-black text-ink">Cancel Task</h2>
         </div>
         <p className="text-sm text-gray-400 mb-6 font-medium">&ldquo;{taskTitle}&rdquo;</p>
         <textarea
-          className="w-full border border-gray-200 rounded-2xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-100 text-[#0a192f] placeholder:text-gray-300"
+          className="w-full border border-gray-200 rounded-2xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-100 text-ink placeholder:text-gray-300"
           rows={3}
           placeholder="Reason for cancelling... (optional)"
           value={cancelReason}
