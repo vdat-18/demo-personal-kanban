@@ -311,74 +311,79 @@ export function DashboardTemplate() {
           <InboxPanel onNavigate={handleProjectClick} />
 
           {overdueTemplates.length > 0 && (
-            <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <Repeat className="w-4 h-4 text-brand" />
-                <h3 className="text-h2 text-ink">Recurring tasks to create</h3>
-                <span className="ml-auto px-2 py-0.5 rounded-full bg-brand text-white text-micro">
-                  {overdueTemplates.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {overdueTemplates.map((t) => {
-                  const project = projects.find((p) => p.id === t.projectId)
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex items-center gap-3 bg-surface-muted/60 rounded-xl border border-line px-3 py-2.5"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-meta font-semibold text-ink truncate">{t.title}</p>
-                        {project && (
-                          <p className="text-micro text-ink-subtle mt-0.5 normal-case tracking-normal">
-                            📁 {project.name}
-                          </p>
-                        )}
+            <div className="rounded-2xl border border-line bg-surface shadow-card overflow-hidden">
+              <div className="h-[4px] bg-gradient-to-r from-brand via-brand/80 to-brand/20" />
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Repeat className="w-4 h-4 text-brand" />
+                  <h3 className="text-h2 text-ink">Recurring tasks to create</h3>
+                  <span className="ml-auto px-2 py-0.5 rounded-full bg-brand text-white text-micro">
+                    {overdueTemplates.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {overdueTemplates.map((t) => {
+                    const project = projects.find((p) => p.id === t.projectId)
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 bg-surface-muted/60 rounded-xl border border-line px-3 py-2.5"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-meta font-semibold text-ink truncate">{t.title}</p>
+                          {project && (
+                            <p className="text-micro text-ink-subtle mt-0.5 normal-case tracking-normal">
+                              📁 {project.name}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleCreateFromTemplate(t)}
+                          className="shrink-0 px-3 py-1.5 rounded-lg bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors"
+                        >
+                          Create task
+                        </button>
+                        <button
+                          onClick={() => handleDismissTemplate(t.id)}
+                          className="shrink-0 p-1.5 rounded-lg text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
+                          title="Skip this time"
+                        >
+                          ✕
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleCreateFromTemplate(t)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors"
-                      >
-                        Create task
-                      </button>
-                      <button
-                        onClick={() => handleDismissTemplate(t.id)}
-                        className="shrink-0 p-1.5 rounded-lg text-ink-subtle hover:text-ink-muted hover:bg-surface-muted transition-colors"
-                        title="Skip this time"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </div>
           )}
 
           {showOnboardingHint && (
-            <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center shadow-sm shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-h2 text-ink mb-1">New here?</h3>
-                <p className="text-body text-ink-muted mb-3">
-                  See a full walkthrough — discovery questions, a drafted plan, approved tasks — based on a real-life event:{' '}
-                  <strong className="text-ink">{ONBOARDING_PROJECT_NAME}</strong>.
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={openOnboardingExample}
-                    className="px-4 py-2 rounded-xl bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors shadow-sm"
-                  >
-                    👀 Open example
-                  </button>
-                  <button
-                    onClick={dismissOnboarding}
-                    className="px-3 py-2 rounded-xl text-meta font-semibold text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors"
-                  >
-                    Skip
-                  </button>
+            <div className="rounded-2xl border border-brand-border bg-brand-subtle/30 shadow-card animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-start gap-4 p-5 w-full">
+                <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center shadow-card shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-h2 text-ink mb-1">New here?</h3>
+                  <p className="text-body text-ink-muted mb-3">
+                    See a full walkthrough — discovery questions, a drafted plan, approved tasks — based on a real-life event:{' '}
+                    <strong className="text-ink">{ONBOARDING_PROJECT_NAME}</strong>.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={openOnboardingExample}
+                      className="px-4 py-2 rounded-xl bg-brand text-white text-meta font-semibold hover:bg-brand-hover transition-colors shadow-card"
+                    >
+                      👀 Open example
+                    </button>
+                    <button
+                      onClick={dismissOnboarding}
+                      className="px-3 py-2 rounded-xl text-meta font-semibold text-ink-muted hover:text-ink hover:bg-brand-subtle/60 transition-colors"
+                    >
+                      Skip
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -390,16 +395,19 @@ export function DashboardTemplate() {
             tabIndex={0}
             onClick={() => router.push('/chat')}
             onKeyDown={(e) => e.key === 'Enter' && router.push('/chat')}
-            className="rounded-2xl border border-dashed border-brand-border bg-brand-subtle/40 hover:bg-brand-subtle hover:border-brand transition-all cursor-pointer p-5 flex items-center gap-4 group"
+            className="rounded-2xl border border-brand-border bg-brand-subtle/40 hover:bg-brand-subtle hover:border-brand hover:shadow-card-hover transition-all cursor-pointer p-5 flex items-center gap-4 group shadow-card"
           >
-            <div className="w-10 h-10 rounded-xl bg-brand-subtle group-hover:bg-brand transition-colors flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-brand group-hover:text-white transition-colors" />
+            <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center shadow-card shrink-0 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-5 h-5" />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-h2 text-ink">Ask AI before you start</p>
               <p className="text-body text-ink-muted mt-0.5">
                 Not sure what to do? Chat with AI to brainstorm — no project needed.
               </p>
+            </div>
+            <div className="shrink-0 text-brand opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
           </div>
 

@@ -49,8 +49,8 @@ export function ProjectGrid({ projects, onProjectClick, onDeleteProject }: Proje
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {projects.length === 0 ? (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center bg-surface/60 rounded-2xl border border-line shadow-sm">
-            <div className="w-16 h-16 rounded-2xl bg-surface shadow-sm flex items-center justify-center text-brand mb-4">
+          <div className="col-span-full py-16 flex flex-col items-center justify-center bg-surface rounded-2xl border border-line shadow-card">
+            <div className="w-16 h-16 rounded-2xl bg-brand-subtle border border-brand-border shadow-card flex items-center justify-center text-brand mb-4">
               <Layout className="w-7 h-7" />
             </div>
             <p className="text-h2 text-ink mb-1">
